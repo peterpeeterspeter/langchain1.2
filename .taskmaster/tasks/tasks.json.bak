@@ -1,0 +1,245 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "Setup Supabase Foundation Infrastructure",
+      "description": "Establish core Supabase project with PostgreSQL database, pgvector extension, authentication, storage, and edge functions",
+      "details": "Create Supabase project, configure database schema (content_items, content_embeddings, media_assets, rag_query_cache tables), enable pgvector extension, set up RLS policies, configure authentication and storage buckets. This foundational layer supports all other components.",
+      "priority": "high",
+      "status": "done",
+      "dependencies": [],
+      "testStrategy": "Verify database connections, test vector operations, validate RLS policies, confirm storage functionality",
+      "subtasks": [
+        {
+          "id": 1,
+          "title": "Configure PostgreSQL Database Schema",
+          "description": "Set up the database schema for content_items, content_embeddings, media_assets, and rag_query_cache tables",
+          "dependencies": [],
+          "details": "Use the existing schema design from the legacy codebase. Create tables for content_items (id, title, content, metadata), content_embeddings (id, content_id, embedding), media_assets (id, content_id, url, type), and rag_query_cache (id, query, result, timestamp).\n<info added on 2025-06-12T12:10:51.547Z>\nDatabase Schema Setup Complete - Verified Existing Infrastructure: Core tables already exist (content_items, content_embeddings, media_assets, rag_query_cache), Vector extension (v0.8.0) already installed and functional, UUID-OSSP extension (v1.1) available, Row Level Security (RLS) enabled on core tables. Applied Additional Components: RLS policies for content security (public/private content access), Vector similarity search function: search_similar_content(), Semantic cache lookup function: search_similar_queries(), Cache cleanup function: clean_expired_cache(), Auto-update timestamp trigger for content_items. Database Schema Ready: Content items with vector embeddings support, Semantic caching with 1536-dimension embeddings, Media asset management with WordPress integration, Full-text search indexes on content, Performance-optimized vector indexes (IVFFlat). Key Functions Available: search_similar_content() - Main RAG search functionality, search_similar_queries() - Cache lookup for performance, clean_expired_cache() - Maintenance function. The database foundation is now production-ready for the Universal RAG CMS system.\n</info added on 2025-06-12T12:10:51.547Z>",
+          "status": "done",
+          "testStrategy": "Verify table creation and structure using Supabase dashboard or SQL queries"
+        },
+        {
+          "id": 2,
+          "title": "Enable and Configure pgvector Extension",
+          "description": "Enable the pgvector extension in the Supabase project for vector similarity search",
+          "dependencies": [
+            1
+          ],
+          "details": "Enable pgvector extension using Supabase dashboard or SQL command. Create necessary indexes on the embedding column in the content_embeddings table for efficient similarity search.\n<info added on 2025-06-12T12:16:32.182Z>\n**pgvector Extension Verified and Functional**\n\nExtension Status:\n- pgvector v0.8.0 already installed and active\n- Vector data type available in database schema\n- All vector operators working correctly:\n  - Cosine distance (<->) \n  - Negative inner product (<#>)\n  - L2/Euclidean distance (<=>)\n\nDatabase Schema Verification:\n- content_embeddings table with vector(1536) column ready\n- rag_query_cache table with query_embedding vector(1536) ready  \n- Vector operations tested and performing correctly\n\nPerformance Ready:\n- Vector similarity search functions operational\n- 1536-dimension embeddings supported (OpenAI standard)\n- All three distance metrics available for different use cases\n- Ready for high-performance semantic search\n</info added on 2025-06-12T12:16:32.182Z>",
+          "status": "done",
+          "testStrategy": "Run a test query to ensure pgvector functions are working correctly"
+        },
+        {
+          "id": 3,
+          "title": "Implement Row Level Security (RLS) Policies",
+          "description": "Set up RLS policies for all tables to ensure proper access control",
+          "dependencies": [
+            1
+          ],
+          "details": "Create RLS policies for content_items, content_embeddings, media_assets, and rag_query_cache tables. Implement policies for insert, select, update, and delete operations based on user roles and authentication status.\n<info added on 2025-06-12T12:17:44.704Z>\nRow Level Security (RLS) Implementation Complete\n\nSecurity Policies Implemented:\n\nContent Items:\n- Public content readable by everyone (status='published')\n- Users can view/edit their own content (author_id matching)\n- Service role has full access for system operations\n- Users can insert content with proper author attribution\n\nContent Embeddings:\n- Embeddings follow content access rules (published or owned)\n- Users can manage embeddings for their own content\n- Service role access for vector operations\n\nMedia Assets:\n- Media follows content visibility rules\n- Service role can manage all media for uploads/processing\n\nRAG Query Cache:\n- Accessible to authenticated users and service role\n- Proper caching security for query performance\n\nSecurity Cleanup:\n- Removed overly permissive \"read all\" policies\n- All core CMS tables have RLS enabled\n- Proper role-based access control implemented\n- Service role access for system operations maintained\n\nSecurity Model: Public content is accessible to all, private content only to owners, service role has system-wide access for processing.\n</info added on 2025-06-12T12:17:44.704Z>",
+          "status": "done",
+          "testStrategy": "Test policies by attempting to access data with different user roles and permissions"
+        },
+        {
+          "id": 4,
+          "title": "Configure Authentication Settings",
+          "description": "Set up authentication providers and user management in Supabase",
+          "dependencies": [],
+          "details": "Enable email/password authentication, configure OAuth providers if required. Set up email templates for verification and password reset. Create initial admin user account.\n<info added on 2025-06-12T12:15:16.691Z>\nEnvironment Variables Configured:\n- Anthropic API Key (for Claude models)\n- OpenAI API Key (for GPT models/embeddings)  \n- Supabase URL: https://ambjsovdhizjxwhhnbtd.supabase.co\n- Supabase Anon Key (for client-side operations)\n- Supabase Service Role Key (for server-side operations)\n- DataForSEO Login: peeters.peter@telenet.be\n- DataForSEO Password: 654b1cfcca084d19\n\nFiles Created:\n- .env file with all required credentials\n- MCP configuration updated with API keys\n- Supabase configuration module (src/config/supabase_config.py)\n\nAuthentication system is now fully configured with database connections using RLS, secured API credentials for external services, multi-model AI support enabled, and ready for DataForSEO integration.\n</info added on 2025-06-12T12:15:16.691Z>",
+          "status": "done",
+          "testStrategy": "Test user registration, login, and password reset flows"
+        },
+        {
+          "id": 5,
+          "title": "Set Up Storage Buckets",
+          "description": "Configure Supabase storage for media assets and other file storage needs",
+          "dependencies": [
+            3
+          ],
+          "details": "Create separate storage buckets for public and private media assets. Set up appropriate access policies using RLS. Configure CORS settings if needed for frontend access.\n<info added on 2025-06-12T12:20:14.923Z>\n✅ **Storage Buckets Setup Complete**\n\n**Storage Infrastructure Created:**\n\n**Buckets Configuration:**\n- ✅ **images** (legacy, public) - 10MB limit for basic images\n- ✅ **media** (public) - 100MB limit for multimedia assets  \n- ✅ **documents** (private) - 50MB limit for PDF/Word processing\n- ✅ **cache** (private) - 10MB limit for temporary files\n\n**Security Policies Implemented:**\n- ✅ Public buckets accessible to all users\n- ✅ Private document access restricted to owners + service role\n- ✅ Authenticated users can upload to appropriate buckets  \n- ✅ Service role has full management access\n- ✅ MIME type restrictions enforced per bucket\n\n**File Management Features:**\n- ✅ File validation (size + type checking)\n- ✅ Public URL generation for media assets\n- ✅ Signed URL generation for private documents\n- ✅ Upload/delete operations with error handling\n- ✅ File listing and folder organization\n\n**Created Files:**\n- ✅ `src/config/storage_config.py` - Complete storage management module\n\n**Ready for:** Document processing, media asset management, caching, and WordPress integration with bulletproof file handling.\n</info added on 2025-06-12T12:20:14.923Z>",
+          "status": "done",
+          "testStrategy": "Upload test files to both public and private buckets, verify access control"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Integrate Proven LCEL RAG Chain",
+      "description": "Port and enhance the working LCEL implementation from langchainlms1.1 repository",
+      "details": "Integrate working_universal_rag_cms_lcel.py (182 lines), adapt SupabaseVectorStore configuration, implement contextual retrieval pattern (49% failure rate reduction), optimize prompt templates and context formatting.",
+      "priority": "high",
+      "status": "in-progress",
+      "dependencies": [
+        1
+      ],
+      "testStrategy": "Test retrieval accuracy, validate LCEL chain execution, measure response times, verify context formatting"
+    },
+    {
+      "id": 3,
+      "title": "Implement Contextual Retrieval System",
+      "description": "Build advanced retrieval with contextual embedding and hybrid search capabilities",
+      "details": "Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results.",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [
+        1,
+        2
+      ],
+      "testStrategy": "Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering"
+    },
+    {
+      "id": 4,
+      "title": "Create Content Processing Pipeline",
+      "description": "Build FTI Feature Pipeline for content ingestion and processing",
+      "details": "Implement content type detection, adaptive chunking strategies, metadata extraction, progressive enhancement, document processing for diverse content types (articles, reviews, technical docs).",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        1
+      ],
+      "testStrategy": "Test content type detection accuracy, validate chunking strategies, verify metadata extraction, measure processing throughput"
+    },
+    {
+      "id": 5,
+      "title": "Integrate DataForSEO Image Search",
+      "description": "Implement DataForSEO API integration with rate limiting and batch processing",
+      "details": "Build DataForSEO client with exponential backoff, respect rate limits (2,000 requests/minute, max 30 simultaneous), implement batch processing (up to 100 tasks), add cost optimization through intelligent caching.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        1
+      ],
+      "testStrategy": "Test rate limiting compliance, validate batch processing, verify image metadata extraction, measure cost per request"
+    },
+    {
+      "id": 6,
+      "title": "Port WordPress REST API Publisher",
+      "description": "Integrate proven WordPress publisher with bulletproof image upload",
+      "details": "Port wordpress_rest_api_publisher_v1_1.py (547 lines) with bulletproof image uploader, multi-authentication support, rich HTML formatting, smart contextual image embedding, error recovery mechanisms.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        1,
+        5
+      ],
+      "testStrategy": "Test multi-authentication methods, validate image upload reliability, verify HTML formatting, test error recovery"
+    },
+    {
+      "id": 7,
+      "title": "Implement Multi-Level Caching System",
+      "description": "Build intelligent caching with semantic similarity and Supabase integration",
+      "details": "Implement rag_query_cache with semantic similarity search, cache invalidation strategies, multi-level caching (Supabase + Redis), intelligent TTL management, cost optimization for repeated queries.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        1,
+        2,
+        3
+      ],
+      "testStrategy": "Measure cache hit rates (target 90%), test semantic similarity matching, validate TTL behavior, benchmark performance gains"
+    },
+    {
+      "id": 8,
+      "title": "Build Async Processing Pipeline",
+      "description": "Implement event-driven async processing with parallel execution",
+      "details": "Create async workers for parallel processing, implement circuit breaker patterns, build event-driven architecture, optimize for 100 queries/minute sustained throughput, add proper error handling and retry logic.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        2,
+        3
+      ],
+      "testStrategy": "Test parallel processing capabilities, validate circuit breaker functionality, measure sustained throughput, verify error handling"
+    },
+    {
+      "id": 9,
+      "title": "Implement Authority Link Generation",
+      "description": "Build contextual internal linking and SEO optimization system",
+      "details": "Create semantic similarity-based internal linking, SEO-optimized anchor text generation, link quality scoring, canonical URL management, authority-based link distribution algorithms.",
+      "priority": "low",
+      "status": "pending",
+      "dependencies": [
+        2,
+        3
+      ],
+      "testStrategy": "Validate link relevance scoring, test anchor text quality, verify SEO optimization, measure link distribution effectiveness"
+    },
+    {
+      "id": 10,
+      "title": "Setup Comprehensive Testing Framework",
+      "description": "Implement unit, integration, and end-to-end testing with performance benchmarks",
+      "details": "Create test suites for each component, implement performance benchmarking, set up automated quality metrics (precision@5, response relevance, hallucination detection), continuous monitoring systems.",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [
+        2,
+        3
+      ],
+      "testStrategy": "Achieve >0.8 retrieval precision@5, >0.85 response relevance, <5% hallucination rate, comprehensive test coverage"
+    },
+    {
+      "id": 11,
+      "title": "Implement Security and Compliance",
+      "description": "Build security by design with encryption, authentication, and audit logging",
+      "details": "Implement encryption at rest/transit, TLS 1.3, API key rotation (90 days), input sanitization, RBAC, audit logging, content moderation via OpenAI, GDPR compliance, RLS policies.",
+      "priority": "high",
+      "status": "pending",
+      "dependencies": [
+        1
+      ],
+      "testStrategy": "Security audit, penetration testing, compliance verification, audit log validation, key rotation testing"
+    },
+    {
+      "id": 12,
+      "title": "Setup Production Deployment Pipeline",
+      "description": "Configure CI/CD, monitoring, and production infrastructure",
+      "details": "Setup GitHub Actions CI/CD, configure Supabase Cloud production, implement monitoring/observability, setup FastAPI deployment, configure Cloudflare CDN, implement health checks and alerting.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        10,
+        11
+      ],
+      "testStrategy": "Test deployment pipeline, validate monitoring systems, verify health checks, measure deployment time, test rollback procedures"
+    },
+    {
+      "id": 13,
+      "title": "Create Migration Scripts from Monolith",
+      "description": "Build tools to migrate from existing 3,826-line monolithic system",
+      "details": "Extract proven patterns from langchainlms1.1, create data migration scripts, implement compatibility layer (optional), validate migrated content, ensure zero data loss during transition.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        1,
+        2
+      ],
+      "testStrategy": "Validate data integrity, test migration performance, verify compatibility layer, measure migration time, ensure rollback capability"
+    },
+    {
+      "id": 14,
+      "title": "Optimize Performance for Production Scale",
+      "description": "Achieve sub-second response times and cost optimization targets",
+      "details": "Optimize database queries and indexing, implement connection pooling, configure read replicas, optimize pgvector settings, achieve <500ms simple queries, <2s complex queries, 50% LLM cost reduction.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        7,
+        8
+      ],
+      "testStrategy": "Performance benchmarking, load testing, cost analysis, response time measurement, resource utilization monitoring"
+    },
+    {
+      "id": 15,
+      "title": "Setup Monitoring and Analytics",
+      "description": "Implement comprehensive observability and performance tracking",
+      "details": "Setup LangSmith tracing, Prometheus metrics, structured logging, performance dashboards, cost tracking, quality metrics monitoring, alert systems for SLA violations.",
+      "priority": "medium",
+      "status": "pending",
+      "dependencies": [
+        12
+      ],
+      "testStrategy": "Validate metrics collection, test alerting systems, verify dashboard accuracy, measure observability overhead"
+    }
+  ]
+}

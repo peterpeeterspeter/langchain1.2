@@ -1,0 +1,11 @@
+# Task ID: 3
+# Title: Implement Contextual Retrieval System
+# Status: pending
+# Dependencies: 1, 2
+# Priority: high
+# Description: Build advanced retrieval with contextual embedding and hybrid search capabilities
+# Details:
+Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results.
+
+# Test Strategy:
+Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering

@@ -184,3 +184,7 @@ docs/docs/templates
 
 prof
 virtualenv/
+
+# API Keys and Sensitive Configuration
+.cursor/mcp.json
+.taskmaster/tasks.json

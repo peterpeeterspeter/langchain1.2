@@ -1,0 +1,11 @@
+# Task ID: 6
+# Title: Port WordPress REST API Publisher
+# Status: pending
+# Dependencies: 1, 5
+# Priority: medium
+# Description: Integrate proven WordPress publisher with bulletproof image upload
+# Details:
+Port wordpress_rest_api_publisher_v1_1.py (547 lines) with bulletproof image uploader, multi-authentication support, rich HTML formatting, smart contextual image embedding, error recovery mechanisms.
+
+# Test Strategy:
+Test multi-authentication methods, validate image upload reliability, verify HTML formatting, test error recovery

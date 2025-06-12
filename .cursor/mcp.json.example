@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "supabase": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-supabase"],
+      "env": {
+        "SUPABASE_URL": "your-supabase-project-url",
+        "SUPABASE_ANON_KEY": "your-supabase-anon-key"
+      }
+    },
+    "task-master-ai": {
+      "command": "npx",
+      "args": ["-y", "task-master-ai", "mcp"],
+      "env": {
+        "ANTHROPIC_API_KEY": "your-anthropic-api-key-here",
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "PERPLEXITY_API_KEY": "your-perplexity-api-key-here",
+        "GOOGLE_API_KEY": "your-google-api-key-here",
+        "XAI_API_KEY": "your-xai-api-key-here",
+        "OPENROUTER_API_KEY": "your-openrouter-api-key-here",
+        "MISTRAL_API_KEY": "your-mistral-api-key-here",
+        "AZURE_OPENAI_API_KEY": "your-azure-openai-api-key-here",
+        "AZURE_OPENAI_ENDPOINT": "your-azure-openai-endpoint-here",
+        "OLLAMA_API_KEY": "your-ollama-api-key-here",
+        "OLLAMA_BASE_URL": "http://localhost:11434/api"
+      }
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    }
+  }
+} 
