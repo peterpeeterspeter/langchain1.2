@@ -32,7 +32,7 @@ pip install -U langchain
 ```
 
 To learn more about LangChain, check out
-[the docs](https://python.langchain.com/docs/introduction/). If you’re looking for more
+[the docs](https://python.langchain.com/docs/introduction/). If you're looking for more
 advanced customization or agent orchestration, check out
 [LangGraph](https://langchain-ai.github.io/langgraph/), our framework for building
 controllable agent workflows.
@@ -44,14 +44,14 @@ interface for models, embeddings, vector stores, and more.
 
 Use LangChain for:
 - **Real-time data augmentation**. Easily connect LLMs to diverse data sources and
-external / internal systems, drawing from LangChain’s vast library of integrations with
+external / internal systems, drawing from LangChain's vast library of integrations with
 model providers, tools, vector stores, retrievers, and more.
 - **Model interoperability**. Swap models in and out as your engineering team
-experiments to find the best choice for your application’s needs. As the industry
-frontier evolves, adapt quickly — LangChain’s abstractions keep you moving without
+experiments to find the best choice for your application's needs. As the industry
+frontier evolves, adapt quickly — LangChain's abstractions keep you moving without
 losing momentum.
 
-## LangChain’s ecosystem
+## LangChain's ecosystem
 While the LangChain framework can be used standalone, it also integrates seamlessly
 with any LangChain product, giving developers a full suite of tools when building LLM
 applications. 
@@ -81,3 +81,7 @@ snippets for topics such as tool calling, RAG use cases, and more.
 concepts behind the LangChain framework.
 - [API Reference](https://python.langchain.com/api_reference/): Detailed reference on
 navigating base packages and integrations for LangChain.
+
+## Universal RAG Chain
+
+See `docs/universal_rag_integration.md` for a full integration guide and `examples/rag_integration_examples.py` for runnable examples.

@@ -315,6 +315,8 @@ class UniversalRAGChain:
         logging.info(f"UniversalRAGChain initialized with model: {model_name}")
         if self.enable_prompt_optimization:
             logging.info("🧠 Advanced Prompt Optimization ENABLED")
+        
+        self._last_retrieved_docs: List[Tuple[Document,float]] = []  # NEW: store last docs
     
     def _init_llm(self):
         """Initialize the language model"""
@@ -349,11 +351,12 @@ class UniversalRAGChain:
         """Create the enhanced LCEL chain with optional prompt optimization"""
         
         if self.enable_prompt_optimization:
-            # Enhanced chain with prompt optimization
+            # Enhanced chain with prompt optimization - capture docs for source generation
             chain = (
                 RunnablePassthrough.assign(
                     query_analysis=RunnableLambda(self._analyze_query),
-                    context=RunnableLambda(self._retrieve_and_format_enhanced)
+                    retrieval_result=RunnableLambda(self._retrieve_with_docs),
+                    context=RunnableLambda(self._extract_context_from_retrieval)
                 )
                 | RunnableLambda(self._select_prompt_and_generate)
                 | RunnableLambda(self._enhance_response)
@@ -377,6 +380,51 @@ class UniversalRAGChain:
         if self.prompt_manager:
             return self.prompt_manager.get_query_analysis(query)
         return None
+    
+    async def _retrieve_with_docs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Retrieve documents and return both docs and formatted context (NEW)"""
+        query = inputs.get("question", "")
+        query_analysis = inputs.get("query_analysis")
+        
+        if not self.vector_store:
+            return {"documents": [], "formatted_context": "No vector store configured."}
+        
+        try:
+            # Use contextual retrieval if enabled
+            if self.enable_contextual_retrieval and query_analysis:
+                docs_with_scores = await self.vector_store.asimilarity_search_with_score(
+                    query, k=5, query_analysis=query_analysis
+                )
+            else:
+                docs_with_scores = await self.vector_store.asimilarity_search_with_score(
+                    query, k=5
+                )
+            
+            # Store documents for source generation
+            self._last_retrieved_docs = docs_with_scores  # NEW: save for source generation
+            documents = [{"content": doc.page_content, "metadata": doc.metadata, "score": score} 
+                        for doc, score in docs_with_scores]
+            
+            # Format context with advanced formatting if optimization enabled
+            if self.enable_prompt_optimization and self.prompt_manager and query_analysis:
+                formatted_context = self.prompt_manager.format_enhanced_context(documents, query, query_analysis)
+            else:
+                # Standard formatting
+                context_parts = []
+                for i, (doc, score) in enumerate(docs_with_scores, 1):
+                    context_parts.append(f"Source {i}: {doc.page_content}")
+                formatted_context = "\n\n".join(context_parts)
+            
+            return {"documents": documents, "formatted_context": formatted_context}
+        
+        except Exception as e:
+            logging.error(f"Enhanced retrieval failed: {e}")
+            return {"documents": [], "formatted_context": "Error retrieving context."}
+    
+    async def _extract_context_from_retrieval(self, inputs: Dict[str, Any]) -> str:
+        """Extract formatted context from retrieval result (NEW)"""
+        retrieval_result = inputs.get("retrieval_result", {})
+        return retrieval_result.get("formatted_context", "")
     
     async def _retrieve_and_format_enhanced(self, inputs: Dict[str, Any]) -> str:
         """Enhanced retrieval with contextual search (NEW)"""
@@ -611,27 +659,38 @@ Answer:
         return min(matches / len(indicators) if indicators else 0.5, 1.0)
     
     async def _create_enhanced_sources(self, query: str, query_analysis: Optional[QueryAnalysis]) -> List[Dict[str, Any]]:
-        """Create enhanced source metadata (NEW)"""
-        # This would typically retrieve the actual sources used
-        # For now, return enhanced placeholder sources
-        
-        sources = [
-            {
-                "title": "Source 1",
-                "url": "https://example.com/source1",
-                "content": "Sample source content...",
-                "quality_score": await self._calculate_source_quality("Sample content"),
-                "relevance_to_query": await self._calculate_query_relevance("Sample content", query),
-                "expertise_match": 0.8 if query_analysis else 0.5
+        """Create enhanced source metadata from last retrieved docs"""
+        if not self._last_retrieved_docs:
+            return []
+
+        sources: List[Dict[str, Any]] = []
+        for doc, score in self._last_retrieved_docs:
+            meta = doc.metadata or {}
+            title = meta.get("title") or meta.get("source") or meta.get("id") or "Document"
+            content_preview = doc.page_content[:300]
+            source_item: Dict[str, Any] = {
+                "title": title,
+                "url": meta.get("url") or meta.get("source_url"),
+                "similarity_score": float(score),
+                "content_preview": content_preview,
+                "quality_score": await self._calculate_source_quality(doc.page_content),
+                "relevance_to_query": await self._calculate_query_relevance(doc.page_content, query),
+                "expertise_match": 0.0,
             }
-        ]
-        
-        # Add domain-specific metadata for promotional analysis
-        if query_analysis and query_analysis.query_type == QueryType.PROMOTION_ANALYSIS:
-            for source in sources:
-                source["offer_validity"] = await self._check_offer_validity(source["content"])
-                source["terms_complexity"] = await self._assess_terms_complexity(source["content"])
-        
+            # Add expertise match if analysis available
+            if query_analysis:
+                source_item["expertise_match"] = await self._check_expertise_match(
+                    doc.page_content, query_analysis.expertise_level
+                )
+            # Domain specific metadata
+            if query_analysis and query_analysis.query_type == QueryType.PROMOTION_ANALYSIS:
+                source_item["offer_validity"] = await self._check_offer_validity(doc.page_content)
+                source_item["terms_complexity"] = await self._assess_terms_complexity(doc.page_content)
+
+            sources.append(source_item)
+
+        # Sort sources by similarity score descending
+        sources.sort(key=lambda s: s.get("similarity_score", 0), reverse=True)
         return sources
     
     async def _calculate_source_quality(self, content: str) -> float:
