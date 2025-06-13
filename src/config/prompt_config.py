@@ -85,8 +85,8 @@ class PerformanceConfig(BaseModel):
     min_samples_for_alerts: int = Field(default=100, ge=10, le=1000)
     alert_cooldown_minutes: int = Field(default=15, ge=5, le=60)
 
-class FeatureFlags(BaseModel):
-    """Feature flags for gradual rollout."""
+class BasicFeatureFlags(BaseModel):
+    """Basic feature flags for gradual rollout (legacy system)."""
     enable_contextual_retrieval: bool = Field(default=True)
     enable_hybrid_search: bool = Field(default=True)
     enable_query_expansion: bool = Field(default=False)
@@ -106,7 +106,7 @@ class PromptOptimizationConfig(BaseModel):
     context_formatting: ContextFormattingConfig = Field(default_factory=ContextFormattingConfig)
     cache_config: CacheConfig = Field(default_factory=CacheConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
-    feature_flags: FeatureFlags = Field(default_factory=FeatureFlags)
+    feature_flags: BasicFeatureFlags = Field(default_factory=BasicFeatureFlags)
     
     # Metadata
     version: str = Field(default="1.0.0")

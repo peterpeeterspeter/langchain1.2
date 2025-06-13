@@ -6,10 +6,23 @@ from .prompt_config import (
     QueryClassificationConfig,
     ContextFormattingConfig,
     PerformanceConfig,
-    FeatureFlags,
+    BasicFeatureFlags,
     PromptOptimizationConfig,
     ConfigurationManager,
     get_config_manager
+)
+
+from .feature_flags import (
+    FeatureStatus,
+    SegmentationType,
+    FeatureFlag,
+    FeatureVariant,
+    ExperimentMetrics,
+    SegmentationStrategy,
+    HashBasedSegmentation,
+    RandomSegmentation,
+    FeatureFlagManager,
+    feature_flag
 )
 
 __all__ = [
@@ -18,10 +31,21 @@ __all__ = [
     'QueryClassificationConfig',
     'ContextFormattingConfig',
     'PerformanceConfig',
-    'FeatureFlags',
+    'BasicFeatureFlags',
     'PromptOptimizationConfig',
     'ConfigurationManager',
-    'get_config_manager'
+    'get_config_manager',
+    # Advanced Feature Flags
+    'FeatureStatus',
+    'SegmentationType',
+    'FeatureFlag',
+    'FeatureVariant',
+    'ExperimentMetrics',
+    'SegmentationStrategy',
+    'HashBasedSegmentation',
+    'RandomSegmentation',
+    'FeatureFlagManager',
+    'feature_flag'
 ]
 
 # Configuration package
