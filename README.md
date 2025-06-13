@@ -437,6 +437,180 @@ def performance_config():
 
 For detailed testing documentation, see `tests/README.md`.
 
+## 🔍 Performance Profiler System
+
+The Performance Profiler provides advanced performance profiling with detailed timing analysis, bottleneck identification, and optimization recommendations for RAG pipeline operations. This system enables data-driven performance optimization through comprehensive profiling and intelligent analysis.
+
+### Key Profiling Features
+
+- **⏱️ Nested Operation Profiling**: Track complex operation hierarchies with parent-child relationships
+- **🔒 Thread-Safe Execution**: Uses thread-local storage for concurrent profiling operations  
+- **🎯 Context Managers & Decorators**: Flexible profiling with automatic timing and cleanup
+- **🔍 Bottleneck Detection**: Configurable thresholds with recursive analysis (>30% parent operation time)
+- **🚀 Operation-Specific Optimization**: Tailored recommendations for different operation types
+- **📊 Performance Impact Scoring**: 0-100 scale based on frequency, duration, and variance
+- **📈 Historical Trend Analysis**: Performance trend detection with improvement/degradation alerts
+- **💾 Supabase Integration**: Persistent storage for profile data and bottleneck statistics
+
+### Quick Start
+
+```python
+from monitoring import PerformanceProfiler
+from supabase import create_client
+
+# Initialize profiler
+client = create_client(url, key)
+profiler = PerformanceProfiler(client, enable_profiling=True)
+
+# Profile an operation using context manager
+async def process_rag_query():
+    async with profiler.profile("rag_query", query_id="123") as record:
+        # Classification step
+        async with profiler.profile("query_classification"):
+            query_type = await classify_query(query)
+        
+        # Retrieval with sub-operations
+        async with profiler.profile("retrieval") as retrieval:
+            async with profiler.profile("embedding_generation"):
+                embeddings = await generate_embeddings(query)
+            
+            async with profiler.profile("vector_search"):
+                docs = await search_vectors(embeddings)
+        
+        # LLM generation
+        async with profiler.profile("llm_generation"):
+            response = await generate_response(query, docs)
+        
+        return response
+```
+
+### Decorator Profiling
+
+```python
+# Profile async functions
+@profiler.profile_async
+async def embedding_generation(text: str):
+    # Embedding logic
+    return embeddings
+
+# Profile sync functions  
+@profiler.profile_sync
+def post_process_results(results):
+    # Post-processing logic
+    return processed_results
+
+# Using decorator factory for flexibility
+from monitoring import profile_operation
+
+@profile_operation(profiler)
+async def complex_operation():
+    # This will automatically be profiled
+    pass
+```
+
+### Performance Analysis & Optimization Reports
+
+```python
+# Generate comprehensive optimization report
+report = await profiler.get_optimization_report(hours=24)
+
+print(f"📅 Period: {report['period']}")
+print(f"📊 Total Queries Analyzed: {report['summary']['total_profiled_queries']}")
+print(f"⚡ Average Duration: {report['summary']['avg_query_duration_ms']:.1f}ms")
+
+# Analyze top bottlenecks
+for bottleneck in report['top_bottlenecks']:
+    print(f"🔍 Operation: {bottleneck['operation']}")
+    print(f"   Impact Score: {bottleneck['impact_score']:.1f}/100")
+    print(f"   Average Duration: {bottleneck['avg_duration_ms']:.1f}ms")
+    print(f"   95th Percentile: {bottleneck['p95_duration_ms']:.1f}ms")
+    
+    # View specific optimizations
+    for opt in bottleneck['optimizations'][:2]:
+        print(f"   💡 {opt}")
+
+# Review optimization priorities
+for priority in report['optimization_priorities']:
+    print(f"🎯 {priority['operation']} - {priority['priority'].upper()}")
+    print(f"   Timeline: {priority['timeline']}")
+    print(f"   Expected Improvement: {priority['expected_improvement']}")
+    print(f"   Effort: {priority['effort_estimate']}")
+```
+
+### Operation-Specific Optimizations
+
+The profiler provides tailored optimization suggestions:
+
+#### 🔍 Retrieval Operations
+- Implement query result caching with semantic similarity
+- Use hybrid search combining dense and sparse retrievers  
+- Optimize chunk size and overlap parameters
+- Enable parallel chunk retrieval
+
+#### 🧠 Embedding Operations
+- Batch process multiple texts in single API call
+- Cache frequently used embeddings
+- Consider using a local embedding model for lower latency
+
+#### 🤖 LLM Operations
+- Implement response streaming for better UX
+- Use smaller models for simple queries
+- Enable prompt caching for repeated patterns
+- Optimize token usage in prompts
+
+#### 💾 Cache Operations
+- Optimize cache key generation
+- Consider in-memory caching for frequently accessed data
+- Implement cache warming strategies
+
+#### 🗄️ Database Operations
+- Add appropriate indexes for common queries
+- Optimize query structure and joins
+- Consider read replicas for high-traffic operations
+
+### Performance Snapshots
+
+```python
+# Capture current system performance
+snapshot = await profiler.capture_performance_snapshot()
+
+print(f"💾 Memory Usage: {snapshot.memory_usage_mb:.1f}MB")
+print(f"⚡ CPU Usage: {snapshot.cpu_percent:.1f}%")
+print(f"🔄 Active Operations: {snapshot.active_operations}")
+print(f"📈 Avg Response Time: {snapshot.avg_response_time_ms:.1f}ms")
+print(f"⏳ Pending Tasks: {snapshot.pending_tasks}")
+```
+
+### Integration with Monitoring System
+
+```python
+from monitoring import PromptAnalytics, PerformanceProfiler
+
+# Use both systems together for comprehensive observability
+analytics = PromptAnalytics(client)
+profiler = PerformanceProfiler(client)
+
+async def monitored_and_profiled_operation():
+    # Start analytics tracking
+    query_id = analytics.track_query_start()
+    
+    # Profile the operation
+    async with profiler.profile("complex_operation", query_id=query_id) as profile:
+        # Your operation
+        result = await perform_rag_operation()
+        
+        # Track completion with analytics
+        analytics.track_query_completion(
+            classification_accuracy=0.85,
+            response_quality=0.92,
+            cache_hit=True
+        )
+        
+        return result
+```
+
+For detailed profiler documentation, see `src/monitoring/PERFORMANCE_PROFILER.md`.
+
 ## 📊 Comprehensive Monitoring System
 
 The LangChain RAG system includes a production-ready monitoring and analytics platform that provides real-time metrics collection, intelligent alerting, and comprehensive performance reporting. This system ensures optimal performance and reliability through continuous observability.
