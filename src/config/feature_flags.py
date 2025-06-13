@@ -249,6 +249,15 @@ class FeatureFlagManager:
         
         return None
     
+    async def list_feature_flags(self) -> List[FeatureFlag]:
+        """List all feature flags."""
+        try:
+            result = self.client.table(self.flags_table).select("*").order("created_at", desc=True).execute()
+            return [self._parse_feature_flag(flag_data) for flag_data in result.data]
+        except Exception as e:
+            print(f"Error listing feature flags: {e}")
+            return []
+    
     async def create_feature_flag(self, flag: FeatureFlag) -> str:
         """Create a new feature flag."""
         flag_data = {
