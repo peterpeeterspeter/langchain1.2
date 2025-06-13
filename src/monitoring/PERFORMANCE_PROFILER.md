@@ -206,6 +206,37 @@ for priority in priorities:
     print(f"Effort: {priority['effort_estimate']}")
 ```
 
+### Performance Baseline Establishment
+
+Establishing a performance baseline is crucial for effectively measuring the impact of optimizations and identifying deviations. The Performance Profiler assists in this by allowing you to capture snapshots over time and analyze aggregated metrics.
+
+To establish a baseline:
+1.  **Monitor During Normal Operations**: Run the profiler in a production-like environment during typical usage periods to gather a representative dataset.
+2.  **Capture Snapshots**: Use `profiler.capture_performance_snapshot()` regularly to collect system-wide metrics like memory usage, CPU, active operations, and average response times.
+3.  **Analyze Historical Data**: Utilize `profiler.get_optimization_report()` and `PromptAnalytics` reports (from `src/monitoring/PROMPT_ANALYTICS.md`) over a specified period (e.g., 24 hours, 7 days) to get baseline average durations, P95/P99 latencies, and error rates for key operations.
+4.  **Define Key Performance Indicators (KPIs)**: Based on the collected data, establish acceptable ranges for:
+    *   Overall RAG query response time.
+    *   Individual operation durations (retrieval, LLM generation).
+    *   Cache hit rates.
+    *   Error rates.
+5.  **Document Baseline**: Record these KPIs and their ranges. Any future deviations outside these ranges should trigger alerts or further investigation.
+
+### Performance Trend Analysis
+
+Understanding performance trends helps in predicting future issues, validating optimizations, and capacity planning. The `PerformanceProfiler` and `PromptAnalytics` systems work together to provide this capability.
+
+To analyze trends:
+1.  **Time-Series Data**: The profiler stores `performance_profiles` and `performance_bottlenecks` in Supabase, capturing `created_at` timestamps. This allows for time-series analysis.
+2.  **Aggregate Metrics**: Use `PromptAnalytics.get_performance_report()` and `get_quality_metrics()` to fetch historical data and observe trends in:
+    *   **Average Response Times**: Identify gradual increases, indicating system load or inefficiencies.
+    *   **Error Rate Trends**: Detect rising error rates that might signal instability.
+    *   **Cache Hit Rate Evolution**: Observe if caching strategies are becoming more or less effective.
+    *   **Confidence Score Trends**: A declining trend in confidence scores could indicate issues with content freshness or LLM output quality.
+3.  **Visualization**: Connect your Supabase database to external dashboarding tools (e.g., Grafana, PowerBI) to visualize these trends over time. This allows for easy identification of anomalies and long-term performance shifts.
+4.  **Post-Optimization Review**: After deploying an optimization, monitor the relevant metrics for a period to confirm the expected improvement and ensure no regressions are introduced.
+
+By consistently establishing baselines and analyzing trends, you can maintain a high-performing and reliable RAG CMS.
+
 ## Optimization Suggestions
 
 The profiler provides operation-specific optimization suggestions:

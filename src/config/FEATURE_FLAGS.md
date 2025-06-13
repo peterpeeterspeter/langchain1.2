@@ -220,6 +220,54 @@ The system automatically calculates:
 }
 ```
 
+## Experiment Design Best Practices
+
+To ensure your A/B tests yield reliable and actionable insights, follow these best practices:
+
+1.  **Clear Hypothesis**: Define a specific, measurable hypothesis (e.g., "Changing prompt X will increase user engagement by Y%").
+2.  **Define Success Metrics**: Clearly identify the primary and secondary metrics that will determine the experiment's success (e.g., `conversion`, `quality_score`, `response_time_ms`). Ensure metrics are measurable and relevant to your hypothesis.
+3.  **Isolate Variables**: Test only one significant change at a time to accurately attribute impact.
+4.  **Control Group**: Always include a control group (the existing experience) to compare against your new variants.
+5.  **Sufficient Sample Size**: Ensure you have enough users or queries in each variant to achieve statistical significance. The duration of the experiment (`duration_days`) should be long enough to gather sufficient data.
+6.  **Randomization**: Use effective user segmentation (hash-based is recommended for consistency) to ensure users are randomly and deterministically assigned to variants.
+7.  **Monitor During Experiment**: Continuously monitor key performance indicators and error rates for all variants to detect any negative impact early.
+8.  **Avoid Peeking**: Do not analyze results prematurely. Wait until the predefined `duration_days` or sufficient sample size is reached to avoid false positives.
+9.  **Iterate**: A/B testing is an iterative process. Learn from each experiment and use the insights to inform subsequent tests.
+
+## Rollout Strategy Recommendations
+
+Choosing the right feature flag status and rollout strategy is crucial for minimizing risk and effectively managing new feature deployments.
+
+### When to Use Each `FeatureStatus`:
+
+-   **`DISABLED`**: 
+    *   **Use Case**: Initial development, features not ready for any exposure, or temporarily disabling a problematic feature.
+    *   **Recommendation**: Default status for new, incomplete features.
+
+-   **`CANARY`**: 
+    *   **Use Case**: Deploying a new, potentially high-risk feature to a very small, specific group (e.g., internal QA team, developers).
+    *   **Recommendation**: Ideal for early-stage testing in production environments to catch critical issues before wider release. Typically used with 1-5% `rollout_percentage`.
+
+-   **`GRADUAL_ROLLOUT`**: 
+    *   **Use Case**: Incrementally exposing a feature to a larger percentage of your user base over time.
+    *   **Recommendation**: Start with a small percentage (e.g., 5-10%) and gradually increase it (e.g., 25%, 50%, 75%, 100%) while continuously monitoring performance and user feedback. This is the safest way to roll out most new features.
+
+-   **`AB_TEST`**: 
+    *   **Use Case**: When you have multiple variants of a feature (including a control) and want to scientifically determine which performs best against specific metrics.
+    *   **Recommendation**: Ensure clear hypotheses, sufficient sample sizes, and run the experiment for a predefined duration. Leverage the system's statistical analysis capabilities.
+
+-   **`ENABLED`**: 
+    *   **Use Case**: When a feature has been fully tested, validated, and proven beneficial through a gradual rollout or A/B test, and is ready for all users.
+    *   **Recommendation**: Only switch to `ENABLED` once confidence in the feature's stability and positive impact is high.
+
+### Best Practices for Rollouts:
+
+-   **Monitor Closely**: During any rollout (especially `GRADUAL_ROLLOUT` and `CANARY`), closely monitor key metrics, error rates, and user feedback. Be prepared to quickly `DISABLED` or `rollback` the feature if negative impacts are detected.
+-   **Define Rollback Plan**: Always have a clear plan for reverting to a previous state if issues arise. The configuration management system facilitates this with versioning and rollback capabilities.
+-   **Communicate Changes**: Inform relevant stakeholders (product, engineering, support) about rollout plans and progress.
+
+This comprehensive approach to experiment design and rollout strategies ensures robust feature management and data-driven product development.
+
 ## Feature Flag Lifecycle
 
 ### 1. Development Phase
