@@ -19,7 +19,45 @@ from .universal_rag_lcel import (
     RAGResponse
 )
 
+# Enhanced Confidence Scoring System
+from .enhanced_confidence_scoring_system import (
+    # Core models and enums
+    EnhancedRAGResponse,
+    ConfidenceFactors,
+    SourceQualityTier,
+    ResponseQualityLevel,
+    CacheStrategy,
+    ConfidenceFactorType,
+    CacheEntry,
+    SystemConfiguration,
+    PerformanceTracker,
+    
+    # Utility functions
+    calculate_quality_tier,
+    generate_query_hash,
+    normalize_score,
+    performance_tracker,
+    
+    # Source Quality Analysis
+    SourceQualityAnalyzer,
+    
+    # Intelligent Caching System
+    IntelligentCache,
+    intelligent_cache,
+    
+    # Response Validation Framework
+    ValidationSeverity,
+    ValidationCategory,
+    ValidationIssue,
+    ValidationMetrics,
+    ResponseValidator,
+    ValidationIntegrator,
+    validate_and_enhance_response,
+    response_validator,
+)
+
 __all__ = [
+    # Advanced Prompt System
     "QueryType",
     "ExpertiseLevel", 
     "ResponseFormat",
@@ -29,7 +67,43 @@ __all__ = [
     "EnhancedSourceFormatter",
     "DomainSpecificPrompts",
     "OptimizedPromptManager",
+    
+    # Universal RAG Chain
     "UniversalRAGChain",
     "create_universal_rag_chain",
-    "RAGResponse"
+    "RAGResponse",
+    
+    # Core models and enums
+    "EnhancedRAGResponse",
+    "ConfidenceFactors", 
+    "SourceQualityTier",
+    "ResponseQualityLevel",
+    "CacheStrategy",
+    "ConfidenceFactorType",
+    "CacheEntry",
+    "SystemConfiguration",
+    "PerformanceTracker",
+    
+    # Utility functions
+    "calculate_quality_tier",
+    "generate_query_hash", 
+    "normalize_score",
+    "performance_tracker",
+    
+    # Source Quality Analysis
+    "SourceQualityAnalyzer",
+    
+    # Intelligent Caching System
+    "IntelligentCache",
+    "intelligent_cache",
+    
+    # Response Validation Framework
+    "ValidationSeverity",
+    "ValidationCategory",
+    "ValidationIssue",
+    "ValidationMetrics",
+    "ResponseValidator",
+    "ValidationIntegrator",
+    "validate_and_enhance_response",
+    "response_validator",
 ] 

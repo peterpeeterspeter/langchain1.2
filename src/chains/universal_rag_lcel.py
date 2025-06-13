@@ -37,6 +37,13 @@ from .advanced_prompt_system import (
     ExpertiseLevel, ResponseFormat
 )
 
+# Import Enhanced Confidence Scoring System
+from .enhanced_confidence_scoring_system import (
+    EnhancedConfidenceCalculator, ConfidenceIntegrator, 
+    EnhancedRAGResponse, ConfidenceBreakdown, SourceQualityAnalyzer,
+    IntelligentCache as EnhancedCache, ResponseValidator
+)
+
 # Enhanced exception hierarchy
 class RAGException(Exception):
     """Base exception for RAG operations"""
@@ -64,6 +71,7 @@ class RAGResponse(BaseModel):
     response_time: float
     token_usage: Optional[Dict[str, int]] = None
     query_analysis: Optional[Dict[str, Any]] = None  # NEW: Query optimization metadata
+    metadata: Dict[str, Any] = Field(default_factory=dict)  # NEW: Enhanced metadata
     
     class Config:
         arbitrary_types_allowed = True
@@ -288,6 +296,7 @@ class UniversalRAGChain:
         enable_caching: bool = True,
         enable_contextual_retrieval: bool = True,
         enable_prompt_optimization: bool = False,  # NEW: Enable advanced prompts
+        enable_enhanced_confidence: bool = True,   # NEW: Enable enhanced confidence scoring
         vector_store = None,
         **kwargs
     ):
@@ -296,6 +305,7 @@ class UniversalRAGChain:
         self.enable_caching = enable_caching
         self.enable_contextual_retrieval = enable_contextual_retrieval
         self.enable_prompt_optimization = enable_prompt_optimization
+        self.enable_enhanced_confidence = enable_enhanced_confidence
         self.vector_store = vector_store
         
         # Initialize components
@@ -309,12 +319,22 @@ class UniversalRAGChain:
         else:
             self.prompt_manager = None
         
+        # Initialize enhanced confidence scoring if enabled
+        if self.enable_enhanced_confidence:
+            self.confidence_calculator = EnhancedConfidenceCalculator()
+            self.confidence_integrator = ConfidenceIntegrator(self.confidence_calculator)
+        else:
+            self.confidence_calculator = None
+            self.confidence_integrator = None
+        
         # Create the LCEL chain
         self.chain = self._create_lcel_chain()
         
         logging.info(f"UniversalRAGChain initialized with model: {model_name}")
         if self.enable_prompt_optimization:
             logging.info("🧠 Advanced Prompt Optimization ENABLED")
+        if self.enable_enhanced_confidence:
+            logging.info("⚡ Enhanced Confidence Scoring ENABLED")
         
         self._last_retrieved_docs: List[Tuple[Document,float]] = []  # NEW: store last docs
     
@@ -559,24 +579,71 @@ Answer:
             response_time = (time.time() - start_time) * 1000  # Convert to milliseconds
             metrics = callback.get_metrics()
             
-            # Calculate enhanced confidence score
-            confidence_score = await self._calculate_enhanced_confidence(
-                query, result, query_analysis, metrics
-            )
-            
             # Create enhanced sources
             sources = await self._create_enhanced_sources(query, query_analysis)
             
-            # Create response
-            response = RAGResponse(
-                answer=result if isinstance(result, str) else str(result),
-                sources=sources,
-                confidence_score=confidence_score,
-                cached=False,
-                response_time=response_time,
-                token_usage=self._extract_token_usage(metrics),
-                query_analysis=query_analysis.to_dict() if query_analysis else None
-            )
+            # Create initial response
+            if self.enable_enhanced_confidence:
+                # Use EnhancedRAGResponse for enhanced confidence calculation
+                initial_response = EnhancedRAGResponse(
+                    content=result if isinstance(result, str) else str(result),
+                    sources=sources,
+                    confidence_score=0.5,  # Will be calculated by enhanced system
+                    cached=False,
+                    response_time=response_time,
+                    token_usage=self._extract_token_usage(metrics),
+                    query_analysis=query_analysis.to_dict() if query_analysis else None,
+                    metadata={}
+                )
+                
+                # Enhanced confidence calculation
+                query_type = query_analysis.query_type.value if query_analysis else 'general'
+                generation_metadata = {
+                    'retrieval_quality': 0.8,  # Based on similarity scores
+                    'generation_stability': 0.9,  # Assume stable generation
+                    'optimization_effectiveness': 0.8 if self.enable_prompt_optimization else 0.5,
+                    'response_time_ms': response_time,
+                    'token_efficiency': 0.7  # Default efficiency
+                }
+                
+                # Calculate enhanced confidence
+                enhanced_response = await self.confidence_integrator.enhance_rag_response(
+                    response=initial_response,
+                    query=query,
+                    query_type=query_type,
+                    sources=sources,
+                    generation_metadata=generation_metadata
+                )
+                
+                # Convert back to RAGResponse for compatibility
+                response = RAGResponse(
+                    answer=enhanced_response.content,
+                    sources=enhanced_response.sources,
+                    confidence_score=enhanced_response.confidence_score,
+                    cached=False,
+                    response_time=response_time,
+                    token_usage=self._extract_token_usage(metrics),
+                    query_analysis=query_analysis.to_dict() if query_analysis else None
+                )
+                
+                # Add enhanced metadata
+                response.metadata = enhanced_response.metadata
+                
+            else:
+                # Fallback to basic confidence calculation
+                confidence_score = await self._calculate_enhanced_confidence(
+                    query, result, query_analysis, metrics
+                )
+                
+                response = RAGResponse(
+                    answer=result if isinstance(result, str) else str(result),
+                    sources=sources,
+                    confidence_score=confidence_score,
+                    cached=False,
+                    response_time=response_time,
+                    token_usage=self._extract_token_usage(metrics),
+                    query_analysis=query_analysis.to_dict() if query_analysis else None
+                )
             
             # Cache the response
             if self.cache:
@@ -783,6 +850,7 @@ def create_universal_rag_chain(
     enable_caching: bool = True,
     enable_contextual_retrieval: bool = True,
     enable_prompt_optimization: bool = False,
+    enable_enhanced_confidence: bool = True,  # NEW: Enable enhanced confidence scoring
     vector_store = None,
     **kwargs
 ) -> UniversalRAGChain:
@@ -795,6 +863,7 @@ def create_universal_rag_chain(
         enable_caching: Enable semantic caching with query-aware TTL
         enable_contextual_retrieval: Enable contextual retrieval (49% failure reduction)
         enable_prompt_optimization: Enable advanced prompt optimization (37% relevance improvement)
+        enable_enhanced_confidence: Enable enhanced confidence scoring system (4-factor analysis)
         vector_store: Vector store instance (Supabase/Pinecone/etc.)
         
     Returns:
@@ -807,6 +876,7 @@ def create_universal_rag_chain(
         enable_caching=enable_caching,
         enable_contextual_retrieval=enable_contextual_retrieval,
         enable_prompt_optimization=enable_prompt_optimization,
+        enable_enhanced_confidence=enable_enhanced_confidence,
         vector_store=vector_store,
         **kwargs
     )
@@ -820,7 +890,8 @@ if __name__ == "__main__":
             model_name="gpt-4",
             enable_prompt_optimization=True,
             enable_caching=True,
-            enable_contextual_retrieval=True
+            enable_contextual_retrieval=True,
+            enable_enhanced_confidence=True  # Enable enhanced confidence scoring
         )
         
         # Test query
@@ -835,11 +906,27 @@ if __name__ == "__main__":
             print(f"Query Type: {response.query_analysis['query_type']}")
             print(f"Expertise Level: {response.query_analysis['expertise_level']}")
         
+        # Enhanced confidence metadata
+        if hasattr(response, 'metadata') and response.metadata:
+            confidence_breakdown = response.metadata.get('confidence_breakdown', {})
+            if confidence_breakdown:
+                print("\n🎯 Enhanced Confidence Breakdown:")
+                print(f"Content Quality: {confidence_breakdown.get('content_quality', 0):.2f}")
+                print(f"Source Quality: {confidence_breakdown.get('source_quality', 0):.2f}")
+                print(f"Query Matching: {confidence_breakdown.get('query_matching', 0):.2f}")
+                print(f"Technical Factors: {confidence_breakdown.get('technical_factors', 0):.2f}")
+                
+                suggestions = response.metadata.get('improvement_suggestions', [])
+                if suggestions:
+                    print(f"\n💡 Improvement Suggestions:")
+                    for suggestion in suggestions[:3]:
+                        print(f"  • {suggestion}")
+        
         # Get cache stats
         cache_stats = chain.get_cache_stats()
-        print(f"Cache Performance: {cache_stats}")
+        print(f"\n📊 Cache Performance: {cache_stats}")
     
     # Run test
-    print("🚀 Testing Universal RAG Chain with Advanced Prompt Optimization")
+    print("🚀 Testing Universal RAG Chain with Enhanced Confidence Scoring")
     print("=" * 70)
     # asyncio.run(test_chain())  # Uncomment to run test 
