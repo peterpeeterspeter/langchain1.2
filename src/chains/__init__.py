@@ -19,6 +19,13 @@ from .universal_rag_lcel import (
     RAGResponse
 )
 
+# Integrated RAG Chain with monitoring and configuration
+from .integrated_rag_chain import (
+    IntegratedRAGChain,
+    create_integrated_rag_chain,
+    MonitoredUniversalRAGChain
+)
+
 # Enhanced Confidence Scoring System
 from .enhanced_confidence_scoring_system import (
     # Core models and enums
@@ -72,6 +79,11 @@ __all__ = [
     "UniversalRAGChain",
     "create_universal_rag_chain",
     "RAGResponse",
+    
+    # Integrated RAG Chain with monitoring and configuration
+    "IntegratedRAGChain",
+    "create_integrated_rag_chain",
+    "MonitoredUniversalRAGChain",
     
     # Core models and enums
     "EnhancedRAGResponse",

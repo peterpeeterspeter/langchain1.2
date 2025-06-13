@@ -1,5 +1,288 @@
 # Changelog
 
+## [2.9.0] - 2025-01-20 - Task 2.25: Integration with Existing RAG Chain
+
+### 🔗 Task 2.25 Complete: IntegratedRAGChain with Full Monitoring and Configuration
+
+#### Integrated RAG Chain Implementation
+- **NEW**: IntegratedRAGChain extends UniversalRAGChain with comprehensive monitoring
+- **NEW**: Seamless integration of configuration management, analytics, profiling, and feature flags
+- **NEW**: LCEL chain architecture with monitoring at each pipeline step
+- **NEW**: Runtime configuration updates without restart using ConfigurationManager
+- **NEW**: Feature flag-based behavior control with A/B testing integration
+- **NEW**: Enhanced logging with RAGPipelineLogger for complete observability
+- **NEW**: Backward compatibility with MonitoredUniversalRAGChain alias
+
+#### Integration Helper Utilities
+- **NEW**: IntegrationSetup class for one-command system initialization
+- **NEW**: ConfigurationValidator for environment and config validation
+- **NEW**: IntegrationHealthChecker for comprehensive system health monitoring
+- **NEW**: MigrationHelper for seamless upgrade from UniversalRAGChain
+- **NEW**: PerformanceOptimizer for automatic system optimization recommendations
+- **NEW**: DependencyInjector for clean manager integration patterns
+
+#### Enhanced Monitoring Integration
+- **NEW**: Query tracking with unique IDs and comprehensive metadata
+- **NEW**: Real-time performance profiling with async context managers
+- **NEW**: Analytics integration with automatic metric collection
+- **NEW**: A/B test metric tracking with statistical analysis
+- **NEW**: Cache performance monitoring with hit rate analytics
+- **NEW**: Error tracking and alerting with structured logging
+
+#### Configuration-Driven Behavior
+- **NEW**: Dynamic TTL updates based on configuration changes
+- **NEW**: Feature flag-based hybrid search enablement
+- **NEW**: Configurable confidence thresholds and context lengths
+- **NEW**: Runtime prompt optimization based on active configuration
+- **NEW**: Live configuration reload without service restart
+
+#### Factory Functions and Utilities
+- **NEW**: create_integrated_rag_chain() factory with sensible defaults
+- **NEW**: quick_setup_integrated_rag() for rapid system initialization
+- **NEW**: get_integrated_chain_from_managers() for dependency injection
+- **NEW**: Example usage patterns and migration guides
+
+### 🔧 Technical Implementation Details
+
+#### IntegratedRAGChain Core Architecture
+```python
+class IntegratedRAGChain(UniversalRAGChain):
+    """Enhanced Universal RAG Chain with integrated monitoring and configuration."""
+    
+    def __init__(
+        self,
+        supabase_client = None,
+        enable_monitoring: bool = True,
+        enable_profiling: bool = False,
+        enable_feature_flags: bool = True,
+        enable_configuration: bool = True,
+        **kwargs
+    ):
+        # Initialize all managers
+        self._init_managers()
+        
+        # Apply configuration if enabled
+        if self.enable_configuration and self.config_manager:
+            config = self._apply_configuration()
+            # Override parameters from configuration
+        
+        # Call parent with modified parameters
+        super().__init__(**kwargs)
+        
+        # Create integrated chain with monitoring
+        self.chain = self._create_integrated_chain()
+```
+
+#### Monitoring Integration at Each Step
+```python
+def _create_integrated_chain(self):
+    """Create LCEL chain with integrated monitoring and profiling."""
+    
+    if self.enable_prompt_optimization:
+        chain = (
+            RunnablePassthrough.assign(
+                query_analysis=RunnableLambda(self._analyze_query_with_monitoring),
+                retrieval_result=RunnableLambda(self._retrieve_with_monitoring),
+                context=RunnableLambda(self._extract_context_with_monitoring)
+            )
+            | RunnableLambda(self._generate_with_monitoring)
+            | RunnableLambda(self._enhance_with_monitoring)
+        )
+    else:
+        chain = (
+            RunnablePassthrough.assign(
+                context=RunnableLambda(self._retrieve_and_format_with_monitoring)
+            )
+            | self._create_standard_prompt()
+            | self.llm
+            | StrOutputParser()
+        )
+    
+    return chain
+```
+
+#### Enhanced ainvoke with Full Monitoring
+```python
+async def ainvoke(self, query: str, **kwargs) -> RAGResponse:
+    """Enhanced async invoke with full monitoring and configuration integration."""
+    
+    query_id = str(uuid.uuid4())
+    user_context = kwargs.get('user_context', {})
+    
+    # Start pipeline tracking
+    if self.pipeline_logger:
+        pipeline_context = self.pipeline_logger.start_pipeline(query_id, query, user_context)
+    
+    try:
+        # Check feature flags for behavior modification
+        skip_cache = False
+        if self.feature_flags:
+            cache_enabled = await self.feature_flags.is_feature_enabled(
+                "enable_response_caching", user_context
+            )
+            skip_cache = not cache_enabled
+        
+        # Call parent with monitoring
+        if self.profiler:
+            async with self.profiler.profile("rag_pipeline", query_id=query_id):
+                response = await super().ainvoke(query, **kwargs)
+        else:
+            response = await super().ainvoke(query, **kwargs)
+        
+        # Track metrics and A/B test results
+        if self.analytics and not response.cached:
+            await self._track_comprehensive_metrics(query_id, query, response, user_context)
+        
+        # Add monitoring metadata
+        response.metadata.update({
+            'query_id': query_id,
+            'monitoring_enabled': self.enable_monitoring,
+            'profiling_enabled': self.enable_profiling,
+            'feature_flags_enabled': self.enable_feature_flags,
+            'total_pipeline_time_ms': total_time
+        })
+        
+        return response
+```
+
+#### Integration Helper Functions
+```python
+# Quick setup for all systems
+async def quick_setup_integrated_rag(
+    supabase_url: Optional[str] = None,
+    supabase_key: Optional[str] = None
+) -> Dict[str, Any]:
+    """Quick setup function for integrated RAG system."""
+    
+    # Initialize all systems
+    managers = await IntegrationSetup.initialize_all_systems(
+        supabase_url, supabase_key
+    )
+    
+    # Create default configuration
+    config = await IntegrationSetup.create_default_configuration()
+    await managers['config_manager'].save_config(config, "System", "Default configuration")
+    
+    # Setup default feature flags
+    await IntegrationSetup.setup_default_feature_flags(managers['feature_flags'])
+    
+    # Health check
+    health = await IntegrationHealthChecker.check_all_systems(managers)
+    
+    return managers
+```
+
+### 📋 Files Created for Task 2.25
+
+#### Core Integration Implementation
+- `src/chains/integrated_rag_chain.py` - IntegratedRAGChain with full monitoring (729 lines)
+- `src/utils/integration_helpers.py` - Integration utilities and setup helpers (598 lines)
+
+#### Testing and Examples
+- `tests/integration/test_integrated_rag_chain.py` - Comprehensive integration tests (370 lines)
+- `examples/integrated_rag_example.py` - Complete usage example with all features (330 lines)
+
+#### Package Integration
+- `src/chains/__init__.py` - Updated to export IntegratedRAGChain and utilities
+
+### 🎯 Key Integration Features
+
+#### Seamless System Integration
+✅ **Configuration Management**: Live config updates with ConfigurationManager integration
+✅ **Analytics & Monitoring**: Real-time metrics with PromptAnalytics integration
+✅ **Performance Profiling**: Async profiling with PerformanceProfiler integration
+✅ **Feature Flags**: A/B testing with FeatureFlagManager integration
+✅ **Enhanced Logging**: Structured logging with RAGPipelineLogger integration
+
+#### Production-Ready Features
+✅ **Health Monitoring**: Comprehensive system health checks
+✅ **Error Handling**: Graceful degradation when components are unavailable
+✅ **Backward Compatibility**: Drop-in replacement for UniversalRAGChain
+✅ **Migration Support**: Tools and guides for seamless upgrade
+✅ **Performance Optimization**: Automatic recommendations and tuning
+
+#### Developer Experience
+✅ **Factory Functions**: Easy creation with sensible defaults
+✅ **Quick Setup**: One-command initialization for all systems
+✅ **Comprehensive Testing**: Integration tests for all components
+✅ **Example Usage**: Complete examples and migration guides
+✅ **Documentation**: Inline documentation and type hints
+
+### 🚀 Usage Examples
+
+#### Basic Integration
+```python
+from src.chains import create_integrated_rag_chain
+from src.utils.integration_helpers import quick_setup_integrated_rag
+
+# Quick setup with all features
+managers = await quick_setup_integrated_rag()
+
+# Create integrated chain
+chain = create_integrated_rag_chain(
+    model_name="gpt-4",
+    supabase_client=managers['supabase_client'],
+    enable_all_features=True
+)
+
+# Query with monitoring
+response = await chain.ainvoke(
+    "What are the best online casinos?",
+    user_context={"user_id": "user123"}
+)
+```
+
+#### Migration from UniversalRAGChain
+```python
+# Old code
+from src.chains import UniversalRAGChain
+chain = UniversalRAGChain(model_name="gpt-4")
+
+# New code - drop-in replacement
+from src.chains import IntegratedRAGChain
+chain = IntegratedRAGChain(
+    model_name="gpt-4",
+    supabase_client=supabase_client,
+    enable_monitoring=True
+)
+```
+
+#### Advanced Configuration
+```python
+# Create with specific features
+chain = IntegratedRAGChain(
+    model_name="gpt-4",
+    supabase_client=supabase_client,
+    enable_monitoring=True,
+    enable_profiling=True,
+    enable_feature_flags=True,
+    enable_configuration=True,
+    config_override={
+        'query_classification.confidence_threshold': 0.8,
+        'cache_config.general_ttl': 72
+    }
+)
+
+# Runtime operations
+await chain.reload_configuration()
+stats = chain.get_monitoring_stats()
+enabled = await chain.check_feature_flag("enable_hybrid_search")
+report = await chain.get_optimization_report(hours=24)
+```
+
+### 🎯 Task 2.25 Acceptance Criteria - COMPLETED ✅
+
+✅ **System Integration**: All configuration, monitoring, analytics, profiling, and feature flag systems integrated
+✅ **LCEL Architecture**: Maintains LangChain Expression Language patterns with monitoring
+✅ **Backward Compatibility**: Drop-in replacement for UniversalRAGChain with no breaking changes
+✅ **Runtime Configuration**: Live configuration updates without service restart
+✅ **Feature Flag Control**: Behavior modification based on feature flags and A/B tests
+✅ **Comprehensive Monitoring**: Query tracking, performance profiling, and analytics integration
+✅ **Production Ready**: Error handling, health checks, optimization recommendations
+✅ **Developer Experience**: Factory functions, quick setup, examples, and migration tools
+
+Task 2.25 delivers a fully integrated RAG chain that combines the power of UniversalRAGChain with enterprise-grade monitoring, configuration management, and feature control systems.
+
 ## [2.8.0] - 2025-01-19 - Task 2.6: Configuration Management API
 
 ### 🚀 Task 2.6 Complete: Comprehensive Configuration Management API
