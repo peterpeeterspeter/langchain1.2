@@ -11,10 +11,24 @@ from .prompt_analytics import (
     get_analytics_instance
 )
 
+from .performance_profiler import (
+    PerformanceProfiler,
+    TimingRecord,
+    PerformanceSnapshot,
+    profile_operation
+)
+
 __all__ = [
+    # Prompt Analytics
     "PromptAnalytics",
     "QueryMetrics", 
     "AlertThreshold",
     "track_query_metrics",
-    "get_analytics_instance"
+    "get_analytics_instance",
+    
+    # Performance Profiler
+    "PerformanceProfiler",
+    "TimingRecord",
+    "PerformanceSnapshot",
+    "profile_operation"
 ] 

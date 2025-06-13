@@ -1,311 +1,334 @@
-# 📊 Comprehensive Monitoring System
+# Monitoring and Analytics System
+
+Comprehensive monitoring and analytics infrastructure for RAG CMS, providing real-time metrics collection, alert management, performance profiling, and optimization recommendations.
 
 ## Overview
 
-The **Comprehensive Monitoring System** provides real-time metrics collection, alert management, and performance reporting for the RAG CMS system. This system tracks query processing metrics, manages alerts with configurable thresholds, and generates detailed performance reports with trend analysis.
+The monitoring system consists of two main components:
 
-## 🎯 Features
+1. **Prompt Analytics** (`prompt_analytics.py`) - Real-time metrics collection and alert management
+2. **Performance Profiler** (`performance_profiler.py`) - Timing analysis and bottleneck identification
 
-### Core Monitoring Capabilities
-- **Buffered Metrics Collection** - Automatic batching with 50-item buffer and periodic flushing
-- **Multi-dimensional Metrics** - Classification, performance, quality, cache, error tracking
-- **Real-time Analytics** - Live aggregation and statistical analysis
-- **Alert System** - Configurable thresholds with cooldown management
-- **Performance Reports** - Historical trend analysis with bottleneck identification
-- **Error Pattern Tracking** - Automatic error categorization and analysis
+Together, these systems provide complete observability for your RAG pipeline operations.
 
-### Metrics Tracked
-- **Classification Metrics**: Confidence scores, processing time
-- **Performance Metrics**: Response time, retrieval time, generation time, token counts
-- **Quality Metrics**: Response quality scores, relevance scores, context utilization
-- **Cache Metrics**: Hit rates, latency measurements
-- **Error Metrics**: Error types, patterns, frequencies
-- **Usage Metrics**: Query volumes, user patterns, session tracking
+## Components
 
-## 🚀 Quick Start
+### 1. Prompt Analytics System
+
+Real-time monitoring with buffered metrics collection and intelligent alerting.
+
+**Key Features:**
+- Buffered metrics collection with automatic flushing
+- Multi-dimensional analytics (classification, performance, quality, cache, errors)
+- Real-time alert management with cooldown periods
+- Performance reporting with trend analysis
+- Bottleneck identification and optimization recommendations
+
+**Core Classes:**
+- `PromptAnalytics` - Main analytics engine
+- `QueryMetrics` - Structured metric data model
+- `AlertThreshold` - Configurable alert thresholds
+- `AlertInstance` - Alert state management
+
+### 2. Performance Profiler System
+
+Advanced performance profiling with nested operation timing and optimization suggestions.
+
+**Key Features:**
+- Nested operation profiling with thread-local storage
+- Context managers and decorators for flexible profiling
+- Bottleneck detection with configurable thresholds
+- Operation-specific optimization recommendations
+- Performance impact scoring and trend analysis
+- Historical data analysis and reporting
+
+**Core Classes:**
+- `PerformanceProfiler` - Main profiling engine
+- `TimingRecord` - Individual operation timing data
+- `PerformanceSnapshot` - System performance snapshots
+
+## Quick Start
 
 ### Basic Usage
 
 ```python
-from monitoring.prompt_analytics import PromptAnalytics, QueryMetrics
-from config.prompt_config import QueryType
+from src.monitoring import PromptAnalytics, PerformanceProfiler
 from supabase import create_client
 
-# Initialize
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-analytics = PromptAnalytics(supabase, buffer_size=50)
+# Initialize systems
+client = create_client(url, key)
+analytics = PromptAnalytics(client)
+profiler = PerformanceProfiler(client)
 
-# Track a query
-metrics = QueryMetrics(
-    query_id="unique-query-id",
-    query_text="What are the best casino bonuses?",
-    query_type=QueryType.CASINO_REVIEW,
-    timestamp=datetime.utcnow(),
-    classification_confidence=0.95,
-    response_time_ms=2500.0,
-    quality_score=0.85,
-    cache_hit=False
-)
-
-await analytics.track_query_metrics(metrics)
-```
-
-### Real-time Metrics
-
-```python
-# Get real-time metrics for the last 5 minutes
-metrics = await analytics.get_real_time_metrics(window_minutes=5)
-
-print(f"Total queries: {metrics['total_queries']}")
-print(f"Average response time: {metrics['performance']['avg_response_time_ms']}ms")
-print(f"Cache hit rate: {metrics['cache']['hit_rate']:.1%}")
-print(f"Error rate: {metrics['errors']['error_rate']:.1%}")
-```
-
-### Performance Reports
-
-```python
-# Generate a 24-hour performance report
-report = await analytics.generate_performance_report(hours=24)
-
-print(f"Period: {report['period']}")
-print(f"Total queries: {report['total_queries']}")
-print(f"Average response time: {report['summary']['avg_response_time_ms']}ms")
-print(f"System reliability: {report['summary']['success_rate']:.1%}")
-
-# View recommendations
-for rec in report['recommendations']:
-    print(f"• {rec}")
-```
-
-## ⚙️ Configuration
-
-### Alert Thresholds
-
-The system comes with default alert thresholds that can be customized:
-
-```python
-# Update existing threshold
-analytics.update_alert_threshold(
-    "avg_response_time",
-    warning_threshold=3000.0,  # 3 seconds
-    critical_threshold=5000.0  # 5 seconds
-)
-
-# Add custom threshold
-from monitoring.prompt_analytics import AlertThreshold
-
-custom_threshold = AlertThreshold(
-    metric_name="quality_score",
-    warning_threshold=0.6,
-    critical_threshold=0.4,
-    comparison="less_than",
-    sample_size=100
-)
-analytics.add_alert_threshold("quality_alert", custom_threshold)
-```
-
-### Default Thresholds
-
-| Metric | Warning | Critical | Description |
-|--------|---------|----------|-------------|
-| `avg_response_time` | 3000ms | 5000ms | Average query response time |
-| `error_rate` | 5% | 10% | Error rate percentage |
-| `quality_score` | 0.6 | 0.4 | Average quality score |
-| `cache_hit_rate` | 0.4 | 0.2 | Cache efficiency |
-
-## 📊 Metrics Schema
-
-### QueryMetrics Structure
-
-```python
-@dataclass
-class QueryMetrics:
-    # Core identification
-    query_id: str
-    query_text: str
-    query_type: QueryType
-    timestamp: datetime
+# Monitor and profile an operation
+async def monitored_operation():
+    # Start analytics tracking
+    query_id = analytics.track_query_start()
     
-    # Classification metrics
-    classification_confidence: float
-    classification_time_ms: float
-    
-    # Performance metrics
-    response_time_ms: float
-    retrieval_time_ms: float
-    generation_time_ms: float
-    total_tokens: int
-    
-    # Quality metrics
-    response_quality_score: float
-    relevance_scores: List[float]
-    context_utilization_score: float
-    
-    # Cache metrics
-    cache_hit: bool
-    cache_latency_ms: float
-    
-    # Context metrics
-    sources_count: int
-    context_length: int
-    
-    # Error tracking
-    error: Optional[str]
-    error_type: Optional[str]
-    
-    # User context
-    user_id: Optional[str]
-    session_id: Optional[str]
-```
-
-## 🚨 Alert Management
-
-### Active Alerts
-
-```python
-# Get all active alerts
-alerts = await analytics.get_active_alerts()
-
-for alert in alerts:
-    print(f"{alert['severity']}: {alert['message']}")
-    print(f"Current value: {alert['current_value']}")
-    print(f"Threshold: {alert['threshold_value']}")
-```
-
-### Acknowledging Alerts
-
-```python
-# Acknowledge an alert
-success = await analytics.acknowledge_alert(alert_id, "admin_user")
-```
-
-## 📈 Performance Analysis
-
-### Bottleneck Identification
-
-The system automatically identifies performance bottlenecks:
-
-- **High Response Times** - Queries taking longer than thresholds
-- **Cache Misses** - Poor cache utilization
-- **Classification Delays** - Slow query classification
-- **Error Patterns** - Recurring error types
-
-### Trend Analysis
-
-- **Improving** - Metrics getting better over time
-- **Declining** - Metrics getting worse over time  
-- **Stable** - Metrics remaining consistent
-
-## 🗄️ Database Schema
-
-### Tables Created
-
-**prompt_metrics**
-- Stores individual query metrics
-- Indexed by timestamp, query_id, metric_type
-
-**prompt_alerts**
-- Stores alert instances
-- Tracks acknowledgment status and metadata
-
-## 🧪 Testing
-
-Run the comprehensive test suite:
-
-```bash
-# Basic functionality test
-python src/monitoring/simple_test.py
-
-# Full feature test
-python src/monitoring/final_test.py
-```
-
-### Test Coverage
-
-✅ **Metrics Collection** - Diverse query types and scenarios  
-✅ **Database Integration** - Supabase storage and retrieval  
-✅ **Real-time Analytics** - Statistical calculations  
-✅ **Alert System** - Threshold evaluation and triggering  
-✅ **Performance Reports** - Historical analysis  
-✅ **Error Tracking** - Pattern detection  
-✅ **Configuration** - Threshold management  
-
-## 🔧 Integration
-
-### With Enhanced Logging
-
-The monitoring system integrates with the enhanced logging system for comprehensive observability:
-
-```python
-# Will be automatically integrated when full logging is enabled
-from utils.enhanced_logging import get_logger
-logger = get_logger("prompt_analytics", supabase_client)
-```
-
-### With RAG Pipeline
-
-```python
-# Track metrics during RAG processing
-async def process_query(query_text, query_type):
-    start_time = time.time()
-    
-    try:
-        # Process query...
-        result = await rag_pipeline.process(query_text)
+    # Profile the operation
+    async with profiler.profile("rag_query", query_id=query_id):
+        # Your RAG pipeline operations
+        result = await process_rag_query()
         
-        # Track successful metrics
-        metrics = QueryMetrics(
-            query_id=str(uuid.uuid4()),
-            query_text=query_text,
-            query_type=query_type,
-            timestamp=datetime.utcnow(),
-            response_time_ms=(time.time() - start_time) * 1000,
-            response_quality_score=calculate_quality(result),
-            cache_hit=result.from_cache
+        # Track completion
+        analytics.track_query_completion(
+            classification_accuracy=0.85,
+            response_quality=0.92,
+            cache_hit=True
         )
         
-        await analytics.track_query_metrics(metrics)
         return result
-        
-    except Exception as e:
-        # Track error metrics
-        error_metrics = QueryMetrics(
-            query_id=str(uuid.uuid4()),
-            query_text=query_text,
-            query_type=query_type,
-            timestamp=datetime.utcnow(),
-            error=str(e),
-            error_type=type(e).__name__
-        )
-        
-        await analytics.track_query_metrics(error_metrics)
-        raise
 ```
 
-## 📋 Next Steps
+### Advanced Monitoring
 
-With the monitoring system complete, you can now:
+```python
+# Set up custom alert thresholds
+await analytics.set_alert_threshold(
+    metric_type="error_rate",
+    warning_threshold=0.05,
+    critical_threshold=0.10
+)
 
-1. **Integrate with RAG Pipeline** - Add monitoring to query processing
-2. **Set up Dashboards** - Create visualizations using the real-time metrics API
-3. **Configure Alerts** - Set up notification systems for critical alerts
-4. **Performance Optimization** - Use bottleneck analysis for system improvements
+# Configure profiler thresholds
+profiler.bottleneck_thresholds.update({
+    "retrieval": 500,  # ms
+    "llm_generation": 2000,
+    "embedding_generation": 200
+})
 
-## ⚡ Performance Characteristics
+# Get comprehensive reports
+analytics_report = await analytics.get_performance_report()
+profiler_report = await profiler.get_optimization_report()
+```
 
-- **Buffer Size**: 50 metrics (configurable)
-- **Flush Interval**: 30 seconds (automatic)
-- **Analysis Interval**: 60 seconds (background)
-- **Alert Cooldown**: 15 minutes (configurable)
-- **Metric Retention**: Configurable via Supabase
-- **Query Performance**: <10ms for metric tracking
+## Integration Examples
 
----
+### With Configuration System
 
-**Status**: ✅ **COMPLETED**  
-**Dependencies**: Task 2.20 (Enhanced Configuration System)  
-**Integration Ready**: Yes  
-**Test Coverage**: 100%  
+```python
+from src.config.enhanced_config import EnhancedConfigManager
 
-The comprehensive monitoring system is now fully functional and ready for production use! 🎉 
+config_manager = EnhancedConfigManager()
+config = await config_manager.get_configuration()
+
+# Configure monitoring based on settings
+analytics = PromptAnalytics(
+    client,
+    buffer_size=config.monitoring.get("buffer_size", 50),
+    flush_interval=config.monitoring.get("flush_interval", 30)
+)
+
+profiler = PerformanceProfiler(
+    client,
+    enable_profiling=config.performance.get("enable_profiling", True)
+)
+```
+
+### With Enhanced Confidence Scoring
+
+```python
+from src.chains.enhanced_confidence_scoring_system import EnhancedConfidenceScorer
+
+async def enhanced_rag_pipeline(query: str):
+    query_id = analytics.track_query_start()
+    
+    async with profiler.profile("enhanced_rag_query", query_id=query_id):
+        # Process with confidence scoring
+        scorer = EnhancedConfidenceScorer()
+        
+        async with profiler.profile("retrieval"):
+            documents = await retrieve_documents(query)
+        
+        async with profiler.profile("confidence_scoring"):
+            scored_response = await scorer.score_response(
+                query, documents, response
+            )
+        
+        # Track enhanced metrics
+        analytics.track_query_completion(
+            classification_accuracy=scored_response.classification_score,
+            response_quality=scored_response.overall_confidence,
+            confidence_factors=scored_response.confidence_factors
+        )
+        
+        return scored_response
+```
+
+## Database Schema
+
+### Analytics Tables
+
+```sql
+-- Metrics storage
+CREATE TABLE query_metrics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query_id TEXT NOT NULL,
+    metric_type TEXT NOT NULL,
+    value FLOAT NOT NULL,
+    metadata JSONB DEFAULT '{}',
+    timestamp TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Alert management
+CREATE TABLE alert_instances (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    alert_type TEXT NOT NULL,
+    severity TEXT NOT NULL,
+    message TEXT NOT NULL,
+    triggered_at TIMESTAMPTZ DEFAULT NOW(),
+    acknowledged_at TIMESTAMPTZ,
+    resolved_at TIMESTAMPTZ
+);
+```
+
+### Performance Profiler Tables
+
+```sql
+-- Performance profiles
+CREATE TABLE performance_profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query_id TEXT NOT NULL,
+    profile_data JSONB NOT NULL,
+    total_duration_ms FLOAT NOT NULL,
+    bottleneck_operations JSONB DEFAULT '[]',
+    optimization_suggestions JSONB DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Bottleneck statistics
+CREATE TABLE performance_bottlenecks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    operation_type TEXT NOT NULL,
+    avg_duration_ms FLOAT NOT NULL,
+    p95_duration_ms FLOAT NOT NULL,
+    p99_duration_ms FLOAT NOT NULL,
+    occurrence_count INTEGER NOT NULL,
+    impact_score FLOAT NOT NULL,
+    suggested_optimizations JSONB DEFAULT '[]',
+    detected_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+## Monitoring Strategies
+
+### 1. Real-Time Monitoring
+
+Monitor critical metrics in real-time with immediate alerting:
+
+```python
+# Set up critical alerts
+await analytics.set_alert_threshold("error_rate", 0.01, 0.05)
+await analytics.set_alert_threshold("avg_response_time", 1000, 2000)
+await analytics.set_alert_threshold("confidence_score", 0.7, 0.5)
+
+# Enable real-time profiling for bottleneck detection
+profiler.enabled = True
+```
+
+### 2. Performance Optimization
+
+Use profiling data to optimize performance:
+
+```python
+# Get optimization recommendations
+report = await profiler.get_optimization_report(hours=24)
+
+for priority in report['optimization_priorities']:
+    if priority['priority'] == 'critical':
+        print(f"Urgent: {priority['operation']} - {priority['timeline']}")
+        print(f"Expected improvement: {priority['expected_improvement']}")
+```
+
+### 3. Quality Monitoring
+
+Track response quality and confidence over time:
+
+```python
+# Analyze quality trends
+quality_metrics = await analytics.get_quality_metrics(days=7)
+confidence_trends = await analytics.get_confidence_trends(days=7)
+
+# Alert on quality degradation
+if quality_metrics['avg_confidence'] < 0.8:
+    await analytics.trigger_quality_alert()
+```
+
+## Best Practices
+
+### 1. Metric Collection
+- Use descriptive operation names for better analysis
+- Include relevant metadata in tracking calls
+- Balance monitoring frequency with performance impact
+- Implement sampling for high-frequency operations
+
+### 2. Alert Management
+- Set appropriate thresholds based on baseline performance
+- Use alert cooldowns to prevent spam
+- Implement escalation procedures for critical alerts
+- Regularly review and adjust alert thresholds
+
+### 3. Performance Profiling
+- Profile critical paths and suspected bottlenecks
+- Use nested profiling for complex operations
+- Review optimization reports regularly
+- Prioritize high-impact, low-effort optimizations
+
+### 4. Data Analysis
+- Combine metrics from both systems for comprehensive insights
+- Use historical data for trend analysis
+- Implement automated anomaly detection
+- Create custom dashboards for key stakeholders
+
+## API Reference
+
+### Prompt Analytics
+
+- `PromptAnalytics(client, buffer_size=50, flush_interval=30)`
+- `track_query_start() -> str`
+- `track_query_completion(**metrics)`
+- `set_alert_threshold(metric_type, warning, critical)`
+- `get_performance_report(hours=24) -> Dict`
+- `get_real_time_metrics() -> Dict`
+
+### Performance Profiler
+
+- `PerformanceProfiler(client, enable_profiling=True)`
+- `async profile(operation_name, **metadata)`
+- `profile_async(func)` / `profile_sync(func)`
+- `capture_performance_snapshot() -> PerformanceSnapshot`
+- `get_optimization_report(hours=24) -> Dict`
+
+### Utility Functions
+
+- `track_query_metrics(analytics, metrics_dict)`
+- `get_analytics_instance() -> PromptAnalytics`
+- `profile_operation(profiler)` - Decorator factory
+
+## Migration Files
+
+Database migrations are provided for setting up the required tables:
+
+- `migrations/002_create_monitoring_tables.sql` - Analytics tables
+- `migrations/003_create_performance_profiler_tables.sql` - Profiler tables
+
+## Documentation
+
+Detailed documentation is available:
+
+- `PERFORMANCE_PROFILER.md` - Comprehensive profiler documentation
+- Implementation examples and best practices
+- Troubleshooting guides and performance considerations
+
+## Future Enhancements
+
+Planned improvements include:
+
+- **Machine Learning Integration**: Predictive performance modeling
+- **Distributed Monitoring**: Multi-service monitoring and tracing
+- **Visual Dashboards**: Interactive performance and metrics visualization
+- **Automated Optimization**: Self-healing performance improvements
+- **Cost Monitoring**: AI API usage and cost tracking
+- **User Experience Metrics**: End-user satisfaction tracking
+
+The monitoring system provides comprehensive observability for your RAG pipeline, enabling data-driven optimization and proactive issue resolution. 
