@@ -86,6 +86,95 @@ navigating base packages and integrations for LangChain.
 
 See `docs/universal_rag_integration.md` for a full integration guide and `examples/rag_integration_examples.py` for runnable examples.
 
+## 🚀 Configuration Management API
+
+The Universal RAG CMS includes a comprehensive REST API for configuration management, monitoring, and A/B testing. This production-ready API provides real-time control over your RAG system with advanced feature flags and performance analytics.
+
+### Quick Start
+
+```bash
+# Install API dependencies
+pip install -r src/api/requirements.txt
+
+# Set environment variables
+export SUPABASE_URL="your_supabase_url"
+export SUPABASE_KEY="your_supabase_key"
+
+# Start the API server
+python -m src.api.main
+```
+
+**API Documentation**: http://localhost:8000/docs
+
+### Key Features
+
+- **🔧 Configuration Management**: Dynamic prompt optimization with validation and versioning
+- **📊 Real-Time Monitoring**: Live performance metrics via REST and WebSocket endpoints
+- **🎛️ Performance Profiling**: System optimization insights and resource monitoring
+- **🚀 Feature Flags & A/B Testing**: Gradual rollout and statistical experiment analysis
+- **📈 Analytics Dashboard**: Comprehensive performance reports and alerting
+
+### API Endpoints Overview
+
+```http
+# Configuration Management
+GET    /api/v1/config/prompt-optimization          # Get current config
+PUT    /api/v1/config/prompt-optimization          # Update config
+POST   /api/v1/config/prompt-optimization/validate # Validate config
+GET    /api/v1/config/prompt-optimization/history  # Config history
+POST   /api/v1/config/prompt-optimization/rollback/{version} # Rollback
+
+# Real-Time Monitoring
+GET    /api/v1/config/analytics/real-time          # Live metrics
+GET    /api/v1/config/analytics/alerts             # Active alerts
+POST   /api/v1/config/analytics/alerts/acknowledge # Acknowledge alerts
+POST   /api/v1/config/analytics/report             # Performance reports
+
+# Feature Flags & A/B Testing
+GET    /api/v1/config/feature-flags                # List feature flags
+POST   /api/v1/config/feature-flags                # Create feature flag
+PUT    /api/v1/config/feature-flags/{name}         # Update feature flag
+POST   /api/v1/config/experiments                  # Create A/B experiment
+GET    /api/v1/config/experiments/{id}/results     # Experiment results
+
+# WebSocket Real-Time Monitoring
+WS     /api/v1/config/ws/metrics                   # Real-time metrics stream
+```
+
+### Example Usage
+
+```python
+import httpx
+
+# Update system configuration
+async with httpx.AsyncClient() as client:
+    response = await client.put(
+        "http://localhost:8000/api/v1/config/prompt-optimization?updated_by=admin",
+        json={
+            "config_data": {
+                "temperature": 0.7,
+                "max_tokens": 1024,
+                "system_prompt": "You are a helpful casino advisor"
+            },
+            "change_notes": "Optimized for better user engagement"
+        }
+    )
+    print(response.json())
+
+# Create feature flag for gradual rollout
+await client.post(
+    "http://localhost:8000/api/v1/config/feature-flags",
+    json={
+        "name": "enhanced_rag_search",
+        "description": "Enhanced RAG search algorithm",
+        "status": "gradual_rollout",
+        "rollout_percentage": 25.0
+    }
+)
+```
+
+For complete API documentation and examples, see `src/api/README.md`.
+
 ## 🎯 Enhanced Confidence Scoring System
 
 The Enhanced Confidence Scoring System provides sophisticated multi-factor confidence assessment for RAG responses, enabling better quality control and user trust. This production-ready system integrates seamlessly with the Universal RAG Chain.
