@@ -3,9 +3,53 @@
 # Status: pending
 # Dependencies: 1, 2
 # Priority: high
-# Description: Build advanced retrieval with contextual embedding and hybrid search capabilities
+# Description: Build advanced retrieval with contextual embedding and hybrid search capabilities, integrating with the completed enhanced confidence scoring system
 # Details:
-Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results.
+Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results. Integration must work seamlessly with the completed Task 2.3 enhanced confidence scoring system, including query classification accuracy bonuses, expertise level matching, and enhanced source metadata with visual indicators.
 
 # Test Strategy:
-Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering
+Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering. Verify integration with completed Task 2.3 confidence scoring system - test that retrieved sources properly flow through enhanced metadata generation, query classification bonuses are applied correctly, and dynamic TTL caching works with new retrieval methods.
+
+# Subtasks:
+## 3.1. Implement Contextual Embedding System [pending]
+### Dependencies: None
+### Description: Add context prepending to document chunks before embedding generation
+### Details:
+
+
+## 3.2. Build Hybrid Search Infrastructure [pending]
+### Dependencies: None
+### Description: Implement dense vector search combined with BM25 sparse retrieval
+### Details:
+
+
+## 3.3. Develop Multi-Query Retrieval [pending]
+### Dependencies: None
+### Description: Generate multiple query variations for comprehensive document retrieval
+### Details:
+
+
+## 3.4. Implement Self-Query with Metadata Filtering [pending]
+### Dependencies: None
+### Description: Add intelligent metadata-based filtering to retrieval queries
+### Details:
+
+
+## 3.5. Add Maximal Marginal Relevance [pending]
+### Dependencies: None
+### Description: Implement MMR algorithm for diverse and relevant result selection
+### Details:
+
+
+## 3.6. Integrate with Enhanced Confidence Scoring System [pending]
+### Dependencies: None
+### Description: Ensure retrieved sources properly interface with completed Task 2.3 enhanced metadata generation, query classification bonuses (+0.1, +0.05, +0.05), and dynamic TTL caching system
+### Details:
+
+
+## 3.7. Optimize Retrieval Pipeline Performance [pending]
+### Dependencies: None
+### Description: Fine-tune retrieval parameters and ensure efficient integration with existing confidence scoring and caching mechanisms
+### Details:
+
+

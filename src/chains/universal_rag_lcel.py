@@ -630,20 +630,59 @@ Answer:
                 response.metadata = enhanced_response.metadata
                 
             else:
-                # Fallback to basic confidence calculation
-                confidence_score = await self._calculate_enhanced_confidence(
+                # Task 2.3 Enhanced Confidence Calculation with specific bonuses
+                base_confidence = await self._calculate_enhanced_confidence(
                     query, result, query_analysis, metrics
+                )
+                
+                # Apply Task 2.3 specific bonuses
+                query_type = query_analysis.query_type.value if query_analysis else 'factual'
+                user_expertise = kwargs.get('user_expertise_level', 'intermediate')
+                
+                enhanced_confidence, bonus_breakdown = await self._calculate_confidence_with_task23_bonuses(
+                    base_confidence=base_confidence,
+                    query=query,
+                    query_type=query_type,
+                    response_content=result,
+                    sources=sources,
+                    user_expertise_level=user_expertise
+                )
+                
+                # Generate Task 2.3 enhanced cache key and TTL
+                enhanced_cache_key = self.generate_enhanced_cache_key_task23(
+                    query=query,
+                    query_type=query_type,
+                    user_expertise_level=user_expertise
+                )
+                
+                dynamic_ttl = self.get_dynamic_cache_ttl_hours(
+                    query_type=query_type,
+                    confidence_score=enhanced_confidence,
+                    user_expertise_level=user_expertise
                 )
                 
                 response = RAGResponse(
                     answer=result if isinstance(result, str) else str(result),
                     sources=sources,
-                    confidence_score=confidence_score,
+                    confidence_score=enhanced_confidence,
                     cached=False,
                     response_time=response_time,
                     token_usage=self._extract_token_usage(metrics),
                     query_analysis=query_analysis.to_dict() if query_analysis else None
                 )
+                
+                # Add Task 2.3 enhanced metadata
+                response.metadata.update({
+                    'task23_enhanced': True,
+                    'confidence_breakdown': bonus_breakdown,
+                    'cache_metadata': {
+                        'enhanced_cache_key': enhanced_cache_key,
+                        'dynamic_ttl_hours': dynamic_ttl,
+                        'query_type': query_type,
+                        'user_expertise_level': user_expertise
+                    },
+                    'enhancement_timestamp': time.time()
+                })
             
             # Cache the response
             if self.cache:
@@ -726,24 +765,34 @@ Answer:
         return min(matches / len(indicators) if indicators else 0.5, 1.0)
     
     async def _create_enhanced_sources(self, query: str, query_analysis: Optional[QueryAnalysis]) -> List[Dict[str, Any]]:
-        """Create enhanced source metadata from last retrieved docs"""
+        """Create enhanced source metadata from last retrieved docs with Task 2.3 enhancements"""
         if not self._last_retrieved_docs:
             return []
 
+        # Import the Task 2.3 enhancement function
+        from .enhanced_confidence_scoring_system import enrich_sources_with_task23_metadata
+
+        # Create basic sources first
         sources: List[Dict[str, Any]] = []
         for doc, score in self._last_retrieved_docs:
             meta = doc.metadata or {}
             title = meta.get("title") or meta.get("source") or meta.get("id") or "Document"
             content_preview = doc.page_content[:300]
+            
             source_item: Dict[str, Any] = {
                 "title": title,
                 "url": meta.get("url") or meta.get("source_url"),
                 "similarity_score": float(score),
                 "content_preview": content_preview,
+                "content": doc.page_content,  # Full content for enhanced analysis
                 "quality_score": await self._calculate_source_quality(doc.page_content),
                 "relevance_to_query": await self._calculate_query_relevance(doc.page_content, query),
                 "expertise_match": 0.0,
             }
+            
+            # Add metadata from document
+            source_item.update(meta)
+            
             # Add expertise match if analysis available
             if query_analysis:
                 source_item["expertise_match"] = await self._check_expertise_match(
@@ -756,9 +805,25 @@ Answer:
 
             sources.append(source_item)
 
-        # Sort sources by similarity score descending
-        sources.sort(key=lambda s: s.get("similarity_score", 0), reverse=True)
-        return sources
+        # Apply Task 2.3 enhanced metadata generation
+        query_type = query_analysis.query_type.value if query_analysis else 'factual'
+        try:
+            enhanced_sources = await enrich_sources_with_task23_metadata(
+                sources=sources,
+                query_type=query_type,
+                query=query
+            )
+        except Exception as e:
+            logging.warning(f"Task 2.3 source enhancement failed: {e}. Using basic sources.")
+            enhanced_sources = sources
+
+        # Sort sources by enhanced quality score if available, otherwise similarity
+        enhanced_sources.sort(
+            key=lambda s: s.get('enhanced_metadata', {}).get('quality_scores', {}).get('overall', s.get("similarity_score", 0)), 
+            reverse=True
+        )
+        
+        return enhanced_sources
     
     async def _calculate_source_quality(self, content: str) -> float:
         """Calculate source quality score (NEW)"""
@@ -825,6 +890,339 @@ Answer:
         }
         
         return ttl_mapping.get(query_analysis.query_type, 24)
+
+    def get_dynamic_cache_ttl_hours(
+        self, 
+        query_type: str, 
+        confidence_score: float, 
+        user_expertise_level: str = "intermediate"
+    ) -> int:
+        """
+        Get dynamic TTL based on query type, confidence, and user expertise.
+        
+        Task 2.3 Dynamic TTL Implementation.
+        """
+        
+        # Base TTL by query type (Task 2.3 requirement)
+        base_ttl_config = {
+            'factual': 24,          # Factual queries - 24 hours
+            'comparison': 12,       # Comparisons - 12 hours  
+            'tutorial': 48,         # Tutorials - 48 hours
+            'review': 6,            # Reviews - 6 hours
+            'news': 2,              # News - 2 hours
+            'promotional': 168,     # Promotions - 1 week
+            'technical': 72,        # Technical - 3 days
+            'default': 24
+        }
+        
+        base_ttl = base_ttl_config.get(query_type, base_ttl_config['default'])
+        
+        # Adjust based on confidence score
+        if confidence_score >= 0.9:
+            confidence_multiplier = 1.5    # High confidence - cache longer
+        elif confidence_score >= 0.8:
+            confidence_multiplier = 1.2
+        elif confidence_score >= 0.7:
+            confidence_multiplier = 1.0
+        elif confidence_score >= 0.6:
+            confidence_multiplier = 0.8
+        else:
+            confidence_multiplier = 0.5    # Low confidence - cache shorter
+        
+        # Adjust based on user expertise (expert users need less frequent updates)
+        expertise_multipliers = {
+            'novice': 1.2,       # Novices benefit from longer caching
+            'beginner': 1.1,
+            'intermediate': 1.0,
+            'advanced': 0.9,
+            'expert': 0.8        # Experts want fresher content
+        }
+        
+        expertise_multiplier = expertise_multipliers.get(user_expertise_level, 1.0)
+        
+        # Calculate final TTL
+        final_ttl = int(base_ttl * confidence_multiplier * expertise_multiplier)
+        
+        # Ensure reasonable bounds (between 1 hour and 1 week)
+        return max(1, min(168, final_ttl))
+
+    def generate_enhanced_cache_key_task23(
+        self, 
+        query: str, 
+        query_type: str, 
+        user_expertise_level: str,
+        additional_context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Generate enhanced cache key with query type and expertise level.
+        
+        Task 2.3 Query-Type Aware Caching Implementation.
+        """
+        
+        import hashlib
+        
+        # Normalize inputs
+        normalized_query = query.lower().strip()
+        
+        # Build key components
+        key_components = [
+            normalized_query,
+            query_type,
+            user_expertise_level
+        ]
+        
+        # Add additional context if provided
+        if additional_context:
+            for key in sorted(additional_context.keys()):
+                key_components.append(f"{key}:{additional_context[key]}")
+        
+        # Create hash
+        key_string = "|".join(key_components)
+        cache_key_hash = hashlib.md5(key_string.encode()).hexdigest()
+        
+        return f"task23_enhanced_{cache_key_hash}"
+
+    async def _calculate_confidence_with_task23_bonuses(
+        self,
+        base_confidence: float,
+        query: str,
+        query_type: str,
+        response_content: str,
+        sources: List[Dict[str, Any]],
+        user_expertise_level: str = "intermediate"
+    ) -> Tuple[float, Dict[str, Any]]:
+        """
+        Enhanced confidence calculation with Task 2.3 specific bonuses.
+        
+        Task 2.3 Requirements:
+        - Query Classification Accuracy (+0.1)
+        - Expertise Level Matching (+0.05)
+        - Response Format Appropriateness (+0.05)
+        - Variable bonuses for source quality and freshness
+        """
+        
+        # Initialize bonus tracking
+        bonus_breakdown = {
+            'base_confidence': base_confidence,
+            'bonuses_applied': {},
+            'total_bonus': 0.0
+        }
+        
+        # Bonus 1: Query Classification Accuracy (+0.1)
+        classification_bonus = await self._calculate_classification_accuracy_bonus(
+            query, query_type, response_content
+        )
+        if classification_bonus > 0:
+            bonus_breakdown['bonuses_applied']['query_classification'] = classification_bonus
+            bonus_breakdown['total_bonus'] += classification_bonus
+        
+        # Bonus 2: Expertise Level Matching (+0.05)
+        expertise_bonus = await self._calculate_expertise_matching_bonus(
+            query, response_content, user_expertise_level
+        )
+        if expertise_bonus > 0:
+            bonus_breakdown['bonuses_applied']['expertise_matching'] = expertise_bonus
+            bonus_breakdown['total_bonus'] += expertise_bonus
+        
+        # Bonus 3: Response Format Appropriateness (+0.05)
+        format_bonus = await self._calculate_format_appropriateness_bonus(
+            query_type, response_content
+        )
+        if format_bonus > 0:
+            bonus_breakdown['bonuses_applied']['format_appropriateness'] = format_bonus
+            bonus_breakdown['total_bonus'] += format_bonus
+        
+        # Bonus 4: Source Quality Aggregation (variable)
+        source_bonus = await self._calculate_source_quality_aggregation_bonus(sources)
+        if source_bonus > 0:
+            bonus_breakdown['bonuses_applied']['source_quality'] = source_bonus
+            bonus_breakdown['total_bonus'] += source_bonus
+        
+        # Bonus 5: Freshness Factor (variable)
+        freshness_bonus = await self._calculate_freshness_factor_bonus(sources, query_type, query)
+        if freshness_bonus > 0:
+            bonus_breakdown['bonuses_applied']['freshness'] = freshness_bonus
+            bonus_breakdown['total_bonus'] += freshness_bonus
+        
+        # Calculate final confidence (capped at 1.0)
+        final_confidence = min(1.0, base_confidence + bonus_breakdown['total_bonus'])
+        bonus_breakdown['final_confidence'] = final_confidence
+        
+        # Log the enhancement
+        logging.info(f"Task 2.3 Confidence Enhancement: {base_confidence:.3f} -> {final_confidence:.3f} (+{bonus_breakdown['total_bonus']:.3f})")
+        
+        return final_confidence, bonus_breakdown
+
+    async def _calculate_classification_accuracy_bonus(
+        self, 
+        query: str, 
+        query_type: str, 
+        response: str
+    ) -> float:
+        """Calculate +0.1 bonus for accurate query classification."""
+        
+        # Quick classification accuracy check
+        accuracy_indicators = {
+            'factual': ['definition', 'explanation', 'is defined as'],
+            'comparison': ['vs', 'versus', 'compared to', 'difference', 'better', 'worse'],
+            'tutorial': ['step', 'first', 'then', 'how to', 'instructions'],
+            'review': ['rating', 'pros', 'cons', 'verdict', 'recommend'],
+            'news': ['breaking', 'updated', 'recently', 'announced'],
+            'promotional': ['bonus', 'offer', 'promotion', 'deal', 'discount']
+        }
+        
+        if query_type in accuracy_indicators:
+            indicators = accuracy_indicators[query_type]
+            response_lower = response.lower()
+            
+            matches = sum(1 for indicator in indicators if indicator in response_lower)
+            accuracy_ratio = matches / len(indicators)
+            
+            # Award full bonus if high accuracy
+            if accuracy_ratio >= 0.6:
+                return 0.10
+            elif accuracy_ratio >= 0.3:
+                return 0.05
+        
+        return 0.0
+
+    async def _calculate_expertise_matching_bonus(
+        self, 
+        query: str, 
+        response: str, 
+        user_expertise_level: str
+    ) -> float:
+        """Calculate +0.05 bonus for expertise level matching."""
+        
+        # Simple complexity matching
+        response_complexity = len(response.split()) / 100  # Normalize by word count
+        technical_terms = ['implementation', 'algorithm', 'optimization', 'architecture', 'strategy', 'advanced']
+        tech_density = sum(1 for term in technical_terms if term.lower() in response.lower()) / 10
+        
+        complexity_score = min(1.0, response_complexity + tech_density)
+        
+        # Map expertise to expected complexity
+        expertise_complexity_map = {
+            'novice': 0.2,
+            'beginner': 0.4,
+            'intermediate': 0.6,
+            'advanced': 0.8,
+            'expert': 1.0
+        }
+        
+        expected_complexity = expertise_complexity_map.get(user_expertise_level, 0.6)
+        complexity_match = 1.0 - abs(complexity_score - expected_complexity)
+        
+        # Award bonus for good matching
+        if complexity_match >= 0.8:
+            return 0.05
+        elif complexity_match >= 0.6:
+            return 0.02
+        
+        return 0.0
+
+    async def _calculate_format_appropriateness_bonus(
+        self, 
+        query_type: str, 
+        response: str
+    ) -> float:
+        """Calculate +0.05 bonus for appropriate response format."""
+        
+        format_checks = {
+            'comparison': lambda r: any(word in r.lower() for word in ['vs', 'compared to', 'while', 'whereas']),
+            'tutorial': lambda r: any(word in r.lower() for word in ['step', 'first', 'then', 'next']),
+            'review': lambda r: any(word in r.lower() for word in ['rating', 'pros', 'cons', 'verdict']),
+            'factual': lambda r: len(r.split()) > 20 and not any(word in r.lower() for word in ['i think', 'maybe']),
+            'news': lambda r: any(word in r.lower() for word in ['recently', 'announced', 'updated', 'breaking']),
+            'promotional': lambda r: any(word in r.lower() for word in ['offer', 'bonus', 'terms', 'conditions'])
+        }
+        
+        if query_type in format_checks and format_checks[query_type](response):
+            return 0.05
+        
+        return 0.0
+
+    async def _calculate_source_quality_aggregation_bonus(self, sources: List[Dict[str, Any]]) -> float:
+        """Calculate variable bonus based on source quality aggregation."""
+        
+        if not sources:
+            return 0.0
+        
+        # Calculate average source quality
+        quality_scores = []
+        for source in sources:
+            # Use existing source quality metrics
+            authority = source.get('authority_score', source.get('quality_score', 0.5))
+            credibility = source.get('credibility_score', source.get('similarity_score', 0.5))
+            avg_quality = (authority + credibility) / 2
+            quality_scores.append(avg_quality)
+        
+        if quality_scores:
+            overall_quality = sum(quality_scores) / len(quality_scores)
+            
+            # Award bonus based on quality
+            if overall_quality >= 0.9:
+                return 0.10
+            elif overall_quality >= 0.8:
+                return 0.07
+            elif overall_quality >= 0.7:
+                return 0.05
+            elif overall_quality >= 0.6:
+                return 0.02
+        
+        return 0.0
+
+    async def _calculate_freshness_factor_bonus(
+        self, 
+        sources: List[Dict[str, Any]], 
+        query_type: str, 
+        query: str
+    ) -> float:
+        """Calculate variable bonus for freshness of time-sensitive queries."""
+        
+        # Check if query is time-sensitive
+        time_sensitive_indicators = ['latest', 'recent', 'new', 'current', '2024', '2025']
+        is_time_sensitive = any(indicator in query.lower() for indicator in time_sensitive_indicators)
+        
+        # Certain query types are inherently time-sensitive
+        if query_type in ['news', 'review', 'promotional']:
+            is_time_sensitive = True
+        
+        if not is_time_sensitive or not sources:
+            return 0.0
+        
+        # Calculate freshness
+        from datetime import datetime, timedelta
+        current_time = datetime.utcnow()
+        fresh_sources = 0
+        
+        for source in sources:
+            published_date = source.get('published_date')
+            if published_date:
+                try:
+                    if isinstance(published_date, str):
+                        pub_date = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+                    else:
+                        pub_date = published_date
+                    
+                    days_old = (current_time - pub_date).days
+                    if days_old <= 30:  # Fresh within 30 days
+                        fresh_sources += 1
+                except:
+                    pass
+        
+        if sources:
+            freshness_ratio = fresh_sources / len(sources)
+            
+            # Award freshness bonus
+            if freshness_ratio >= 0.8:
+                return 0.05
+            elif freshness_ratio >= 0.5:
+                return 0.03
+            elif freshness_ratio >= 0.3:
+                return 0.01
+        
+        return 0.0
     
     def _extract_token_usage(self, metrics: Dict[str, Any]) -> Optional[Dict[str, int]]:
         """Extract token usage from metrics"""
@@ -928,5 +1326,5 @@ if __name__ == "__main__":
     
     # Run test
     print("🚀 Testing Universal RAG Chain with Enhanced Confidence Scoring")
-    print("=" * 70)
-    # asyncio.run(test_chain())  # Uncomment to run test 
+          print("=" * 70)
+      # asyncio.run(test_chain())  # Uncomment to run test 

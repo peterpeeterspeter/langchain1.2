@@ -100,7 +100,7 @@
           "title": "Enhanced Response and Confidence Scoring",
           "description": "Implement enhanced response generation with query-aware confidence scoring, metadata enrichment, and advanced caching strategies",
           "details": "**OBJECTIVE**: Enhance response generation with intelligent confidence scoring, metadata enrichment, and query-type aware caching to improve response quality and user experience.\n\n**IMPLEMENTATION REQUIREMENTS**:\n\n**1. Enhanced Confidence Scoring System**:\n\n**Multi-Factor Confidence Calculation**:\n   - Base confidence from document relevance and quality\n   - Query classification confidence bonus (high accuracy = +0.1)\n   - Expertise level matching bonus (content matches user level = +0.05)\n   - Response format appropriateness bonus (matches expected format = +0.05)\n   - Source quality aggregation (average quality scores)\n   - Freshness factor for time-sensitive queries (news, promotions)\n\n**Implementation in universal_rag_lcel.py**:\n```python\ndef _calculate_enhanced_confidence(\n    self, \n    docs: List[Document], \n    response: str, \n    query_analysis: QueryAnalysis\n) -> float:\n    \\\"\\\"\\\"Calculate confidence score with query analysis enhancement.\\\"\\\"\\\"\n    # Multi-factor confidence calculation\n    base_confidence = self._calculate_confidence_score(docs, response)\n    \n    # Query classification accuracy bonus\n    query_type_bonus = 0.1 if query_analysis.confidence > 0.8 else 0.0\n    \n    # Expertise matching and format appropriateness bonuses\n    expertise_bonus = self._calculate_expertise_bonus(docs, query_analysis)\n    format_bonus = self._check_format_appropriateness(response, query_analysis)\n    \n    return min(base_confidence + query_type_bonus + expertise_bonus + format_bonus, 1.0)\n```\n\n**2. Enhanced Source Metadata System**:\n\n**Rich Source Information**:\n   - Quality scores with visual indicators\n   - Expertise level matching assessment\n   - Freshness and relevance scoring\n   - Query-type specific metadata (ratings for reviews, validity for promotions)\n   - Content type classification with badges\n   - Authority and credibility indicators\n\n**Enhanced Source Creation**:\n```python\ndef _create_enhanced_sources(self, docs: List[Document], query_analysis: QueryAnalysis) -> List[Dict]:\n    \\\"\\\"\\\"Create enhanced source metadata using query analysis.\\\"\\\"\\\"\n    enhanced_sources = []\n    \n    for doc in docs:\n        source = {\n            \\\"title\\\": doc.metadata.get('title', 'Untitled'),\n            \\\"quality_score\\\": self._calculate_source_quality(doc),\n            \\\"relevance_to_query\\\": self._calculate_query_relevance(doc, query_analysis),\n            \\\"expertise_match\\\": self._check_expertise_match(doc, query_analysis),\n            \\\"freshness_score\\\": self._calculate_freshness(doc),\n            \\\"content_type_badge\\\": self._get_content_badge(doc)\n        }\n        \n        # Add query-type specific metadata\n        if query_analysis.query_type == QueryType.CASINO_REVIEW:\n            source.update({\n                \\\"rating\\\": doc.metadata.get('rating'),\n                \\\"review_count\\\": doc.metadata.get('review_count'),\n                \\\"last_updated\\\": doc.metadata.get('published_at')\n            })\n        \n        enhanced_sources.append(source)\n    \n    return enhanced_sources\n```\n\n**3. Advanced Caching Strategy**:\n\n**Query-Type Aware Caching**:\n   - Dynamic TTL based on query type and content freshness\n   - Enhanced cache keys including query type and user expertise level\n   - Quality-based cache storage (only cache high-confidence responses)\n   - Semantic similarity with type-aware matching\n\n**TTL Configuration**:\n```python\nCACHE_TTL_BY_QUERY_TYPE = {\n    QueryType.CASINO_REVIEW: 24,      # 24 hours (stable content)\n    QueryType.GAME_GUIDE: 72,         # 3 days (educational content)\n    QueryType.PROMOTION_ANALYSIS: 6,   # 6 hours (promotions change frequently)\n    QueryType.NEWS_UPDATE: 2,         # 2 hours (time-sensitive)\n    QueryType.COMPARISON: 12,         # 12 hours (moderately stable)\n    QueryType.GENERAL_INFO: 48        # 2 days (general knowledge)\n}\n```\n\n**Enhanced Cache Management**:\n   - Automatic cache invalidation for expired promotions\n   - Quality-based cache eviction (remove low-confidence entries)\n   - Usage analytics for cache optimization\n   - Preemptive cache warming for popular queries\n\n**4. Response Quality Validation**:\n\n**Response Appropriateness Checking**:\n   - Format validation (structured vs brief vs comprehensive)\n   - Content completeness assessment\n   - Domain-specific terminology usage\n   - Citation quality and relevance\n   - Length appropriateness for query type\n\n**Quality Metrics Integration**:\n   - Response coherence scoring\n   - Information completeness assessment\n   - User intent fulfillment rating\n   - Technical accuracy validation\n\n**5. Error Handling Enhancement**:\n\n**Advanced Error Recovery**:\n   - Query classification failure handling\n   - Prompt optimization degradation\n   - Context formatting errors\n   - Confidence calculation failures\n   - Graceful fallback to basic prompts\n\n**6. Files to Modify**:\n   - src/chains/universal_rag_lcel.py (main enhancements)\n   - Update RAGResponse model with new fields\n   - Enhance RAGQueryCache with query-type awareness\n   - Update confidence calculation methods\n\n**ACCEPTANCE CRITERIA**:\n✅ Enhanced confidence scoring accurately reflects response quality\n✅ Source metadata includes rich quality and relevance indicators\n✅ Query-type aware caching improves cache hit rates by >25%\n✅ Dynamic TTL management reduces stale content delivery\n✅ Response quality validation catches low-quality responses\n✅ Error handling gracefully degrades without system failures\n✅ Performance metrics show improved user satisfaction scores\n✅ Cache analytics provide insights for optimization",
-          "status": "pending",
+          "status": "done",
           "dependencies": [
             "2.1",
             "2.2"
@@ -301,15 +301,59 @@
     {
       "id": 3,
       "title": "Implement Contextual Retrieval System",
-      "description": "Build advanced retrieval with contextual embedding and hybrid search capabilities",
-      "details": "Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results.",
-      "priority": "high",
+      "description": "Build advanced retrieval with contextual embedding and hybrid search capabilities, integrating with the completed enhanced confidence scoring system",
       "status": "pending",
       "dependencies": [
         1,
         2
       ],
-      "testStrategy": "Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering"
+      "priority": "high",
+      "details": "Implement contextual retrieval (prepend context to chunks before embedding), hybrid search (dense + BM25), multi-query retrieval, self-query retrieval with metadata filtering, maximal marginal relevance for diverse results. Integration must work seamlessly with the completed Task 2.3 enhanced confidence scoring system, including query classification accuracy bonuses, expertise level matching, and enhanced source metadata with visual indicators.",
+      "testStrategy": "Benchmark against baseline retrieval, measure precision@5 (target >0.8), test query diversity, validate metadata filtering. Verify integration with completed Task 2.3 confidence scoring system - test that retrieved sources properly flow through enhanced metadata generation, query classification bonuses are applied correctly, and dynamic TTL caching works with new retrieval methods.",
+      "subtasks": [
+        {
+          "id": "3.1",
+          "title": "Implement Contextual Embedding System",
+          "description": "Add context prepending to document chunks before embedding generation",
+          "status": "pending"
+        },
+        {
+          "id": "3.2",
+          "title": "Build Hybrid Search Infrastructure",
+          "description": "Implement dense vector search combined with BM25 sparse retrieval",
+          "status": "pending"
+        },
+        {
+          "id": "3.3",
+          "title": "Develop Multi-Query Retrieval",
+          "description": "Generate multiple query variations for comprehensive document retrieval",
+          "status": "pending"
+        },
+        {
+          "id": "3.4",
+          "title": "Implement Self-Query with Metadata Filtering",
+          "description": "Add intelligent metadata-based filtering to retrieval queries",
+          "status": "pending"
+        },
+        {
+          "id": "3.5",
+          "title": "Add Maximal Marginal Relevance",
+          "description": "Implement MMR algorithm for diverse and relevant result selection",
+          "status": "pending"
+        },
+        {
+          "id": "3.6",
+          "title": "Integrate with Enhanced Confidence Scoring System",
+          "description": "Ensure retrieved sources properly interface with completed Task 2.3 enhanced metadata generation, query classification bonuses (+0.1, +0.05, +0.05), and dynamic TTL caching system",
+          "status": "pending"
+        },
+        {
+          "id": "3.7",
+          "title": "Optimize Retrieval Pipeline Performance",
+          "description": "Fine-tune retrieval parameters and ensure efficient integration with existing confidence scoring and caching mechanisms",
+          "status": "pending"
+        }
+      ]
     },
     {
       "id": 4,

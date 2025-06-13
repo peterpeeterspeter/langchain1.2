@@ -3301,4 +3301,209 @@ class ConfidenceIntegrator:
         
         return enhanced_response
 
+# ============================================================================
+# Task 2.3 Enhanced Source Metadata System
+# ============================================================================
+
+@dataclass
+class EnhancedSourceMetadata:
+    """Enhanced source metadata with visual indicators and quality scores."""
+    
+    # Core metadata
+    title: str
+    url: str
+    content_snippet: str
+    
+    # Quality scores (0.0 to 1.0)
+    authority_score: float
+    credibility_score: float
+    expertise_score: float
+    relevance_score: float
+    freshness_score: float
+    
+    # Visual indicators
+    quality_badge: str  # "excellent", "good", "fair", "poor"
+    content_type_badge: str  # "academic", "news", "blog", "official", "community"
+    expertise_level_badge: str  # "expert", "professional", "general", "beginner"
+    
+    # Query-type specific metadata
+    query_specific_metadata: Dict[str, Any] = field(default_factory=dict)
+    
+    # Technical metadata
+    published_date: Optional[datetime] = None
+    last_updated: Optional[datetime] = None
+    author: Optional[str] = None
+    domain_authority: Optional[float] = None
+    
+    # Engagement metrics
+    citation_count: Optional[int] = None
+    social_shares: Optional[int] = None
+    user_rating: Optional[float] = None
+
+class EnhancedSourceMetadataGenerator:
+    """Generate enhanced source metadata with visual indicators."""
+    
+    def __init__(self):
+        self.quality_thresholds = {
+            'excellent': 0.85,
+            'good': 0.70,
+            'fair': 0.55,
+            'poor': 0.0
+        }
+        
+        self.content_type_indicators = {
+            'academic': ['.edu', 'journal', 'research', 'study', 'university', 'scholar'],
+            'news': ['news', 'breaking', 'reuters', 'bbc', 'cnn', 'associated press'],
+            'official': ['.gov', '.org', 'official', 'government', 'ministry'],
+            'blog': ['blog', 'personal', 'medium.com', 'wordpress'],
+            'community': ['reddit', 'stackoverflow', 'forum', 'discussion', 'community']
+        }
+    
+    async def generate_enhanced_metadata(
+        self, 
+        source: Dict[str, Any], 
+        query_type: str,
+        query: str
+    ) -> EnhancedSourceMetadata:
+        """Generate comprehensive enhanced metadata for a source."""
+        
+        # Extract basic information
+        title = source.get('title', 'Unknown Title')
+        url = source.get('url', '')
+        content = source.get('content', source.get('content_preview', ''))
+        
+        # Calculate quality scores
+        authority_score = await self._calculate_authority_score(source)
+        credibility_score = await self._calculate_credibility_score(source)
+        expertise_score = await self._calculate_expertise_score(source, query_type)
+        relevance_score = await self._calculate_relevance_score(source, query)
+        freshness_score = await self._calculate_freshness_score(source, query_type)
+        
+        # Generate visual indicators
+        overall_quality = (authority_score + credibility_score + expertise_score + relevance_score) / 4
+        quality_badge = self._get_quality_badge(overall_quality)
+        content_type_badge = self._get_content_type_badge(url, title, content)
+        expertise_level_badge = self._get_expertise_level_badge(expertise_score)
+        
+        # Generate query-specific metadata
+        query_specific_metadata = await self._generate_query_specific_metadata(
+            source, query_type, query
+        )
+        
+        # Extract technical metadata
+        published_date = self._extract_published_date(source)
+        author = source.get('author')
+        domain_authority = source.get('domain_authority', source.get('authority_score'))
+        
+        return EnhancedSourceMetadata(
+            title=title,
+            url=url,
+            content_snippet=content[:200] + "..." if len(content) > 200 else content,
+            authority_score=authority_score,
+            credibility_score=credibility_score,
+            expertise_score=expertise_score,
+            relevance_score=relevance_score,
+            freshness_score=freshness_score,
+            quality_badge=quality_badge,
+            content_type_badge=content_type_badge,
+            expertise_level_badge=expertise_level_badge,
+            query_specific_metadata=query_specific_metadata,
+            published_date=published_date,
+            author=author,
+            domain_authority=domain_authority
+        )
+    
+    async def _calculate_authority_score(self, source: Dict[str, Any]) -> float:
+        """Calculate authority score based on source characteristics."""
+        score = source.get('authority_score', 0.5)
+        
+        # Enhance with URL authority indicators
+        url = source.get('url', '').lower()
+        if any(domain in url for domain in ['.edu', '.gov', '.org']):
+            score = min(1.0, score + 0.2)
+        elif any(domain in url for domain in ['wikipedia', 'scholar']):
+            score = min(1.0, score + 0.15)
+        
+        return score
+    
+    async def _calculate_credibility_score(self, source: Dict[str, Any]) -> float:
+        """Calculate credibility score based on source characteristics."""
+        return source.get('credibility_score', source.get('quality_score', 0.5))
+    
+    async def _calculate_expertise_score(self, source: Dict[str, Any], query_type: str) -> float:
+        """Calculate expertise score based on content and query type."""
+        base_score = source.get('expertise_score', 0.5)
+        
+        content = source.get('content', source.get('content_preview', '')).lower()
+        
+        # Query type specific expertise indicators
+        expertise_indicators = {
+            'tutorial': ['step-by-step', 'guide', 'how-to', 'tutorial', 'instructions'],
+            'review': ['review', 'rating', 'pros', 'cons', 'experience'],
+            'comparison': ['comparison', 'versus', 'vs', 'compared', 'difference'],
+            'technical': ['technical', 'implementation', 'architecture', 'specification'],
+            'news': ['breaking', 'reporter', 'journalist', 'news', 'update']
+        }
+        
+        if query_type in expertise_indicators:
+            indicators = expertise_indicators[query_type]
+            matches = sum(1 for indicator in indicators if indicator in content)
+            expertise_boost = min(0.3, matches * 0.1)
+            base_score = min(1.0, base_score + expertise_boost)
+        
+        return base_score
+    
+    async def _calculate_relevance_score(self, source: Dict[str, Any], query: str) -> float:
+        """Calculate relevance score based on query matching."""
+        return source.get('relevance_score', source.get('similarity_score', 0.5))
+    
+    async def _calculate_freshness_score(self, source: Dict[str, Any], query_type: str) -> float:
+        """Calculate freshness score based on publication date and query type."""
+        published_date = source.get('published_date')
+        if not published_date:
+            return 0.5  # Default if no date available
+        
+        try:
+            if isinstance(published_date, str):
+                pub_date = datetime.fromisoformat(published_date.replace('Z', '+00:00'))
+            else:
+                pub_date = published_date
+            
+            current_time = datetime.now()
+            age_days = (current_time - pub_date).days
+            
+            # Freshness requirements vary by query type
+            freshness_requirements = {
+                'news': 1,        # Very fresh required
+                'promotional': 7,  # Moderately fresh
+                'review': 30,     # Can be older
+                'tutorial': 180,  # Tutorials age well
+                'factual': 365    # Facts don't change quickly
+            }
+            
+            max_age = freshness_requirements.get(query_type, 90)
+            
+            if age_days <= max_age * 0.1:  # Very fresh
+                return 1.0
+            elif age_days <= max_age * 0.5:  # Fresh
+                return 0.8
+            elif age_days <= max_age:  # Acceptable
+                return 0.6
+            else:  # Stale
+                return 0.3
+                
+        except (ValueError, TypeError):
+            return 0.5  # Default if date parsing fails
+    
+    def _get_quality_badge(self, overall_quality: float) -> str:
+        """Get quality badge based on overall quality score."""
+        for badge, threshold in self.quality_thresholds.items():
+            if overall_quality >= threshold:
+                return badge
+        return 'poor'
+    
+    def _get_content_type_badge(self, url: str, title: str, content: str) -> str:
+        """Determine content type badge based on URL and content analysis."""
+        combined_text = f"{url} {title} {content}".lower()
+        
 # ... existing code ...
