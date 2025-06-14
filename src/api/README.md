@@ -1,6 +1,6 @@
 # Universal RAG CMS Configuration Management API
 
-A comprehensive REST API for managing configurations, monitoring, and A/B testing in the Universal RAG CMS system.
+A comprehensive REST API for managing configurations, monitoring, A/B testing, and contextual retrieval in the Universal RAG CMS system.
 
 ## Features
 
@@ -8,6 +8,12 @@ A comprehensive REST API for managing configurations, monitoring, and A/B testin
 - **Prompt Optimization**: Manage prompt configurations with validation and versioning
 - **Configuration History**: Track changes and rollback to previous versions
 - **Validation**: Validate configurations before deployment
+
+### 🎯 Contextual Retrieval Configuration
+- **Retrieval Settings**: Manage contextual retrieval system configuration
+- **Performance Profiles**: Apply optimized settings for different use cases
+- **Query-Type Optimization**: Optimize configuration for specific query types
+- **Environment Management**: Separate configurations for dev/staging/production
 
 ### 📊 Real-Time Monitoring & Analytics
 - **Real-Time Metrics**: Live performance monitoring via REST and WebSocket
@@ -39,6 +45,8 @@ Set up your environment variables:
 ```bash
 export SUPABASE_URL="your_supabase_url"
 export SUPABASE_KEY="your_supabase_key"
+export OPENAI_API_KEY="your_openai_key"
+export ANTHROPIC_API_KEY="your_anthropic_key"
 ```
 
 ### Running the API
@@ -101,6 +109,103 @@ GET /api/v1/config/prompt-optimization/history?limit=10
 #### Rollback Configuration
 ```http
 POST /api/v1/config/prompt-optimization/rollback/{version_id}?updated_by=user123
+```
+
+### Contextual Retrieval Configuration
+
+#### Get Retrieval Configuration
+```http
+GET /retrieval/api/v1/config/?environment=production&include_sensitive=false
+```
+
+#### Update Retrieval Configuration
+```http
+PUT /retrieval/api/v1/config/
+Content-Type: application/json
+
+{
+  "config_data": {
+    "retrieval_strategy": "hybrid",
+    "dense_weight": 0.7,
+    "sparse_weight": 0.3,
+    "mmr_lambda": 0.7,
+    "max_results": 10
+  },
+  "validate_only": false,
+  "force_update": false
+}
+```
+
+#### Validate Retrieval Configuration
+```http
+POST /retrieval/api/v1/config/validate
+Content-Type: application/json
+
+{
+  "retrieval_strategy": "contextual",
+  "context_window_size": 512,
+  "embedding_model": "text-embedding-3-large"
+}
+```
+
+#### Export Configuration
+```http
+POST /retrieval/api/v1/config/export
+Content-Type: application/json
+
+{
+  "environment": "production",
+  "include_sensitive": false,
+  "format": "json"
+}
+```
+
+#### Update Performance Profile
+```http
+PUT /retrieval/api/v1/config/performance-profile
+Content-Type: application/json
+
+{
+  "profile": "LATENCY_FOCUSED",
+  "custom_overrides": {
+    "cache_ttl_hours": 1,
+    "max_concurrent_requests": 50
+  }
+}
+```
+
+#### Get Performance Profiles
+```http
+GET /retrieval/api/v1/config/performance-profiles
+```
+
+#### Optimize for Query Type
+```http
+POST /retrieval/api/v1/config/optimize-for-query-type
+Content-Type: application/json
+
+{
+  "query_type": "casino_review",
+  "sample_queries": [
+    "What are the best online casinos for slots?",
+    "Compare Betway vs 888 Casino bonuses"
+  ]
+}
+```
+
+#### Get Supported Query Types
+```http
+GET /retrieval/api/v1/config/query-types
+```
+
+#### Reload Configuration
+```http
+POST /retrieval/api/v1/config/reload
+```
+
+#### Configuration Health Check
+```http
+GET /retrieval/api/v1/config/health
 ```
 
 ### Monitoring & Analytics

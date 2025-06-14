@@ -12,6 +12,8 @@ import logging
 from datetime import datetime
 
 from .config_management import router as config_router
+from .retrieval_config_api import router as retrieval_config_router
+from .contextual_retrieval_api import router as contextual_retrieval_router
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -20,8 +22,8 @@ logger = logging.getLogger(__name__)
 # Create FastAPI app
 app = FastAPI(
     title="Universal RAG CMS API",
-    description="REST API for configuration management, monitoring, and A/B testing",
-    version="1.0.0",
+    description="REST API for configuration management, monitoring, A/B testing, and contextual retrieval",
+    version="2.1.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )
@@ -50,6 +52,8 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Include routers
 app.include_router(config_router)
+app.include_router(retrieval_config_router, prefix="/retrieval")
+app.include_router(contextual_retrieval_router)
 
 # Root endpoint
 @app.get("/")
@@ -57,15 +61,27 @@ async def root():
     """Root endpoint with API information."""
     return {
         "name": "Universal RAG CMS API",
-        "version": "1.0.0",
+        "version": "2.1.0",
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat(),
         "endpoints": {
             "docs": "/docs",
             "redoc": "/redoc",
             "config": "/api/v1/config",
-            "health": "/api/v1/config/health"
-        }
+            "retrieval_config": "/retrieval/api/v1/config",
+            "contextual_retrieval": "/api/v1/contextual",
+            "health": "/health"
+        },
+        "features": [
+            "Configuration Management",
+            "Real-time Monitoring",
+            "Performance Profiling", 
+            "Feature Flags & A/B Testing",
+            "Contextual Retrieval Configuration",
+            "Contextual Document Querying",
+            "Document Ingestion & Migration",
+            "WebSocket Metrics Streaming"
+        ]
     }
 
 # Health check endpoint
@@ -74,7 +90,14 @@ async def health():
     """General health check."""
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.utcnow().isoformat(),
+        "services": {
+            "config_management": "healthy",
+            "monitoring": "healthy",
+            "retrieval_config": "healthy",
+            "contextual_retrieval": "healthy",
+            "feature_flags": "healthy"
+        }
     }
 
 if __name__ == "__main__":

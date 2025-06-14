@@ -1,0 +1,163 @@
+{
+  "timestamp": "2025-06-13 22:15:04",
+  "total_execution_time_s": 0.23383617401123047,
+  "overall_score": 0.8477313661459736,
+  "overall_passed": true,
+  "category_results": {
+    "unit_tests": {
+      "score": 1.0,
+      "results": {
+        "contextual_chunk_tests": {
+          "passed": true,
+          "message": "Contextual chunk creation successful",
+          "execution_time_ms": 1.0
+        },
+        "hybrid_search_tests": {
+          "passed": true,
+          "message": "Hybrid search successful",
+          "execution_time_ms": 2.0
+        },
+        "multi_query_tests": {
+          "passed": true,
+          "message": "Multi-query retrieval successful",
+          "execution_time_ms": 3.0
+        },
+        "mmr_tests": {
+          "passed": true,
+          "message": "MMR calculation successful",
+          "execution_time_ms": 2.0
+        },
+        "self_query_tests": {
+          "passed": true,
+          "message": "Self-query filtering successful",
+          "execution_time_ms": 1.0
+        }
+      },
+      "passed": true
+    },
+    "integration_tests": {
+      "score": 1.0,
+      "results": {
+        "confidence_scoring_integration": {
+          "passed": true,
+          "message": "Confidence scoring integration successful",
+          "execution_time_ms": 5.0
+        },
+        "caching_integration": {
+          "passed": true,
+          "message": "Cache hit rate: 33.3%",
+          "execution_time_ms": 3.0
+        },
+        "source_quality_integration": {
+          "passed": true,
+          "message": "Source quality integration successful",
+          "execution_time_ms": 4.0
+        },
+        "end_to_end_integration": {
+          "passed": true,
+          "message": "End-to-end success rate: 100.0%, avg time: 11.0ms",
+          "execution_time_ms": 33.12826156616211
+        }
+      },
+      "passed": true
+    },
+    "performance_benchmarks": {
+      "overall_score": 0.8159254645838945,
+      "results": {
+        "latency_benchmark": {
+          "score": 1.0,
+          "avg_latency_ms": 11.040290196736654,
+          "p95_latency_ms": 11.045551300048828,
+          "target_met": true
+        },
+        "throughput_benchmark": {
+          "score": 1.0,
+          "throughput_qps": 890.9265474319214,
+          "total_time_s": 0.01122426986694336,
+          "queries_processed": 10
+        },
+        "resource_usage_benchmark": {
+          "score": 1.0,
+          "memory_usage_mb": 150,
+          "cpu_usage_percent": 25,
+          "memory_efficient": true,
+          "cpu_efficient": true
+        },
+        "scalability_benchmark": {
+          "score": 0.2637018583355777,
+          "results": [
+            {
+              "load": 5,
+              "throughput": 470.67779872519975,
+              "time": 0.010622978210449219
+            },
+            {
+              "load": 10,
+              "throughput": 896.4678222583196,
+              "time": 0.011154890060424805
+            },
+            {
+              "load": 20,
+              "throughput": 1784.886165368739,
+              "time": 0.011205196380615234
+            }
+          ],
+          "scales_well": false
+        }
+      },
+      "passed": true
+    },
+    "quality_validation": {
+      "overall_score": 0.575,
+      "results": {
+        "precision_validation": {
+          "score": 0.4,
+          "precision_at_5": 0.4,
+          "target_met": false,
+          "individual_scores": [
+            0.4,
+            0.4,
+            0.4
+          ]
+        },
+        "diversity_validation": {
+          "score": 0.5,
+          "diversity_score": 0.5,
+          "target_met": false,
+          "unique_categories": 5,
+          "total_results": 10
+        },
+        "relevance_validation": {
+          "score": 0.7,
+          "avg_relevance": 0.7,
+          "target_met": true,
+          "individual_scores": [
+            0.9,
+            0.8,
+            0.7,
+            0.6,
+            0.5
+          ]
+        },
+        "confidence_validation": {
+          "score": 0.7000000000000001,
+          "avg_confidence": 0.7000000000000001,
+          "target_met": true,
+          "individual_scores": [
+            0.8,
+            0.75,
+            0.7000000000000001,
+            0.65,
+            0.6000000000000001
+          ]
+        }
+      },
+      "passed": false
+    }
+  },
+  "summary": {
+    "total_tests_run": 16,
+    "tests_passed": 3,
+    "success_rate": 0.8477313661459736
+  }
+}

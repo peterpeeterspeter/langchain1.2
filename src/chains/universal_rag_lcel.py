@@ -1326,5 +1326,5 @@ if __name__ == "__main__":
     
     # Run test
     print("🚀 Testing Universal RAG Chain with Enhanced Confidence Scoring")
-          print("=" * 70)
-      # asyncio.run(test_chain())  # Uncomment to run test 
+    print("=" * 70)
+    # asyncio.run(test_chain())  # Uncomment to run test 

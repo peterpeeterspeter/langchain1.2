@@ -1,5 +1,30 @@
 # Changelog
 
+## [3.1.0] - 2025-01-20 - Task 3.0-3.5: Complete Documentation & Integration
+
+### 📚 COMPREHENSIVE DOCUMENTATION RELEASE: Task 3 Complete Implementation Guide
+
+#### Complete Task 3 Documentation Suite
+- **NEW**: `src/retrieval/TASK_3_OVERVIEW.md` - Comprehensive overview of all Task 3 components
+- **NEW**: `src/retrieval/CONTEXTUAL_EMBEDDING.md` - Detailed Task 3.1 implementation guide
+- **NEW**: `src/retrieval/HYBRID_SEARCH.md` - Complete Task 3.2 architecture documentation
+- **NEW**: `src/retrieval/MULTI_QUERY.md` - Comprehensive Task 3.3 system documentation
+- **NEW**: Complete technical documentation with usage examples, performance metrics, and troubleshooting
+
+#### Task 3 System Status Update
+- **✅ Task 3.1**: Contextual Embedding System (716 lines) - Enhanced chunks with document structure awareness
+- **✅ Task 3.2**: Hybrid Search Infrastructure (707 lines) - Dense + sparse BM25 with score fusion
+- **✅ Task 3.3**: Multi-Query Retrieval (836 lines) - LLM-powered query expansion with parallel processing
+- **✅ Task 3.4**: Self-Query Metadata Filtering (1160 lines) - Natural language constraint extraction
+- **✅ Task 3.5**: MMR & Task 2 Integration (850+ lines) - Unified contextual retrieval orchestrator
+
+#### Documentation Features
+- **Architecture Diagrams**: Complete system integration and data flow
+- **Usage Examples**: Practical implementation guides for all components
+- **Performance Metrics**: Detailed benchmarks and optimization targets
+- **Integration Points**: Seamless Task 2 integration documentation
+- **Troubleshooting Guides**: Common issues and performance tuning
+
 ## [3.0.0] - 2025-01-20 - Task 3.5: Complete Contextual Retrieval System with MMR & Task 2 Integration
 
 ### 🚀 Major Release: Task 3.5 Complete - Unified Contextual Retrieval System

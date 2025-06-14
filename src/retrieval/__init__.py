@@ -62,7 +62,6 @@ from .self_query import (
 from .contextual_retrieval import (
     ContextualRetrievalSystem,
     MaximalMarginalRelevance,
-    RetrievalOptimizer,
     RetrievalStrategy,
     create_contextual_retrieval_system
 )
@@ -108,8 +107,7 @@ __all__ = [
     
     # MMR & Task 2 Integration (Task 3.5)
     "ContextualRetrievalSystem",
-    "MaximalMarginalRelevance", 
-    "RetrievalOptimizer",
+    "MaximalMarginalRelevance",
     "RetrievalStrategy",
     "create_contextual_retrieval_system"
 ]

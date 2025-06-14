@@ -3506,4 +3506,699 @@ class EnhancedSourceMetadataGenerator:
         """Determine content type badge based on URL and content analysis."""
         combined_text = f"{url} {title} {content}".lower()
         
-# ... existing code ...
+        # Score each content type
+        type_scores = {}
+        for content_type, indicators in self.content_type_indicators.items():
+            score = sum(1 for indicator in indicators if indicator in combined_text)
+            if score > 0:
+                type_scores[content_type] = score
+        
+        # Return the highest scoring type or 'general' if none match
+        if type_scores:
+            return max(type_scores.items(), key=lambda x: x[1])[0]
+        return 'general'
+    
+    def _get_expertise_level_badge(self, expertise_score: float) -> str:
+        """Get expertise level badge based on expertise score."""
+        if expertise_score >= 0.8:
+            return 'expert'
+        elif expertise_score >= 0.6:
+            return 'professional'
+        elif expertise_score >= 0.4:
+            return 'general'
+        else:
+            return 'beginner'
+    
+    async def _generate_query_specific_metadata(
+        self, 
+        source: Dict[str, Any], 
+        query_type: str, 
+        query: str
+    ) -> Dict[str, Any]:
+        """Generate metadata specific to the query type."""
+        
+        metadata = {}
+        content = source.get('content', source.get('content_preview', '')).lower()
+        
+        if query_type == 'casino_review':
+            metadata.update({
+                'has_rating': any(word in content for word in ['rating', 'score', 'stars']),
+                'has_pros_cons': any(word in content for word in ['pros', 'cons', 'advantages', 'disadvantages']),
+                'has_bonuses': any(word in content for word in ['bonus', 'promotion', 'offer', 'welcome']),
+                'has_games': any(word in content for word in ['games', 'slots', 'poker', 'blackjack']),
+                'has_payment_info': any(word in content for word in ['payment', 'deposit', 'withdrawal', 'banking'])
+            })
+        
+        elif query_type == 'game_guide':
+            metadata.update({
+                'has_rules': any(word in content for word in ['rules', 'how to play', 'gameplay']),
+                'has_strategy': any(word in content for word in ['strategy', 'tips', 'tactics', 'advice']),
+                'has_examples': any(word in content for word in ['example', 'instance', 'demonstration']),
+                'difficulty_indicators': [word for word in ['beginner', 'intermediate', 'advanced', 'expert'] if word in content]
+            })
+        
+        elif query_type == 'promotion_analysis':
+            metadata.update({
+                'has_terms': any(word in content for word in ['terms', 'conditions', 'requirements']),
+                'has_wagering': any(word in content for word in ['wagering', 'playthrough', 'rollover']),
+                'has_expiry': any(word in content for word in ['expires', 'expiry', 'deadline', 'time limit']),
+                'value_indicators': [word for word in ['high value', 'generous', 'competitive', 'standard'] if word in content]
+            })
+        
+        elif query_type == 'comparison':
+            metadata.update({
+                'comparison_aspects': self._extract_comparison_aspects(content),
+                'has_table': 'table' in content or '|' in content,
+                'has_verdict': any(word in content for word in ['verdict', 'winner', 'best choice', 'recommendation']),
+                'comparison_criteria': self._extract_comparison_criteria(content)
+            })
+        
+        elif query_type == 'tutorial':
+            metadata.update({
+                'step_count': len([word for word in content.split() if word.startswith('step')]),
+                'has_prerequisites': any(word in content for word in ['prerequisite', 'requirement', 'before you start']),
+                'has_troubleshooting': any(word in content for word in ['troubleshoot', 'problem', 'issue', 'error']),
+                'difficulty_level': self._assess_tutorial_difficulty(content)
+            })
+        
+        return metadata
+    
+    def _extract_comparison_aspects(self, content: str) -> List[str]:
+        """Extract comparison aspects from content."""
+        aspects = []
+        comparison_words = ['price', 'quality', 'features', 'performance', 'usability', 'support']
+        
+        for aspect in comparison_words:
+            if aspect in content:
+                aspects.append(aspect)
+        
+        return aspects
+    
+    def _extract_comparison_criteria(self, content: str) -> List[str]:
+        """Extract comparison criteria from content."""
+        criteria = []
+        criteria_patterns = [
+            'based on', 'criteria', 'factors', 'considerations',
+            'evaluated by', 'measured by', 'compared on'
+        ]
+        
+        for pattern in criteria_patterns:
+            if pattern in content:
+                # Simple extraction - in a real implementation, you'd use NLP
+                criteria.append(pattern)
+        
+        return criteria
+    
+    def _assess_tutorial_difficulty(self, content: str) -> str:
+        """Assess the difficulty level of a tutorial."""
+        beginner_indicators = ['beginner', 'basic', 'introduction', 'getting started', 'simple']
+        advanced_indicators = ['advanced', 'expert', 'complex', 'sophisticated', 'in-depth']
+        
+        beginner_count = sum(1 for indicator in beginner_indicators if indicator in content)
+        advanced_count = sum(1 for indicator in advanced_indicators if indicator in content)
+        
+        if advanced_count > beginner_count:
+            return 'advanced'
+        elif beginner_count > 0:
+            return 'beginner'
+        else:
+            return 'intermediate'
+    
+    def _extract_published_date(self, source: Dict[str, Any]) -> Optional[datetime]:
+        """Extract and parse publication date from source."""
+        date_fields = ['published_date', 'date', 'publication_date', 'created_at']
+        
+        for field in date_fields:
+            if field in source and source[field]:
+                try:
+                    date_value = source[field]
+                    if isinstance(date_value, str):
+                        # Try various date formats
+                        for fmt in ['%Y-%m-%d', '%Y/%m/%d', '%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%dT%H:%M:%S']:
+                            try:
+                                return datetime.strptime(date_value, fmt)
+                            except ValueError:
+                                continue
+                        
+                        # Try ISO format with timezone
+                        try:
+                            return datetime.fromisoformat(date_value.replace('Z', '+00:00'))
+                        except ValueError:
+                            pass
+                    
+                    elif isinstance(date_value, datetime):
+                        return date_value
+                        
+                except Exception as e:
+                    logger.debug(f"Error parsing date {date_value}: {e}")
+                    continue
+        
+        return None
+
+
+# ============================================================================
+# GLOBAL SYSTEM ORCHESTRATOR
+# ============================================================================
+
+class UniversalRAGEnhancementSystem:
+    """
+    Global orchestrator for the Universal RAG CMS Enhancement System.
+    
+    Integrates all components:
+    - Enhanced Confidence Scoring
+    - Source Quality Analysis
+    - Intelligent Caching
+    - Response Validation
+    - Performance Monitoring
+    """
+    
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        """Initialize the Universal RAG Enhancement System."""
+        
+        self.config = config or {}
+        self.logger = logging.getLogger(__name__)
+        
+        # Initialize all subsystems
+        self.source_analyzer = SourceQualityAnalyzer()
+        self.cache_system = IntelligentCache(
+            strategy=CacheStrategy.ADAPTIVE,
+            max_size=self.config.get('cache_max_size', 10000)
+        )
+        self.response_validator = ResponseValidator(self.config.get('validation_config'))
+        self.confidence_calculator = EnhancedConfidenceCalculator(
+            source_quality_analyzer=self.source_analyzer,
+            cache_system=self.cache_system,
+            response_validator=self.response_validator,
+            config=self.config.get('confidence_config')
+        )
+        self.metadata_generator = EnhancedSourceMetadataGenerator()
+        
+        # Performance tracking
+        self.performance_tracker = PerformanceTracker()
+        
+        # System configuration
+        self.system_config = SystemConfiguration(
+            **self.config.get('system_config', {})
+        )
+        
+        # Validate configuration
+        config_issues = self.system_config.validate_configuration()
+        if config_issues:
+            self.logger.warning(f"Configuration issues: {config_issues}")
+        
+        self.logger.info("Universal RAG Enhancement System initialized")
+    
+    async def enhance_rag_response(
+        self,
+        response_content: str,
+        query: str,
+        query_type: str,
+        sources: List[Dict[str, Any]],
+        generation_metadata: Dict[str, Any]
+    ) -> EnhancedRAGResponse:
+        """
+        Main entry point for enhancing RAG responses.
+        
+        This orchestrates all enhancement processes:
+        1. Create base EnhancedRAGResponse
+        2. Analyze source quality
+        3. Validate response
+        4. Calculate confidence
+        5. Generate enhanced metadata
+        6. Make caching decisions
+        7. Track performance
+        """
+        
+        start_time = time.time()
+        
+        try:
+            # Check cache first
+            cached_response = await self.cache_system.get(query, query_type)
+            if cached_response:
+                cached_response.cached = True
+                cached_response.response_time = time.time() - start_time
+                self.performance_tracker.record_request(cached_response)
+                return cached_response
+            
+            # Create base response object
+            base_response = EnhancedRAGResponse(
+                content=response_content,
+                sources=sources,
+                response_time=0.0,  # Will be updated
+                cached=False
+            )
+            
+            # Parallel enhancement processes
+            enhancement_tasks = [
+                self._enhance_sources_with_metadata(sources, query_type, query),
+                self.response_validator.validate_response(response_content, query, sources),
+                self._analyze_generation_metadata(generation_metadata)
+            ]
+            
+            # Execute enhancements in parallel
+            results = await asyncio.gather(*enhancement_tasks, return_exceptions=True)
+            
+            # Process results
+            enhanced_sources = results[0] if not isinstance(results[0], Exception) else sources
+            validation_metrics, validation_issues = results[1] if not isinstance(results[1], Exception) else (None, [])
+            processed_metadata = results[2] if not isinstance(results[2], Exception) else generation_metadata
+            
+            # Update response with enhanced data
+            base_response.sources = enhanced_sources
+            base_response.metadata.update(processed_metadata)
+            
+            # Integrate validation results
+            if validation_metrics:
+                base_response = ValidationIntegrator.update_rag_response(
+                    base_response, validation_metrics, validation_issues
+                )
+            
+            # Calculate comprehensive confidence
+            confidence_breakdown, enhanced_response = await self.confidence_calculator.calculate_enhanced_confidence(
+                response=base_response,
+                query=query,
+                query_type=query_type,
+                sources=enhanced_sources,
+                generation_metadata=processed_metadata
+            )
+            
+            # Final response timing and metadata
+            enhanced_response.response_time = time.time() - start_time
+            enhanced_response.processing_time = enhanced_response.response_time
+            
+            # Make caching decision
+            await self._handle_caching_decision(enhanced_response, query, query_type, confidence_breakdown)
+            
+            # Track performance
+            self.performance_tracker.record_request(enhanced_response)
+            
+            # Log system metrics
+            await self._log_system_metrics(enhanced_response, confidence_breakdown)
+            
+            return enhanced_response
+            
+        except Exception as e:
+            self.logger.error(f"Enhancement system error: {e}")
+            
+            # Return minimal response on error
+            error_response = EnhancedRAGResponse(
+                content=response_content,
+                sources=sources,
+                confidence_score=0.5,
+                response_time=time.time() - start_time,
+                errors=[f"Enhancement error: {str(e)}"],
+                fallback_used=True
+            )
+            
+            return error_response
+    
+    async def _enhance_sources_with_metadata(
+        self, 
+        sources: List[Dict[str, Any]], 
+        query_type: str,
+        query: str
+    ) -> List[Dict[str, Any]]:
+        """Enhance sources with comprehensive metadata."""
+        
+        enhanced_sources = []
+        
+        for source in sources:
+            try:
+                # Generate enhanced metadata
+                enhanced_metadata = await self.metadata_generator.generate_enhanced_metadata(
+                    source, query_type, query
+                )
+                
+                # Create enhanced source dictionary
+                enhanced_source = source.copy()
+                enhanced_source.update({
+                    'enhanced_metadata': enhanced_metadata,
+                    'quality_score': (
+                        enhanced_metadata.authority_score +
+                        enhanced_metadata.credibility_score +
+                        enhanced_metadata.expertise_score +
+                        enhanced_metadata.relevance_score
+                    ) / 4,
+                    'quality_badge': enhanced_metadata.quality_badge,
+                    'content_type': enhanced_metadata.content_type_badge,
+                    'expertise_level': enhanced_metadata.expertise_level_badge
+                })
+                
+                enhanced_sources.append(enhanced_source)
+                
+            except Exception as e:
+                self.logger.warning(f"Error enhancing source metadata: {e}")
+                enhanced_sources.append(source)  # Fallback to original
+        
+        return enhanced_sources
+    
+    async def _analyze_generation_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze and enhance generation metadata."""
+        
+        enhanced_metadata = metadata.copy()
+        
+        # Add system-level metadata
+        enhanced_metadata.update({
+            'enhancement_system_version': '2.0',
+            'enhancement_timestamp': datetime.utcnow().isoformat(),
+            'system_performance': {
+                'cache_hit_rate': self.performance_tracker.get_cache_hit_rate(),
+                'average_response_time': self.performance_tracker.metrics['avg_response_time'],
+                'total_requests': self.performance_tracker.metrics['total_requests']
+            }
+        })
+        
+        return enhanced_metadata
+    
+    async def _handle_caching_decision(
+        self,
+        response: EnhancedRAGResponse,
+        query: str,
+        query_type: str,
+        confidence_breakdown: ConfidenceBreakdown
+    ):
+        """Make intelligent caching decisions."""
+        
+        # Check if response meets caching criteria
+        should_cache = (
+            confidence_breakdown.overall_confidence >= self.system_config.quality_threshold and
+            not response.errors and
+            self.system_config.enable_intelligent_caching
+        )
+        
+        if should_cache:
+            try:
+                await self.cache_system.set(query, response, query_type)
+                response.metadata['cached'] = True
+                response.metadata['cache_decision'] = 'stored'
+            except Exception as e:
+                self.logger.warning(f"Caching failed: {e}")
+                response.metadata['cache_decision'] = 'failed'
+        else:
+            response.metadata['cache_decision'] = 'skipped'
+            response.metadata['cache_skip_reason'] = (
+                'low_confidence' if confidence_breakdown.overall_confidence < self.system_config.quality_threshold
+                else 'has_errors' if response.errors
+                else 'caching_disabled'
+            )
+    
+    async def _log_system_metrics(
+        self,
+        response: EnhancedRAGResponse,
+        confidence_breakdown: ConfidenceBreakdown
+    ):
+        """Log comprehensive system metrics."""
+        
+        metrics = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'response_time': response.response_time,
+            'confidence_score': response.confidence_score,
+            'source_count': len(response.sources),
+            'cached': response.cached,
+            'has_errors': bool(response.errors),
+            'quality_level': response.response_quality_level.value,
+            'confidence_calculation_time': confidence_breakdown.calculation_time_ms,
+            'system_performance': self.performance_tracker.get_performance_summary()
+        }
+        
+        self.logger.info("System enhancement completed", extra=metrics)
+    
+    def get_system_status(self) -> Dict[str, Any]:
+        """Get comprehensive system status."""
+        
+        return {
+            'system_health': 'healthy',  # Could add health checks
+            'configuration': {
+                'cache_strategy': self.cache_system.strategy.value,
+                'cache_size': len(self.cache_system.cache),
+                'cache_max_size': self.cache_system.max_size,
+                'quality_threshold': self.system_config.quality_threshold
+            },
+            'performance': self.performance_tracker.get_performance_summary(),
+            'cache_metrics': self.cache_system.get_performance_metrics(),
+            'uptime': 'N/A',  # Could add uptime tracking
+            'version': '2.0'
+        }
+    
+    async def optimize_system_performance(self) -> Dict[str, Any]:
+        """Optimize system performance based on usage patterns."""
+        
+        optimization_results = {}
+        
+        # Cache optimization
+        expired_count = await self.cache_system.clear_expired()
+        optimization_results['cache_cleanup'] = f"Removed {expired_count} expired entries"
+        
+        # Performance analysis
+        performance_summary = self.performance_tracker.get_performance_summary()
+        
+        # Suggest optimizations
+        suggestions = []
+        
+        if performance_summary['cache_hit_rate'] < 0.5:
+            suggestions.append("Consider adjusting cache strategy or TTL settings")
+        
+        if performance_summary['avg_response_time'] > 2000:
+            suggestions.append("Response times are high - consider performance optimization")
+        
+        if performance_summary['error_rate'] > 0.1:
+            suggestions.append("Error rate is elevated - review error logs")
+        
+        optimization_results['suggestions'] = suggestions
+        optimization_results['current_performance'] = performance_summary
+        
+        return optimization_results
+
+
+# ============================================================================
+# FACTORY FUNCTIONS AND UTILITIES
+# ============================================================================
+
+def create_universal_rag_enhancement_system(config: Optional[Dict[str, Any]] = None) -> UniversalRAGEnhancementSystem:
+    """
+    Factory function to create a fully configured Universal RAG Enhancement System.
+    
+    Args:
+        config: Optional configuration dictionary
+        
+    Returns:
+        Configured UniversalRAGEnhancementSystem instance
+    """
+    
+    default_config = {
+        'cache_max_size': 10000,
+        'system_config': {
+            'enable_enhanced_confidence': True,
+            'enable_intelligent_caching': True,
+            'enable_response_validation': True,
+            'quality_threshold': 0.75,
+            'max_response_time': 2000,
+            'log_level': 'INFO'
+        },
+        'confidence_config': {
+            'weights': {
+                'content_quality': 0.35,
+                'source_quality': 0.25,
+                'query_matching': 0.20,
+                'technical_factors': 0.20
+            }
+        },
+        'validation_config': {
+            'min_response_length': 50,
+            'max_response_length': 5000,
+            'require_citations': False,
+            'strict_mode': False
+        }
+    }
+    
+    if config:
+        # Deep merge configurations
+        merged_config = default_config.copy()
+        for key, value in config.items():
+            if isinstance(value, dict) and key in merged_config:
+                merged_config[key].update(value)
+            else:
+                merged_config[key] = value
+        config = merged_config
+    else:
+        config = default_config
+    
+    return UniversalRAGEnhancementSystem(config)
+
+
+async def enhance_rag_response_simple(
+    response_content: str,
+    query: str,
+    sources: List[Dict[str, Any]],
+    query_type: str = 'general'
+) -> EnhancedRAGResponse:
+    """
+    Simplified function for enhancing RAG responses.
+    
+    This provides a simple interface for basic enhancement without
+    requiring detailed configuration.
+    """
+    
+    system = create_universal_rag_enhancement_system()
+    
+    return await system.enhance_rag_response(
+        response_content=response_content,
+        query=query,
+        query_type=query_type,
+        sources=sources,
+        generation_metadata={}
+    )
+
+
+def get_confidence_factors_template() -> ConfidenceFactors:
+    """Get a template ConfidenceFactors object with default values."""
+    return ConfidenceFactors()
+
+
+def calculate_simple_confidence(
+    content_quality: float,
+    source_quality: float,
+    query_matching: float,
+    technical_factors: float
+) -> float:
+    """
+    Calculate a simple confidence score using default weights.
+    
+    Args:
+        content_quality: Content quality score (0.0-1.0)
+        source_quality: Source quality score (0.0-1.0)
+        query_matching: Query matching score (0.0-1.0)
+        technical_factors: Technical factors score (0.0-1.0)
+        
+    Returns:
+        Weighted confidence score (0.0-1.0)
+    """
+    
+    return (
+        content_quality * 0.35 +
+        source_quality * 0.25 +
+        query_matching * 0.20 +
+        technical_factors * 0.20
+    )
+
+
+# ============================================================================
+# MAIN ENTRY POINT AND TESTING
+# ============================================================================
+
+async def main():
+    """Main function for testing the enhanced confidence scoring system."""
+    
+    # Example usage
+    system = create_universal_rag_enhancement_system()
+    
+    # Test data
+    test_query = "What are the best online casinos for slots in 2024?"
+    test_content = """
+    Based on our comprehensive analysis, here are the top online casinos for slots in 2024:
+    
+    1. **Casino Royal** - Excellent game variety with over 1,500 slot games
+    2. **Lucky Spin Casino** - Best welcome bonus up to $1,000
+    3. **Mega Slots Palace** - Highest RTP rates averaging 97.2%
+    
+    Each casino has been evaluated based on game quality, bonuses, security, and player reviews.
+    """
+    
+    test_sources = [
+        {
+            'title': 'Top Online Casinos 2024 Review',
+            'url': 'https://casinoexpert.com/reviews/2024',
+            'content': 'Comprehensive casino reviews and ratings...',
+            'quality_score': 0.85,
+            'published_date': '2024-01-15'
+        },
+        {
+            'title': 'Best Slot Games Guide',
+            'url': 'https://slotsguru.com/best-slots',
+            'content': 'Expert guide to slot games and casinos...',
+            'quality_score': 0.78,
+            'published_date': '2024-02-01'
+        }
+    ]
+    
+    # Enhance the response
+    enhanced_response = await system.enhance_rag_response(
+        response_content=test_content,
+        query=test_query,
+        query_type='casino_review',
+        sources=test_sources,
+        generation_metadata={'response_time_ms': 1200}
+    )
+    
+    # Print results
+    print("Enhanced RAG Response:")
+    print(f"Confidence Score: {enhanced_response.confidence_score:.3f}")
+    print(f"Quality Level: {enhanced_response.response_quality_level.value}")
+    print(f"Source Quality Tier: {enhanced_response.source_quality_tier.value}")
+    print(f"Processing Time: {enhanced_response.processing_time:.3f}s")
+    print(f"Cached: {enhanced_response.cached}")
+    
+    if enhanced_response.errors:
+        print(f"Errors: {enhanced_response.errors}")
+    
+    # Print system status
+    status = system.get_system_status()
+    print(f"\nSystem Status: {status['system_health']}")
+    print(f"Cache Hit Rate: {status['performance']['cache_hit_rate']:.2%}")
+    print(f"Average Response Time: {status['performance']['avg_response_time']:.3f}s")
+
+
+if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
+
+# ============================================================================
+# EXPORTS
+# ============================================================================
+
+__all__ = [
+    # Core Classes
+    'EnhancedRAGResponse',
+    'ConfidenceFactors',
+    'ConfidenceBreakdown',
+    'EnhancedSourceMetadata',
+    
+    # Main System Classes
+    'UniversalRAGEnhancementSystem',
+    'EnhancedConfidenceCalculator',
+    'SourceQualityAnalyzer',
+    'IntelligentCache',
+    'ResponseValidator',
+    'EnhancedSourceMetadataGenerator',
+    
+    # Utility Classes
+    'PerformanceTracker',
+    'SystemConfiguration',
+    'CacheEntry',
+    'ValidationIssue',
+    'ValidationMetrics',
+    
+    # Enums
+    'SourceQualityTier',
+    'ResponseQualityLevel',
+    'CacheStrategy',
+    'ValidationSeverity',
+    'ValidationCategory',
+    'ConfidenceFactorType',
+    
+    # Factory Functions
+    'create_universal_rag_enhancement_system',
+    'enhance_rag_response_simple',
+    'get_confidence_factors_template',
+    'calculate_simple_confidence',
+    
+    # Integration Helpers
+    'ConfidenceIntegrator',
+    'ValidationIntegrator',
+    
+    # Global Instances (for backward compatibility)
+    'intelligent_cache',
+    'response_validator',
+    'performance_tracker'
+]

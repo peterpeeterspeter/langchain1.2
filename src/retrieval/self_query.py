@@ -230,13 +230,13 @@ class SelfQueryResults:
     total_documents_before: int
     total_documents_after: int
     filter_effectiveness: float  # Reduction ratio
-    processing_time_ms: float = 0.0
     
     # Filter breakdown
     pre_search_filters: List[MetadataFilter]
     post_search_filters: List[MetadataFilter]
     
-    # Quality metrics
+    # Quality metrics and optional fields with defaults
+    processing_time_ms: float = 0.0
     relevance_improvement: float = 0.0
     precision_score: float = 0.0
     recall_impact: float = 0.0
