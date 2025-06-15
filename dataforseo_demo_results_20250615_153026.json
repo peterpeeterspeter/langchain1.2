@@ -1,0 +1,8 @@
+{
+  "Basic Search": null,
+  "Batch Search": "[]",
+  "Advanced Filtering": null,
+  "Supabase Integration": null,
+  "Caching Performance": "(None, None)",
+  "Analytics Monitoring": "{'cache_stats': {'size': 0, 'hit_rate': 0.0, 'max_size': 10000}, 'rate_limiter_stats': {'current_requests': 10, 'max_per_minute': 1800, 'max_concurrent': 25}, 'configuration': {'batch_size': 100, 'cache_enabled': True, 'supabase_enabled': True}}"
+}
