@@ -4086,6 +4086,54 @@ def calculate_simple_confidence(
 # MAIN ENTRY POINT AND TESTING
 # ============================================================================
 
+def enrich_sources_with_task23_metadata(
+    sources: List[Dict[str, Any]], 
+    query_type: str, 
+    query: str
+) -> List[Dict[str, Any]]:
+    """
+    Enhance sources with Task 2.3 specific metadata and enrichments.
+    
+    Args:
+        sources: List of source dictionaries
+        query_type: Type of query being processed
+        query: Original query string
+    
+    Returns:
+        Enhanced sources with additional metadata
+    """
+    enhanced_sources = []
+    
+    for source in sources:
+        enhanced_source = source.copy()
+        
+        # Add Task 2.3 enhancement metadata
+        enhanced_source['task23_metadata'] = {
+            'enhancement_timestamp': time.time(),
+            'query_type': query_type,
+            'query_relevance_score': 0.85,  # Mock score
+            'content_quality_score': 0.80,
+            'source_authority_score': 0.75,
+            'enhancement_version': '2.3.0'
+        }
+        
+        # Add contextual enrichment
+        if 'content' in enhanced_source:
+            enhanced_source['enhanced_content_preview'] = enhanced_source['content'][:200] + "..."
+        
+        # Add quality indicators
+        enhanced_source['quality_indicators'] = {
+            'has_citations': 'citations' in enhanced_source.get('content', '').lower(),
+            'content_length': len(enhanced_source.get('content', '')),
+            'has_metadata': bool(enhanced_source.get('metadata', {})),
+            'source_type': enhanced_source.get('metadata', {}).get('source_type', 'unknown')
+        }
+        
+        enhanced_sources.append(enhanced_source)
+    
+    return enhanced_sources
+
+
 async def main():
     """Main function for testing the enhanced confidence scoring system."""
     
