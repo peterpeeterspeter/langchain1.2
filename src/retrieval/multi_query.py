@@ -25,6 +25,7 @@ from enum import Enum
 import json
 import statistics
 from collections import defaultdict, Counter
+import re
 
 from pydantic import BaseModel, Field, validator
 from langchain_core.documents import Document
@@ -153,298 +154,103 @@ class QueryExpander:
         # Expansion cache for performance
         self.expansion_cache = {}
         
-        # Expansion prompt templates
-        self.expansion_prompts = {
-            QueryExpansionStrategy.SEMANTIC_EXPANSION: ChatPromptTemplate.from_template(
-                """Generate 3 semantically similar queries to find the same information as the original query.
-                
-Original Query: {query}
+        # Enhanced query expansion prompt
+        self.expansion_template = """You are an expert query expansion specialist focused on creating diverse, high-quality search variations that improve retrieval effectiveness.
 
-Focus on:
-- Synonyms and related terms
-- Alternative phrasings
-- Different ways to express the same concept
+**Your Mission:**
+Generate {num_queries} distinct but related search queries that capture different aspects, phrasings, and semantic variations of the original query while maintaining search intent.
 
-Return only the queries, one per line, without numbering or explanation."""
-            ),
-            
-            QueryExpansionStrategy.PERSPECTIVE_EXPANSION: ChatPromptTemplate.from_template(
-                """Generate 3 queries that approach the same topic from different perspectives or angles.
-                
-Original Query: {query}
+**Query Expansion Strategies:**
 
-Focus on:
-- Different viewpoints or approaches
-- Various aspects of the topic
-- Alternative framings of the question
+1. **Semantic Variations:**
+   - Use synonyms and related terminology
+   - Include industry-specific language variations
+   - Add colloquial and formal versions
+   - Incorporate different expertise level language
 
-Return only the queries, one per line, without numbering or explanation."""
-            ),
-            
-            QueryExpansionStrategy.SPECIFICITY_EXPANSION: ChatPromptTemplate.from_template(
-                """Generate 3 queries with different levels of specificity about the same topic.
-                
-Original Query: {query}
+2. **Structural Variations:**
+   - Rephrase as questions vs. statements
+   - Use different query lengths (short, medium, long)
+   - Include specific vs. general formulations
+   - Add temporal or contextual modifiers
 
-Generate:
-- 1 more specific/detailed query
-- 1 more general/broader query  
-- 1 differently focused query
+3. **Intent Diversification:**
+   - Include informational, navigational, and transactional variations
+   - Add comparison and evaluation angles
+   - Include troubleshooting and how-to perspectives
+   - Consider different user expertise levels
 
-Return only the queries, one per line, without numbering or explanation."""
-            ),
-            
-            QueryExpansionStrategy.CONTEXTUAL_EXPANSION: ChatPromptTemplate.from_template(
-                """Generate 3 queries that add relevant context to better find comprehensive information.
-                
-Original Query: {query}
+4. **Semantic Enrichment:**
+   - Add related concepts and entities
+   - Include broader and narrower topic variations
+   - Incorporate contextual industry terms
+   - Consider geographical or demographic variations
 
-Focus on:
-- Adding relevant background context
-- Including related concepts
-- Expanding with domain-specific terms
+**Quality Standards:**
+- Each query must be distinct and non-redundant
+- Maintain relevance to the original search intent
+- Ensure natural language flow
+- Optimize for different search engines and databases
+- Balance specificity with discoverability
 
-Return only the queries, one per line, without numbering or explanation."""
-            ),
-            
-            QueryExpansionStrategy.DOMAIN_EXPANSION: ChatPromptTemplate.from_template(
-                """Generate 3 domain-specific variations of the query using technical terminology.
-                
-Original Query: {query}
+**Original Query:** {question}
 
-Focus on:
-- Technical/professional terminology
-- Industry-specific language
-- Expert-level phrasing
+**Instructions:**
+Generate exactly {num_queries} diverse search variations that would help retrieve comprehensive, relevant information for the original query. Each variation should:
+- Capture a different aspect or angle of the topic
+- Use different vocabulary and phrasing
+- Maintain relevance to the core search intent
+- Be optimized for effective information retrieval
 
-Return only the queries, one per line, without numbering or explanation."""
-            )
-        }
+**Query Variations:**
+1."""
     
     async def expand_query(
-        self, 
-        query: str, 
-        query_type: QueryType = QueryType.GENERAL,
-        strategies: Optional[List[QueryExpansionStrategy]] = None
-    ) -> List[ExpandedQuery]:
-        """Expand a query using specified strategies."""
-        
-        start_time = time.time()
-        
-        # Use configured strategies if none specified
-        if strategies is None:
-            strategies = self.config.expansion_strategies
-        
-        # Check cache first
-        cache_key = self._get_cache_key(query, strategies)
-        if self.config.cache_expansions and cache_key in self.expansion_cache:
-            cached_expansions = self.expansion_cache[cache_key]
-            # Update generation time
-            for expansion in cached_expansions:
-                expansion.generation_time = time.time() - start_time
-            return cached_expansions
-        
-        expanded_queries = []
-        
-        # Process each expansion strategy
-        for strategy in strategies:
-            try:
-                strategy_expansions = await self._expand_with_strategy(query, strategy, query_type)
-                expanded_queries.extend(strategy_expansions)
-            except Exception as e:
-                logger.error(f"Error in expansion strategy {strategy}: {e}")
-                continue
-        
-        # Filter by confidence threshold
-        filtered_expansions = [
-            exp for exp in expanded_queries 
-            if exp.confidence >= self.config.min_expansion_confidence
-        ]
-        
-        # Deduplicate expansions
-        unique_expansions = self._deduplicate_expansions(filtered_expansions, query)
-        
-        # Update generation times
-        generation_time = time.time() - start_time
-        for expansion in unique_expansions:
-            expansion.generation_time = generation_time
-        
-        # Cache results
-        if self.config.cache_expansions:
-            self.expansion_cache[cache_key] = unique_expansions
-        
-        logger.info(f"Generated {len(unique_expansions)} unique query expansions in {generation_time:.2f}s")
-        return unique_expansions
-    
-    async def _expand_with_strategy(
-        self, 
-        query: str, 
-        strategy: QueryExpansionStrategy,
-        query_type: QueryType
-    ) -> List[ExpandedQuery]:
-        """Expand query using a specific strategy."""
-        
-        if strategy not in self.expansion_prompts:
-            logger.warning(f"No prompt template for strategy: {strategy}")
-            return []
-        
+        self,
+        query: str,
+        strategy: QueryExpansionStrategy = QueryExpansionStrategy.SEMANTIC_EXPANSION,
+        num_queries: int = 3
+    ) -> List[str]:
+        """Expand a query into multiple variations using the specified strategy"""
         try:
-            # Get the appropriate prompt template
-            prompt_template = self.expansion_prompts[strategy]
+            cache_key = f"{query}:{strategy.value}:{num_queries}"
+            if cache_key in self.expansion_cache:
+                return self.expansion_cache[cache_key]
             
-            # Create chain
-            chain = prompt_template | self.llm | StrOutputParser()
+            # Use the improved template
+            prompt = ChatPromptTemplate.from_template(self.expansion_template)
             
-            # Generate expansions
-            result = await chain.ainvoke({"query": query})
+            # Create expansion chain
+            expansion_chain = prompt | self.llm | StrOutputParser()
+            
+            # Generate expanded queries
+            result = await expansion_chain.ainvoke({
+                "question": query,
+                "num_queries": num_queries
+            })
             
             # Parse the result into individual queries
-            expanded_queries = []
-            lines = [line.strip() for line in result.split('\n') if line.strip()]
+            lines = [line.strip() for line in result.strip().split('\n') if line.strip()]
+            queries = []
             
             for line in lines:
-                # Clean up the line (remove numbers, bullets, etc.)
-                cleaned_query = self._clean_expansion(line)
-                
-                if cleaned_query and cleaned_query.lower() != query.lower():
-                    # Calculate confidence based on quality indicators
-                    confidence = self._calculate_expansion_confidence(cleaned_query, query, strategy)
-                    
-                    expansion = ExpandedQuery(
-                        query_text=cleaned_query,
-                        expansion_strategy=strategy,
-                        confidence=confidence,
-                        metadata={
-                            "original_query": query,
-                            "query_type": query_type.value,
-                            "strategy": strategy.value
-                        }
-                    )
-                    expanded_queries.append(expansion)
+                # Remove numbering if present
+                clean_query = re.sub(r'^\d+\.?\s*', '', line).strip()
+                if clean_query and clean_query != query:
+                    queries.append(clean_query)
             
-            return expanded_queries
+            # Ensure we have the requested number of queries
+            if len(queries) < num_queries:
+                queries.extend([query] * (num_queries - len(queries)))
+            
+            # Cache the result
+            self.expansion_cache[cache_key] = queries[:num_queries]
+            
+            return queries[:num_queries]
             
         except Exception as e:
-            logger.error(f"Error generating expansions with strategy {strategy}: {e}")
-            return []
-    
-    def _clean_expansion(self, expansion: str) -> str:
-        """Clean and normalize expanded query."""
-        import re
-        
-        # Remove numbering, bullets, quotes
-        expansion = re.sub(r'^\d+[\.\)]\s*', '', expansion)
-        expansion = re.sub(r'^[\-\*•]\s*', '', expansion)
-        expansion = expansion.strip('"\'')
-        expansion = expansion.strip()
-        
-        # Remove empty or very short expansions
-        if len(expansion) < 10:
-            return ""
-        
-        return expansion
-    
-    def _calculate_expansion_confidence(
-        self, 
-        expansion: str, 
-        original: str, 
-        strategy: QueryExpansionStrategy
-    ) -> float:
-        """Calculate confidence score for expanded query."""
-        
-        confidence = 0.5  # Base confidence
-        
-        # Length-based confidence
-        if 10 <= len(expansion) <= 200:
-            confidence += 0.2
-        elif len(expansion) > 200:
-            confidence -= 0.1
-        
-        # Similarity to original (not too similar, not too different)
-        original_words = set(original.lower().split())
-        expansion_words = set(expansion.lower().split())
-        
-        if original_words and expansion_words:
-            overlap = len(original_words & expansion_words) / len(original_words | expansion_words)
-            
-            # Optimal overlap is 20-60%
-            if 0.2 <= overlap <= 0.6:
-                confidence += 0.2
-            elif overlap > 0.8:  # Too similar
-                confidence -= 0.3
-            elif overlap < 0.1:  # Too different
-                confidence -= 0.2
-        
-        # Strategy-specific adjustments
-        if strategy == QueryExpansionStrategy.SEMANTIC_EXPANSION:
-            # Semantic expansions should have moderate overlap
-            if 0.3 <= overlap <= 0.7:
-                confidence += 0.1
-        elif strategy == QueryExpansionStrategy.PERSPECTIVE_EXPANSION:
-            # Perspective expansions can have less overlap
-            if overlap <= 0.5:
-                confidence += 0.1
-        
-        # Quality indicators
-        if any(word in expansion.lower() for word in ['what', 'how', 'why', 'when', 'where']):
-            confidence += 0.1  # Question words indicate good query structure
-        
-        return max(0.0, min(1.0, confidence))
-    
-    def _deduplicate_expansions(self, expansions: List[ExpandedQuery], original_query: str) -> List[ExpandedQuery]:
-        """Remove duplicate and very similar expansions."""
-        
-        unique_expansions = []
-        seen_queries = {original_query.lower()}
-        
-        # Sort by confidence (highest first)
-        expansions.sort(key=lambda x: x.confidence, reverse=True)
-        
-        for expansion in expansions:
-            query_lower = expansion.query_text.lower()
-            
-            # Check for exact duplicates
-            if query_lower in seen_queries:
-                continue
-            
-            # Check for high similarity
-            is_similar = False
-            for seen_query in seen_queries:
-                similarity = self._calculate_query_similarity(query_lower, seen_query)
-                if similarity > self.config.deduplication_threshold:
-                    is_similar = True
-                    break
-            
-            if not is_similar:
-                unique_expansions.append(expansion)
-                seen_queries.add(query_lower)
-                
-                # Limit number of expansions
-                if len(unique_expansions) >= self.config.num_expansions:
-                    break
-        
-        return unique_expansions
-    
-    def _calculate_query_similarity(self, query1: str, query2: str) -> float:
-        """Calculate similarity between two queries."""
-        
-        words1 = set(query1.split())
-        words2 = set(query2.split())
-        
-        if not words1 or not words2:
-            return 0.0
-        
-        # Jaccard similarity
-        intersection = len(words1 & words2)
-        union = len(words1 | words2)
-        
-        return intersection / union if union > 0 else 0.0
-    
-    def _get_cache_key(self, query: str, strategies: List[QueryExpansionStrategy]) -> str:
-        """Generate cache key for query expansion."""
-        strategy_str = "_".join(sorted([s.value for s in strategies]))
-        cache_input = f"{query}_{strategy_str}_{self.config.llm_temperature}"
-        return hashlib.md5(cache_input.encode()).hexdigest()
+            print(f"❌ Query expansion failed: {e}")
+            return [query] * num_queries  # Return original query as fallback
 
 
 class ResultAggregator:
@@ -661,7 +467,7 @@ class MultiQueryRetriever:
         try:
             # Phase 1: Query Expansion
             expansion_start = time.time()
-            expanded_queries = await self.query_expander.expand_query(query, query_type)
+            expanded_queries = await self.query_expander.expand_query(query)
             expansion_time = time.time() - expansion_start
             
             # Phase 2: Parallel Search

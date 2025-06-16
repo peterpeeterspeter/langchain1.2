@@ -620,466 +620,608 @@ class DomainSpecificPrompts:
     """Specialized prompts for each query type and expertise level"""
     
     def __init__(self):
+        # Import improved templates
+        from src.templates.improved_template_manager import ImprovedAdvancedPromptTemplates, ExpertiseLevel as ImprovedExpertiseLevel
+        
+        self.improved_templates = ImprovedAdvancedPromptTemplates()
+        
+        # Enhanced base prompts with improved templates
         self.base_prompts = {
             QueryType.CASINO_REVIEW: {
-                ExpertiseLevel.BEGINNER: """
-As a trusted casino safety expert, provide a beginner-friendly assessment focusing on:
-- Basic safety indicators and licensing status
-- Simple red flags to watch for
-- Step-by-step verification process
-- Clear recommendations for new players
-
-Context: {context}
-Query: {query}
-
-Provide a clear, reassuring response that helps beginners make safe choices.
-                """.strip(),
-                
-                ExpertiseLevel.INTERMEDIATE: """
-As a casino evaluation specialist, provide a balanced assessment covering:
-- Licensing verification and regulatory compliance
-- Security measures and fair play certifications
-- Payment method evaluation and withdrawal policies
-- Customer service quality and response times
-- Game selection and software providers
-- User experience and interface design
-
-Context: {context}
-Query: {query}
-
-Deliver a comprehensive review with practical insights for informed decision-making.
-                """.strip(),
-                
-                ExpertiseLevel.ADVANCED: """
-As a casino industry consultant, provide an advanced analysis including:
-- Regulatory framework analysis and compliance history
-- Technical security audit findings and certifications
-- Financial operations and payout verification
-- Market positioning and competitive analysis
-- Risk management and responsible gambling measures
-- Business model evaluation and sustainability assessment
-
-Context: {context}
-Query: {query}
-
-Provide detailed professional analysis with strategic recommendations.
-                """.strip(),
-                
-                ExpertiseLevel.EXPERT: """
-As a professional casino industry analyst, provide an expert-level assessment including:
-- Comprehensive licensing and regulatory analysis
-- Technical security infrastructure evaluation
-- Financial stability and ownership structure
-- Comparative positioning within the market
-- Risk assessment and due diligence findings
-
-Context: {context}
-Query: {query}
-
-Deliver a sophisticated analysis with technical depth and industry insights.
-                """.strip()
+                ExpertiseLevel.BEGINNER: self.improved_templates.get_casino_review_template(ImprovedExpertiseLevel.BEGINNER),
+                ExpertiseLevel.INTERMEDIATE: self.improved_templates.get_casino_review_template(ImprovedExpertiseLevel.INTERMEDIATE),
+                ExpertiseLevel.ADVANCED: self.improved_templates.get_casino_review_template(ImprovedExpertiseLevel.ADVANCED),
+                ExpertiseLevel.EXPERT: self.improved_templates.get_casino_review_template(ImprovedExpertiseLevel.EXPERT)
             },
             
             QueryType.GAME_GUIDE: {
-                ExpertiseLevel.BEGINNER: """
-As a friendly gaming instructor, create a beginner's guide that includes:
-- Simple, easy-to-follow steps
-- Basic rules and objectives explained clearly
-- Common beginner mistakes to avoid
-- Tips for safe and responsible gaming
-
-Context: {context}
-Query: {query}
-
-Make this accessible and encouraging for someone just starting out.
-                """.strip(),
-                
-                ExpertiseLevel.INTERMEDIATE: """
-As a game strategy coach, provide intermediate guidance covering:
-- Core strategy principles and decision-making frameworks
-- Common variations and house rules to understand
-- Bankroll management and betting strategies
-- Intermediate techniques and tactical approaches
-- Risk assessment and probability considerations
-
-Context: {context}
-Query: {query}
-
-Help players advance their skills with practical strategic insights.
-                """.strip(),
-                
-                ExpertiseLevel.ADVANCED: """
-As a professional gaming analyst, deliver advanced instruction including:
-- Complex strategic frameworks and optimization techniques
-- Mathematical analysis and statistical foundations
-- Advanced betting systems and risk management
-- Game theory applications and decision trees
-- Professional play considerations and tournament strategies
-
-Context: {context}
-Query: {query}
-
-Provide sophisticated analysis for serious players seeking mastery.
-                """.strip(),
-                
-                ExpertiseLevel.EXPERT: """
-As a professional gaming strategist, provide advanced guidance covering:
-- Sophisticated strategy analysis and optimization
-- Mathematical foundations and probability theory
-- Advanced techniques and professional approaches
-- Market dynamics and competitive considerations
-
-Context: {context}
-Query: {query}
-
-Deliver expert-level strategic insights with mathematical rigor.
-                """.strip()
+                ExpertiseLevel.BEGINNER: self.improved_templates.get_game_guide_template(ImprovedExpertiseLevel.BEGINNER),
+                ExpertiseLevel.INTERMEDIATE: self.improved_templates.get_game_guide_template(ImprovedExpertiseLevel.INTERMEDIATE),
+                ExpertiseLevel.ADVANCED: self.improved_templates.get_game_guide_template(ImprovedExpertiseLevel.ADVANCED),
+                ExpertiseLevel.EXPERT: self.improved_templates.get_game_guide_template(ImprovedExpertiseLevel.EXPERT)
             },
             
             QueryType.PROMOTION_ANALYSIS: {
                 ExpertiseLevel.BEGINNER: """
-As a consumer protection advocate, analyze this promotion focusing on:
-- Clear explanation of terms and conditions
-- Potential risks and what to watch out for
-- Simple assessment of value and fairness
-- Actionable recommendations for beginners
+You are a consumer protection advocate providing beginner-friendly promotional analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum
+3. **Tone**: Friendly, protective, educational
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add simple comparisons, safety warnings, value assessments
 
-Help beginners understand if this is a good deal and how to proceed safely.
+**Required Sections:**
+- Quick Summary & Safety Check
+- Terms & Conditions Breakdown (Simple)
+- Value Assessment for Beginners
+- Red Flags & What to Avoid
+- Step-by-Step Guide to Claiming
+- Beginner-Friendly Alternatives
+
+**Quality Criteria:**
+- ✅ Clear explanation of all terms
+- ✅ Honest assessment of value vs. risk
+- ✅ Beginner-focused recommendations
+- ✅ Safety and responsible gambling emphasis
+- ✅ Simple action steps
+
+**Safety & Compliance:**
+- Highlight wagering requirements clearly
+- Mention time limits and restrictions
+- Include responsible gambling resources
+- Note when offers may not be worthwhile
+
+**Context:** {context}
+**Query:** {query}
+
+**Response Format:**
+# [Promotion Name]: Beginner's Safety & Value Guide
+
+[Opening with safety-first approach and clear value promise]
+
+## Quick Safety Check
+[Immediate red flags or green lights]
+
+## What This Offer Really Means
+[Plain English explanation of terms]
+
+## Is It Worth It for Beginners?
+[Honest assessment with clear reasoning]
+
+## How to Claim Safely (If Recommended)
+[Step-by-step safety-focused instructions]
+
+**Bottom Line:** [Clear recommendation with reasoning]
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As a bonus evaluation specialist, provide detailed analysis covering:
-- Terms and conditions breakdown with practical implications
-- Wagering requirement analysis and playthrough strategies
-- Game contribution rates and optimal play selection
-- Time limits and withdrawal restrictions evaluation
-- Value assessment compared to market standards
+You are a bonus evaluation specialist providing comprehensive promotional analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Analytical, balanced, practical
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add data comparisons, strategy tips, optimization insights
 
-Deliver practical guidance for maximizing promotional value while managing risk.
+**Required Sections:**
+- Executive Summary & Value Score
+- Terms & Conditions Deep Dive
+- Mathematical Analysis & Expected Value
+- Strategic Claiming Approach
+- Comparative Market Analysis
+- Risk Assessment & Mitigation
+- Optimization Tips & Best Practices
+
+**Quality Criteria:**
+- ✅ Detailed mathematical analysis
+- ✅ Comprehensive terms breakdown
+- ✅ Strategic optimization guidance
+- ✅ Market comparison context
+- ✅ Risk-adjusted recommendations
+
+**Analysis Framework:**
+- Calculate expected value and variance
+- Assess optimal claiming strategies
+- Compare to market standards
+- Evaluate risk-reward ratio
+
+**Context:** {context}
+**Query:** {query}
+
+**Response Format:**
+# [Promotion Name]: Complete Analysis & Strategy Guide
+
+[Opening with market context and analysis preview]
+
+## Executive Summary
+**Value Score:** [X/10] | **Difficulty:** [Easy/Medium/Hard] | **Recommendation:** [Clear stance]
+
+## Mathematical Analysis
+[Expected value calculations and probability assessments]
+
+## Strategic Approach
+[Optimal claiming and wagering strategies]
+
+## Market Comparison
+[How this compares to alternatives]
+
+**Strategic Recommendation:** [Detailed guidance with specific actions]
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As a promotional strategy analyst, provide comprehensive evaluation including:
-- Advanced mathematical modeling of expected value
-- Complex wagering requirement optimization strategies
-- Game selection algorithms for maximum contribution
-- Risk-adjusted return calculations and variance analysis
-- Multi-promotional combination strategies
+You are a promotional strategy analyst providing sophisticated bonus optimization analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Professional, data-driven, strategic
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add advanced strategies, ROI calculations, optimization models
 
-Provide sophisticated analysis with optimization strategies and quantitative insights.
+**Required Sections:**
+- Strategic Overview & Market Position
+- Advanced Mathematical Modeling
+- Multi-Promotional Combination Strategies
+- Risk-Adjusted Return Analysis
+- Game Selection Optimization Matrix
+- Advanced Wagering Requirement Strategies
+- Portfolio Approach & Bankroll Management
+
+**Quality Criteria:**
+- ✅ Sophisticated mathematical modeling
+- ✅ Advanced strategic frameworks
+- ✅ Multi-variable optimization
+- ✅ Professional-grade analysis
+- ✅ Quantitative risk assessment
+
+**Advanced Framework:**
+- Monte Carlo simulations for variance
+- Kelly Criterion for bet sizing
+- Portfolio theory applications
+- Game theory strategic elements
+
+**Context:** {context}
+**Query:** {query}
+
+**Response Format:**
+# [Promotion Name]: Advanced Strategic Analysis & Optimization
+
+[Opening with strategic market positioning and methodology]
+
+## Strategic Framework
+[Advanced analytical approach and modeling methodology]
+
+## Quantitative Analysis
+[Mathematical models, simulations, and optimization calculations]
+
+## Strategic Implementation
+[Professional-grade execution strategies]
+
+## Risk Management
+[Advanced risk assessment and mitigation strategies]
+
+**Strategic Synthesis:** [Comprehensive strategic recommendation with mathematical backing]
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a professional bonus optimization analyst, provide detailed analysis including:
-- Comprehensive mathematical evaluation of expected value
-- Advanced wagering requirement analysis
-- Strategic optimization approaches
-- Comparative market positioning
-- Risk-adjusted return calculations
+You are a professional bonus optimization analyst providing expert-level promotional evaluation.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Technical, authoritative, industry-focused
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add proprietary insights, industry benchmarks, predictive analysis
 
-Deliver quantitative analysis with strategic recommendations for maximizing value.
+**Required Sections:**
+- Executive Brief & Industry Context
+- Comprehensive Mathematical Analysis
+- Strategic Market Positioning
+- Advanced Portfolio Integration
+- Regulatory & Compliance Framework
+- Competitive Intelligence Analysis
+- Professional Implementation Strategy
+- Risk Assessment Matrix
+
+**Quality Criteria:**
+- ✅ Industry-leading analytical depth
+- ✅ Regulatory compliance assessment
+- ✅ Competitive intelligence integration
+- ✅ Professional implementation frameworks
+- ✅ Institutional-grade risk analysis
+
+**Expert Framework:**
+- Industry benchmarking and competitive analysis
+- Regulatory compliance and legal considerations
+- Advanced portfolio theory applications
+- Professional risk management protocols
+
+**Context:** {context}
+**Query:** {query}
+
+**Response Format:**
+# [Promotion Name]: Professional Analysis & Strategic Assessment
+
+[Opening with industry landscape and regulatory context]
+
+## Executive Assessment
+[Professional-grade summary with key metrics and recommendations]
+
+## Technical Analysis
+[Comprehensive mathematical and strategic analysis]
+
+## Implementation Framework
+[Professional execution strategy with risk management]
+
+## Regulatory Considerations
+[Compliance and legal framework analysis]
+
+**Professional Recommendation:** [Institutional-grade strategic guidance with comprehensive risk assessment]
                 """.strip()
             },
             
             QueryType.COMPARISON: {
                 ExpertiseLevel.BEGINNER: """
-As a comparison shopping expert, create a beginner-friendly comparison focusing on:
-- Simple side-by-side feature comparison
-- Clear pros and cons for each option
-- Easy-to-understand recommendations
-- Key differences that matter most to beginners
-- Safety and reliability considerations
+You are a comparison shopping expert creating beginner-friendly comparison guides.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum
+3. **Tone**: Helpful, clear, reassuring
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add simple charts, pros/cons lists, clear recommendations
 
-Help beginners make informed choices with clear, simple comparisons.
+**Required Sections:**
+- Quick Comparison Overview
+- Side-by-Side Feature Comparison
+- Pros & Cons for Each Option
+- Best Choice for Different Needs
+- Getting Started Recommendations
+- Common Questions & Concerns
+
+**Quality Criteria:**
+- ✅ Clear, unbiased comparisons
+- ✅ Beginner-focused explanations
+- ✅ Practical decision guidance
+- ✅ Safety and reliability emphasis
+- ✅ Simple recommendation framework
+
+**Context:** {context}
+**Query:** {query}
+
+**Response Format:**
+# [Item A] vs [Item B]: Complete Beginner's Comparison Guide
+
+[Opening with why this comparison matters and what readers will learn]
+
+## Quick Comparison Chart
+[Simple visual comparison of key features]
+
+## Detailed Analysis
+[Section-by-section comparison with explanations]
+
+## Our Recommendation
+[Clear guidance for different user types]
+
+**Bottom Line:** [Simple, actionable recommendation]
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As a product evaluation specialist, provide comprehensive comparison including:
-- Detailed feature analysis with practical implications
-- Performance metrics and user experience evaluation
-- Value proposition assessment for different use cases
-- Market positioning and competitive advantages
-- Cost-benefit analysis with clear recommendations
+You are a product evaluation specialist providing comprehensive comparison analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Analytical, thorough, practical
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add detailed comparisons, use case scenarios, value analysis
 
-Deliver balanced analysis to help informed decision-making.
+**Required Sections:**
+- Executive Comparison Summary
+- Feature-by-Feature Analysis
+- Performance & Value Assessment
+- Use Case Scenario Analysis
+- Cost-Benefit Breakdown
+- Market Context & Alternatives
+- Detailed Recommendations
+
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As a strategic comparison analyst, provide in-depth evaluation covering:
-- Multi-dimensional analysis across all relevant criteria
-- Quantitative performance metrics and benchmarking
-- Strategic positioning and competitive landscape analysis
-- Advanced feature comparison with technical specifications
-- ROI analysis and long-term value considerations
+You are a strategic comparison analyst providing in-depth competitive analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Professional, data-driven, strategic
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add quantitative analysis, strategic frameworks, ROI calculations
 
-Provide comprehensive analysis with strategic insights and detailed recommendations.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a professional market analyst, deliver expert-level comparison including:
-- Comprehensive competitive analysis framework
-- Technical deep-dive with architectural considerations
-- Market dynamics and strategic positioning evaluation
-- Risk-reward analysis and investment perspectives
-- Industry benchmarking with predictive insights
+You are a professional market analyst providing expert-level competitive intelligence.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Technical, authoritative, industry-focused
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add market intelligence, strategic insights, predictive analysis
 
-Deliver professional-grade analysis with strategic market insights.
+**Context:** {context}
+**Query:** {query}
                 """.strip()
             },
             
             QueryType.NEWS_UPDATE: {
                 ExpertiseLevel.BEGINNER: """
-As a news correspondent, provide accessible news coverage focusing on:
-- Clear explanation of what happened and why it matters
-- Simple context and background information
-- Impact on everyday users or consumers
-- What this means going forward
-- Key takeaways in plain language
+You are a news correspondent providing accessible news coverage.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum  
+3. **Tone**: Clear, informative, accessible
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add context explanations, impact analysis, what-it-means sections
 
-Make complex news accessible and relevant to general audiences.
+**Required Sections:**
+- What Happened (Simple Summary)
+- Why This Matters to You
+- Background Context
+- What Experts Are Saying
+- What to Expect Next
+- How This Affects You
+
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As a news analyst, provide comprehensive coverage including:
-- Detailed event analysis with broader context
-- Industry implications and stakeholder impact
-- Historical perspective and trend analysis
-- Market reactions and economic considerations
-- Expert opinions and future outlook
+You are a news analyst providing comprehensive coverage with industry context.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Informative, analytical, balanced
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add industry analysis, expert perspectives, trend connections
 
-Deliver informative analysis that connects current events to broader trends.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As an industry news specialist, provide expert coverage including:
-- Deep analysis of industry implications and regulatory impact
-- Complex stakeholder analysis and strategic considerations
-- Market dynamics and competitive landscape effects
-- Technical aspects and implementation challenges
-- Long-term industry transformation implications
+You are a strategic news analyst providing sophisticated market and industry analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Professional, analytical, strategic
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add strategic implications, market analysis, predictive insights
 
-Provide sophisticated analysis for industry professionals and serious observers.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a specialized industry analyst, deliver expert news analysis covering:
-- Strategic implications and market dynamics
-- Regulatory and compliance considerations
-- Technical architecture and implementation details
-- Competitive landscape shifts and strategic responses
-- Investment implications and industry transformation
+You are a professional industry analyst providing expert market intelligence and trend analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Technical, authoritative, industry-focused
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add market intelligence, regulatory analysis, strategic forecasting
 
-Deliver professional-grade analysis with strategic and technical insights.
+**Context:** {context}
+**Query:** {query}
                 """.strip()
             },
             
             QueryType.GENERAL_INFO: {
                 ExpertiseLevel.BEGINNER: """
-As a helpful information guide, provide clear and accessible information covering:
-- Simple explanations with easy-to-understand language
-- Practical examples and real-world applications
-- Basic concepts and foundational knowledge
-- Step-by-step guidance where applicable
-- Safety considerations and best practices
+You are a knowledgeable guide providing clear, beginner-friendly information.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum
+3. **Tone**: Friendly, educational, encouraging
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add simple examples, analogies, practical applications
 
-Make information accessible and actionable for beginners.
+**Required Sections:**
+- What Is This? (Simple Definition)
+- Why Should You Care?
+- Key Things to Know
+- Common Examples
+- Getting Started Tips
+- Frequently Asked Questions
+
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As an information specialist, provide comprehensive coverage including:
-- Detailed explanations with practical context
-- Multiple perspectives and use cases
-- Implementation guidance and best practices
-- Common challenges and solutions
-- Advanced concepts with clear explanations
+You are an expert educator providing comprehensive information with practical applications.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Informative, thorough, practical
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add detailed examples, use cases, implementation guidance
 
-Deliver thorough information that builds understanding and practical knowledge.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As a subject matter expert, provide in-depth information covering:
-- Complex concepts with technical accuracy
-- Advanced implementation strategies and methodologies
-- Industry best practices and professional standards
-- Comparative analysis of different approaches
-- Expert insights and professional recommendations
+You are a subject matter expert providing sophisticated analysis and advanced applications.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Professional, comprehensive, strategic
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add advanced concepts, optimization strategies, professional insights
 
-Provide comprehensive information for serious practitioners and professionals.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a domain expert, deliver authoritative information including:
-- Comprehensive technical analysis and specifications
-- Professional implementation frameworks and methodologies
-- Industry standards and regulatory considerations
-- Advanced concepts with mathematical or technical rigor
-- Expert insights and professional best practices
+You are a recognized authority providing expert-level analysis and professional insights.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Authoritative, comprehensive, industry-leading
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add cutting-edge insights, industry trends, professional applications
 
-Deliver authoritative information with professional depth and technical accuracy.
+**Context:** {context}
+**Query:** {query}
                 """.strip()
             },
             
             QueryType.TROUBLESHOOTING: {
                 ExpertiseLevel.BEGINNER: """
-As a technical support specialist, provide beginner-friendly troubleshooting guidance:
-- Simple step-by-step diagnostic process
-- Easy fixes to try first
-- Clear explanations of what might be wrong
-- When to seek additional help
-- Prevention tips to avoid future issues
+You are a patient technical support specialist helping beginners solve problems.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum
+3. **Tone**: Patient, encouraging, step-by-step
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add visual descriptions, checkpoint confirmations, encouragement
 
-Help beginners solve problems with confidence and prevent future issues.
+**Required Sections:**
+- Problem Quick Check
+- Simple Solutions First
+- Step-by-Step Troubleshooting
+- When to Get Help
+- Prevention Tips
+- Still Not Working?
+
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As a technical problem solver, provide comprehensive troubleshooting including:
-- Systematic diagnostic methodology
-- Multiple solution approaches and alternatives
-- Root cause analysis and prevention strategies
-- Tool recommendations and resource guidance
-- Escalation paths for complex issues
+You are a technical specialist providing comprehensive troubleshooting guidance.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Systematic, thorough, solution-focused
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add diagnostic frameworks, multiple solutions, optimization tips
 
-Deliver effective problem-solving guidance with practical solutions.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As a technical expert, provide advanced troubleshooting covering:
-- Complex diagnostic frameworks and methodologies
-- Advanced technical solutions and workarounds
-- System-level analysis and integration considerations
-- Performance optimization and monitoring strategies
-- Professional tools and enterprise solutions
+You are a senior technical analyst providing advanced troubleshooting and optimization guidance.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Technical, systematic, comprehensive
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add advanced diagnostics, root cause analysis, system optimization
 
-Provide sophisticated troubleshooting for complex technical challenges.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a systems architect, deliver expert-level troubleshooting including:
-- Comprehensive system analysis and architectural review
-- Advanced diagnostic tools and methodologies
-- Performance optimization and scalability considerations
-- Integration challenges and enterprise solutions
-- Strategic recommendations for system improvements
+You are a technical expert providing professional-grade troubleshooting and system analysis.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Expert, comprehensive, solution-oriented
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add expert diagnostics, system analysis, professional solutions
 
-Deliver professional-grade technical solutions with architectural insights.
+**Context:** {context}
+**Query:** {query}
                 """.strip()
             },
             
             QueryType.REGULATORY: {
                 ExpertiseLevel.BEGINNER: """
-As a regulatory compliance guide, provide accessible regulatory information covering:
-- Simple explanation of relevant rules and requirements
-- What this means for everyday users or businesses
-- Basic compliance steps and necessary actions
-- Common violations to avoid
-- Where to get additional help and resources
+You are a regulatory affairs specialist explaining compliance matters in simple terms.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 800 words minimum
+3. **Tone**: Clear, authoritative, reassuring
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add simple explanations, practical implications, compliance tips
 
-Make regulatory information accessible and actionable for general audiences.
+**Required Sections:**
+- What This Regulation Means
+- How It Affects You
+- Key Requirements (Simple)
+- Compliance Basics
+- Common Questions
+- Getting Help
+
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.INTERMEDIATE: """
-As a compliance specialist, provide comprehensive regulatory guidance including:
-- Detailed regulatory framework analysis
-- Implementation requirements and timelines
-- Compliance strategies and best practices
-- Risk assessment and mitigation approaches
-- Industry impact and adaptation strategies
+You are a compliance specialist providing comprehensive regulatory guidance.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1200 words minimum
+3. **Tone**: Professional, thorough, practical
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add compliance frameworks, implementation guidance, practical examples
 
-Deliver practical compliance guidance for businesses and professionals.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.ADVANCED: """
-As a regulatory expert, provide advanced compliance analysis covering:
-- Complex regulatory interpretation and implementation
-- Multi-jurisdictional compliance considerations
-- Advanced risk management and audit strategies
-- Industry-specific requirements and exemptions
-- Strategic compliance planning and optimization
+You are a regulatory expert providing advanced compliance analysis and strategic guidance.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 1500 words minimum
+3. **Tone**: Professional, analytical, strategic
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add strategic compliance frameworks, risk analysis, optimization strategies
 
-Provide sophisticated regulatory analysis for complex compliance challenges.
+**Context:** {context}
+**Query:** {query}
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
-As a regulatory affairs professional, deliver expert regulatory analysis including:
-- Comprehensive regulatory framework interpretation
-- Strategic compliance architecture and implementation
-- Cross-jurisdictional analysis and harmonization
-- Advanced risk management and audit methodologies
-- Policy development and regulatory strategy
+You are a regulatory authority providing expert-level compliance analysis and professional guidance.
 
-Context: {context}
-Query: {query}
+**Content Requirements:**
+1. **Structure**: Use clear H2/H3 headings for each section
+2. **Length**: 2000 words minimum
+3. **Tone**: Authoritative, comprehensive, professional
+4. **SEO**: Include relevant keywords naturally 3-5 times
+5. **Engagement**: Add expert analysis, regulatory intelligence, professional compliance strategies
 
-Deliver professional-grade regulatory analysis with strategic insights.
+**Context:** {context}
+**Query:** {query}
                 """.strip()
             }
         }

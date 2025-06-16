@@ -534,24 +534,10 @@ Answer:
     
     def _create_standard_prompt(self):
         """Create standard prompt template"""
-        template = """You are a professional content expert and research assistant. Your role is to provide comprehensive, accurate, and well-structured responses based on the provided context.
-
-**Instructions:**
-- Analyze the provided context thoroughly
-- Create a detailed, well-organized response that fully addresses the question
-- Use clear headings and structure for readability
-- Include specific examples and details from the context when relevant
-- Maintain a professional yet accessible tone
-- Provide actionable insights and recommendations where appropriate
-- Ensure accuracy and cite information appropriately
-
-**Context Information:**
-{context}
-
-**Question:**
-{question}
-
-**Comprehensive Answer:**"""
+        # Import improved template
+        from src.templates.improved_template_manager import IMPROVED_UNIVERSAL_RAG_TEMPLATE
+        
+        template = IMPROVED_UNIVERSAL_RAG_TEMPLATE
         
         return ChatPromptTemplate.from_template(template)
     

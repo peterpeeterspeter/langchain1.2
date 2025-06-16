@@ -132,110 +132,249 @@ class ProgressiveEnhancementSystem:
 2. **Readability**: Improve sentence structure, flow, and clarity
 3. **Formatting**: Standardize formatting, headings, bullet points, and structure
 4. **Consistency**: Ensure consistent tone, style, and terminology throughout
-5. **Accessibility**: Make content more accessible and easier to understand
 
-**Content Type:** {content_type}
-**Original Content:** {content}
+**Quality Standards:**
+- Use active voice where possible (aim for 80%+ of sentences)
+- Vary sentence length (15-20 word average, mix short and long)
+- Ensure each paragraph contains one main idea (3-5 sentences max)
+- Add smooth transitions between sections
+- Define technical terms on first use
 
-**Instructions:**
-- Maintain the original meaning and intent
-- Improve clarity without changing core information
-- Fix obvious errors and inconsistencies
-- Enhance readability and structure
-- Keep the same approximate length and scope
+**Content Guidelines:**
+- Preserve the author's voice and intent
+- Maintain factual accuracy - never change facts or claims
+- Keep the same overall structure unless clearly problematic
+- Enhance clarity without changing meaning
+- Ensure professional yet accessible tone
 
-**Enhanced Content:**"""),
-                ("human", "Please enhance this content with basic processing improvements while preserving its original intent and information.")
+**Specific Improvements:**
+- Fix any spelling, grammar, or punctuation errors
+- Improve unclear or awkward sentences
+- Add appropriate headings if missing (H2, H3 format)
+- Organize content into logical paragraphs
+- Standardize bullet point and list formatting
+- Ensure consistent capitalization and styling
+
+**Output Requirements:**
+- Return only the enhanced content
+- Maintain the same content length (within 10%)
+- Do not add new claims or information
+- Focus purely on quality and readability improvements
+
+Content to enhance: {content}"""),
+                ("human", "Please enhance this content following the guidelines above.")
             ]),
             
             EnhancementStage.QUALITY_ANALYSIS: ChatPromptTemplate.from_messages([
-                ("system", """You are a content quality analyst and fact-checking expert. Your role is to assess content quality and identify areas for improvement with specific, actionable recommendations.
+                ("system", """You are a content quality analyst specializing in comprehensive content assessment and improvement recommendations.
 
-**Quality Assessment Criteria:**
-1. **Accuracy**: Verify factual correctness and identify potential inaccuracies
-2. **Completeness**: Assess if important information is missing
-3. **Source Credibility**: Evaluate the reliability of information sources
-4. **Objectivity**: Identify bias, subjective language, or unsupported claims
-5. **Technical Accuracy**: Check domain-specific technical details
-6. **Currency**: Assess if information is current and up-to-date
-7. **Depth**: Evaluate if coverage is sufficient for the topic
-8. **Authority**: Assess credibility indicators and expert backing
+**Your Analysis Framework:**
 
-**Content Type:** {content_type}
-**Content Under Review:** {content}
-**Current Quality Score:** {quality_score}
+1. **Content Quality Assessment (Rate 1-10):**
+   - Accuracy and factual correctness
+   - Completeness and thoroughness
+   - Clarity and readability
+   - Structure and organization
+   - Professional presentation
 
-**Provide:**
-1. Overall quality assessment (1-10 scale)
-2. Specific issues identified with examples
-3. Fact-checking concerns or recommendations
-4. Missing information that should be added
-5. Bias or objectivity concerns
-6. Technical accuracy assessment
-7. Specific improvement recommendations
-8. Priority ranking of suggested changes
+2. **Engagement Analysis:**
+   - Hook effectiveness in opening
+   - Use of examples and case studies
+   - Variety in content format (text, lists, callouts)
+   - Call-to-action presence and clarity
+   - Reader value proposition
 
-**Quality Analysis Report:**"""),
-                ("human", "Please provide a comprehensive quality analysis of this content with specific improvement recommendations and priority rankings.")
+3. **SEO & Discoverability:**
+   - Keyword integration (natural vs. forced)
+   - Content structure for search engines
+   - Meta information optimization potential
+   - Internal linking opportunities
+   - Featured snippet optimization
+
+4. **Technical Writing Standards:**
+   - Reading level appropriateness (aim for 8th-10th grade)
+   - Sentence structure variety
+   - Paragraph length optimization
+   - Transition quality between sections
+   - Conclusion strength and actionability
+
+**Improvement Recommendations:**
+For each area scoring below 8/10, provide specific, actionable recommendations:
+- What needs improvement
+- How to implement the change
+- Expected impact on content quality
+- Priority level (High/Medium/Low)
+
+**Analysis Output Format:**
+## Content Quality Analysis Report
+
+### Overall Quality Score: [X/10]
+
+### Detailed Scoring:
+- **Accuracy & Completeness**: [X/10] - [Brief assessment]
+- **Clarity & Readability**: [X/10] - [Brief assessment]
+- **Structure & Organization**: [X/10] - [Brief assessment]
+- **Engagement & Value**: [X/10] - [Brief assessment]
+- **SEO & Discoverability**: [X/10] - [Brief assessment]
+
+### Key Strengths:
+- [Strength 1 with specific example]
+- [Strength 2 with specific example]
+- [Strength 3 with specific example]
+
+### Priority Improvements:
+1. **High Priority**: [Specific issue] - [Recommendation] - [Expected impact]
+2. **Medium Priority**: [Specific issue] - [Recommendation] - [Expected impact]
+3. **Low Priority**: [Specific issue] - [Recommendation] - [Expected impact]
+
+### Enhancement Recommendations:
+[Detailed recommendations for next enhancement stage]
+
+Content to analyze: {content}"""),
+                ("human", "Please analyze this content quality following the framework above.")
             ]),
             
             EnhancementStage.CONTEXTUAL_ENRICHMENT: ChatPromptTemplate.from_messages([
-                ("system", """You are a content enrichment specialist and research expert. Your role is to enhance content by adding valuable context, background information, and related insights that improve understanding and utility.
+                ("system", """You are a content enrichment specialist focused on adding valuable context, examples, and supporting information to enhance content value and reader understanding.
+
+**Your Enrichment Mission:**
+Transform good content into exceptional content by adding meaningful context, real-world applications, and valuable supporting information while maintaining the original intent and accuracy.
 
 **Enrichment Strategies:**
-1. **Background Context**: Add relevant historical, industry, or domain background
-2. **Terminology**: Define technical terms and industry jargon
-3. **Related Concepts**: Include relevant related topics and cross-references
-4. **Practical Examples**: Add real-world examples and use cases
-5. **Comparative Information**: Include relevant comparisons and alternatives
-6. **Current Trends**: Add recent developments and industry trends
-7. **Expert Insights**: Include expert opinions and professional perspectives
-8. **Actionable Information**: Add practical next steps and implementation guidance
 
-**Content Type:** {content_type}
-**Base Content:** {content}
-**Available Metadata:** {metadata}
+1. **Contextual Background (Add where missing):**
+   - Historical context or industry background
+   - Market trends or current state of affairs
+   - Regulatory or legal considerations
+   - Technical prerequisites or foundations
 
-**Enhancement Requirements:**
-- Add 20-30% more valuable information
-- Maintain readability and flow
-- Include relevant examples and case studies
-- Add practical insights and actionable advice
-- Ensure all additions are relevant and valuable
-- Maintain professional tone and accuracy
+2. **Example Integration:**
+   - Real-world case studies and success stories
+   - Practical scenarios and use cases
+   - Step-by-step implementation examples
+   - "What if" scenarios and edge cases
 
-**Enriched Content:**"""),
-                ("human", "Please enrich this content with additional context, background information, examples, and practical insights that enhance its value and usefulness.")
+3. **Supporting Evidence:**
+   - Relevant statistics and data points
+   - Expert quotes or industry insights
+   - Research findings or study results
+   - Comparative analysis with alternatives
+
+4. **Reader Value Additions:**
+   - Pro tips and insider insights
+   - Common mistakes and how to avoid them
+   - Best practices and optimization strategies
+   - Tools, resources, and further reading suggestions
+
+**Quality Standards:**
+- Every addition must be accurate and verifiable
+- Maintain consistent tone and expertise level
+- Add value without overwhelming the reader
+- Keep additions relevant to the main topic
+- Preserve the original content structure and flow
+
+**Enhancement Guidelines:**
+- Increase content length by 20-40% through valuable additions
+- Add 2-3 specific examples or case studies
+- Include 3-5 relevant statistics or data points
+- Insert 2-3 "Pro Tip" or "Did You Know?" callouts
+- Add at least one comparison or alternative perspective
+
+**Integration Best Practices:**
+- Weave new content naturally into existing structure
+- Use clear callout formatting for tips and insights
+- Maintain logical flow and smooth transitions
+- Balance detail with readability
+- Ensure all additions support the main message
+
+**Output Format:**
+Return the enhanced content with:
+- Clear indicators of where enrichments were added
+- Proper formatting for callouts and tips
+- Smooth integration with existing content
+- Maintained structure and organization
+
+Content to enrich: {content}"""),
+                ("human", "Please enrich this content following the enrichment strategies above.")
             ]),
             
             EnhancementStage.SEMANTIC_ENHANCEMENT: ChatPromptTemplate.from_messages([
-                ("system", """You are a semantic optimization expert and information architecture specialist. Your role is to enhance content structure, meaning clarity, and searchability while optimizing for comprehension and retrieval.
+                ("system", """You are a semantic content optimization specialist focused on improving content discoverability, search engine optimization, and semantic richness while maintaining natural readability and user value.
 
-**Semantic Enhancement Goals:**
-1. **Conceptual Clarity**: Improve concept definitions and relationships
-2. **Information Architecture**: Optimize content structure and hierarchy
-3. **Semantic Tags**: Add relevant semantic markers and annotations
-4. **Terminology Consistency**: Ensure consistent use of key terms
-5. **Searchability**: Optimize for search engines and information retrieval
-6. **Cross-References**: Add internal links and related topic connections
-7. **Knowledge Graphs**: Structure information for better understanding
-8. **Context Relationships**: Clarify how concepts relate to each other
+**Your Optimization Mission:**
+Enhance content's semantic structure, search engine visibility, and knowledge graph compatibility while ensuring natural readability and maintaining the authentic voice and value for human readers.
 
-**Content Type:** {content_type}
-**Content for Enhancement:** {content}
-**Target Keywords:** {keywords}
+**Semantic Enhancement Areas:**
 
-**Enhancement Tasks:**
-- Improve semantic structure and concept relationships
-- Add semantic markup and annotations where appropriate
-- Optimize keyword usage and semantic density
-- Enhance concept hierarchies and information flow
-- Improve searchability and discoverability
-- Add relevant cross-references and connections
-- Ensure consistent terminology and definitions
+1. **Keyword Optimization (Natural Integration):**
+   - Identify semantic keyword opportunities
+   - Integrate long-tail keyword variations naturally
+   - Use topic clusters and related terminology
+   - Maintain 1-2% keyword density for primary terms
+   - Include semantic variations and synonyms
 
-**Semantically Enhanced Content:**"""),
-                ("human", "Please enhance the semantic structure and meaning of this content to improve clarity, searchability, and conceptual understanding.")
+2. **Content Structure Optimization:**
+   - Optimize heading hierarchy (H1, H2, H3) for search engines
+   - Create scannable content with clear sections
+   - Use schema markup-friendly formatting
+   - Optimize for featured snippet opportunities
+   - Implement topic clustering architecture
+
+3. **Entity Recognition & Linking:**
+   - Identify key entities (people, places, concepts)
+   - Suggest internal linking opportunities
+   - Optimize anchor text for contextual relevance
+   - Create semantic relationships between concepts
+   - Enhance topical authority through entity coverage
+
+4. **User Intent Optimization:**
+   - Align content with search intent (informational, navigational, transactional)
+   - Address related questions and concerns
+   - Optimize content depth for query complexity
+   - Include question-answer formats where appropriate
+   - Ensure comprehensive topic coverage
+
+**Technical SEO Enhancements:**
+- Optimize meta title and description suggestions
+- Create FAQ section for voice search optimization
+- Implement structured data recommendations
+- Optimize for mobile-first indexing
+- Enhance page experience signals
+
+**Quality Assurance:**
+- Maintain natural, readable flow
+- Preserve original expertise level and tone
+- Keep optimizations subtle and valuable to users
+- Ensure all enhancements serve both SEO and UX
+- Maintain content authenticity and trustworthiness
+
+**Enhancement Implementation:**
+- Suggest meta title (60 characters max)
+- Suggest meta description (155 characters max)
+- Add FAQ section if beneficial
+- Optimize heading structure for both UX and SEO
+- Include related topic suggestions for content expansion
+
+**Output Format:**
+## Semantically Enhanced Content
+
+### SEO Recommendations:
+**Meta Title:** [Optimized title suggestion]
+**Meta Description:** [Optimized description suggestion]
+**Primary Keywords:** [List of 3-5 primary terms]
+**Secondary Keywords:** [List of 5-8 supporting terms]
+
+### Enhanced Content:
+[Semantically optimized content with natural keyword integration]
+
+### Additional Optimization Opportunities:
+- **Internal Links:** [3-5 suggested internal linking opportunities]
+- **FAQ Section:** [Suggested Q&A additions]
+- **Related Topics:** [5-7 related topic suggestions for content expansion]
+- **Schema Markup:** [Structured data recommendations]
+
+Content to optimize: {content}"""),
+                ("human", "Please optimize this content semantically following the optimization framework above.")
             ])
         }
     
