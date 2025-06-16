@@ -1,0 +1,836 @@
+{
+  "task_10_9_summary": {
+    "task_name": "API Endpoint Testing Framework",
+    "execution_timestamp": "2025-06-16T23:50:20.513993",
+    "total_execution_time_seconds": 0.27,
+    "test_categories_executed": [
+      "functional",
+      "security"
+    ],
+    "overall_status": "FAILED"
+  },
+  "test_execution_results": {
+    "functional_tests": {
+      "status": "completed",
+      "report": {
+        "test_execution_summary": {
+          "total_execution_time_seconds": 0.07,
+          "total_tests": 46,
+          "successful_tests": 0,
+          "failed_tests": 46,
+          "overall_success_rate": 0.0
+        },
+        "api_endpoint_results": {
+          "total_api_tests": 43,
+          "successful_api_tests": 0,
+          "failed_api_tests": 43,
+          "api_success_rate": 0.0,
+          "avg_response_time_ms": 0,
+          "max_response_time_ms": 0,
+          "min_response_time_ms": 0
+        },
+        "websocket_results": {
+          "total_ws_tests": 3,
+          "successful_ws_tests": 0,
+          "failed_ws_tests": 3,
+          "ws_success_rate": 0.0
+        },
+        "rate_limiting_analysis": {
+          "endpoint": "/api/v1/config/health",
+          "total_requests": 10,
+          "successful_requests": 0,
+          "rate_limited_requests": 0,
+          "error_requests": 10,
+          "total_time_seconds": 0.0,
+          "requests_per_second": 2478.9,
+          "rate_limiting_working": false
+        },
+        "authentication_analysis": {
+          "authentication_tests": [
+            {
+              "test": "no_auth",
+              "success": false
+            },
+            {
+              "test": "invalid_key",
+              "success": false
+            }
+          ],
+          "auth_middleware_working": false
+        },
+        "error_handling_analysis": {
+          "error_handling_tests": [
+            {
+              "test": "404_error",
+              "success": false
+            },
+            {
+              "test": "400_error",
+              "success": false
+            },
+            {
+              "test": "422_error",
+              "success": false
+            }
+          ],
+          "error_handling_working": false
+        },
+        "compliance_status": {
+          "api_endpoints_compliant": false,
+          "websockets_compliant": false,
+          "rate_limiting_compliant": false,
+          "authentication_compliant": false,
+          "error_handling_compliant": false
+        },
+        "detailed_results": {
+          "api_test_results": [
+            {
+              "test_name": "GET /",
+              "method": "GET",
+              "endpoint": "/",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.258844",
+              "description": "Root endpoint"
+            },
+            {
+              "test_name": "GET /health",
+              "method": "GET",
+              "endpoint": "/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.259989",
+              "description": "Health check"
+            },
+            {
+              "test_name": "GET /docs",
+              "method": "GET",
+              "endpoint": "/docs",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.260987",
+              "description": "API documentation"
+            },
+            {
+              "test_name": "GET /redoc",
+              "method": "GET",
+              "endpoint": "/redoc",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.262136",
+              "description": "ReDoc documentation"
+            },
+            {
+              "test_name": "GET /api/v1/config/prompt-optimization",
+              "method": "GET",
+              "endpoint": "/api/v1/config/prompt-optimization",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.263067",
+              "description": "Get prompt optimization config"
+            },
+            {
+              "test_name": "POST /api/v1/config/prompt-optimization",
+              "method": "POST",
+              "endpoint": "/api/v1/config/prompt-optimization",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.264614",
+              "description": "Update prompt optimization config"
+            },
+            {
+              "test_name": "GET /api/v1/config/analytics/real-time",
+              "method": "GET",
+              "endpoint": "/api/v1/config/analytics/real-time",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.265747",
+              "description": "Get real-time metrics"
+            },
+            {
+              "test_name": "POST /api/v1/config/analytics/report",
+              "method": "POST",
+              "endpoint": "/api/v1/config/analytics/report",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.266453",
+              "description": "Generate performance report"
+            },
+            {
+              "test_name": "GET /api/v1/config/profiling/optimization-report",
+              "method": "GET",
+              "endpoint": "/api/v1/config/profiling/optimization-report",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.267210",
+              "description": "Get optimization report"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.268251",
+              "description": "Config health check"
+            },
+            {
+              "test_name": "GET /retrieval/api/v1/config/",
+              "method": "GET",
+              "endpoint": "/retrieval/api/v1/config/",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.269312",
+              "description": "Get retrieval configuration"
+            },
+            {
+              "test_name": "POST /retrieval/api/v1/config/update",
+              "method": "POST",
+              "endpoint": "/retrieval/api/v1/config/update",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.270192",
+              "description": "Update retrieval configuration"
+            },
+            {
+              "test_name": "POST /retrieval/api/v1/config/validate",
+              "method": "POST",
+              "endpoint": "/retrieval/api/v1/config/validate",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.270969",
+              "description": "Validate configuration"
+            },
+            {
+              "test_name": "GET /retrieval/api/v1/config/performance-profiles",
+              "method": "GET",
+              "endpoint": "/retrieval/api/v1/config/performance-profiles",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.271705",
+              "description": "Get performance profiles"
+            },
+            {
+              "test_name": "POST /retrieval/api/v1/config/reload",
+              "method": "POST",
+              "endpoint": "/retrieval/api/v1/config/reload",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.272517",
+              "description": "Reload configuration"
+            },
+            {
+              "test_name": "GET /retrieval/api/v1/config/export",
+              "method": "GET",
+              "endpoint": "/retrieval/api/v1/config/export",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.273694",
+              "description": "Export configuration"
+            },
+            {
+              "test_name": "GET /retrieval/api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/retrieval/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.274612",
+              "description": "Retrieval config health"
+            },
+            {
+              "test_name": "POST /api/v1/contextual/query",
+              "method": "POST",
+              "endpoint": "/api/v1/contextual/query",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.275764",
+              "description": "Contextual document query"
+            },
+            {
+              "test_name": "POST /api/v1/contextual/ingest",
+              "method": "POST",
+              "endpoint": "/api/v1/contextual/ingest",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.276749",
+              "description": "Document ingestion"
+            },
+            {
+              "test_name": "GET /api/v1/contextual/metrics",
+              "method": "GET",
+              "endpoint": "/api/v1/contextual/metrics",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.277404",
+              "description": "Retrieval metrics"
+            },
+            {
+              "test_name": "GET /api/v1/contextual/analytics",
+              "method": "GET",
+              "endpoint": "/api/v1/contextual/analytics",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.278192",
+              "description": "Retrieval analytics"
+            },
+            {
+              "test_name": "POST /api/v1/contextual/migrate",
+              "method": "POST",
+              "endpoint": "/api/v1/contextual/migrate",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.279037",
+              "description": "Content migration"
+            },
+            {
+              "test_name": "GET /api/v1/contextual/health",
+              "method": "GET",
+              "endpoint": "/api/v1/contextual/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.279735",
+              "description": "Contextual retrieval health"
+            },
+            {
+              "test_name": "GET /api/v1/config/feature-flags",
+              "method": "GET",
+              "endpoint": "/api/v1/config/feature-flags",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.280822",
+              "description": "Get feature flags"
+            },
+            {
+              "test_name": "POST /api/v1/config/feature-flags",
+              "method": "POST",
+              "endpoint": "/api/v1/config/feature-flags",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.281574",
+              "description": "Create feature flag"
+            },
+            {
+              "test_name": "PUT /api/v1/config/feature-flags/test_flag",
+              "method": "PUT",
+              "endpoint": "/api/v1/config/feature-flags/test_flag",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.282516",
+              "description": "Update feature flag"
+            },
+            {
+              "test_name": "DELETE /api/v1/config/feature-flags/test_flag",
+              "method": "DELETE",
+              "endpoint": "/api/v1/config/feature-flags/test_flag",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.283271",
+              "description": "Delete feature flag"
+            },
+            {
+              "test_name": "POST /api/v1/config/feature-flags/test_flag/toggle",
+              "method": "POST",
+              "endpoint": "/api/v1/config/feature-flags/test_flag/toggle",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.284313",
+              "description": "Toggle feature flag"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.308233",
+              "description": "Rate limit test 1"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308333",
+              "description": "Rate limit test 2"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.308370",
+              "description": "Rate limit test 4"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.308428",
+              "description": "Rate limit test 7"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.308526",
+              "description": "Rate limit test 10"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308567",
+              "description": "Rate limit test 3"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308600",
+              "description": "Rate limit test 5"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308634",
+              "description": "Rate limit test 6"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308692",
+              "description": "Rate limit test 8"
+            },
+            {
+              "test_name": "GET /api/v1/config/health",
+              "method": "GET",
+              "endpoint": "/api/v1/config/health",
+              "status_code": 0,
+              "expected_status": 200,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.308765",
+              "description": "Rate limit test 9"
+            },
+            {
+              "test_name": "GET /api/v1/config/prompt-optimization",
+              "method": "GET",
+              "endpoint": "/api/v1/config/prompt-optimization",
+              "status_code": 0,
+              "expected_status": 401,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.310295",
+              "description": "No authentication"
+            },
+            {
+              "test_name": "GET /api/v1/config/prompt-optimization",
+              "method": "GET",
+              "endpoint": "/api/v1/config/prompt-optimization",
+              "status_code": 0,
+              "expected_status": 401,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.311303",
+              "description": "Invalid API key"
+            },
+            {
+              "test_name": "GET /api/v1/nonexistent",
+              "method": "GET",
+              "endpoint": "/api/v1/nonexistent",
+              "status_code": 0,
+              "expected_status": 404,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('::1', 8000, 0, 0)]",
+              "timestamp": "2025-06-16T23:50:20.312061",
+              "description": "404 Not Found"
+            },
+            {
+              "test_name": "POST /api/v1/config/prompt-optimization",
+              "method": "POST",
+              "endpoint": "/api/v1/config/prompt-optimization",
+              "status_code": 0,
+              "expected_status": 400,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.312993",
+              "description": "400 Bad Request"
+            },
+            {
+              "test_name": "POST /retrieval/api/v1/config/update",
+              "method": "POST",
+              "endpoint": "/retrieval/api/v1/config/update",
+              "status_code": 0,
+              "expected_status": 422,
+              "success": false,
+              "response_time_ms": 0,
+              "response_data": null,
+              "error": "Cannot connect to host localhost:8000 ssl:default [Connect call failed ('fe80::1', 8000, 0, 1)]",
+              "timestamp": "2025-06-16T23:50:20.314460",
+              "description": "422 Validation Error"
+            }
+          ],
+          "websocket_test_results": [
+            {
+              "test_name": "WebSocket /ws/metrics",
+              "endpoint": "/ws/metrics",
+              "success": false,
+              "connection_time_ms": 0,
+              "messages_sent": 0,
+              "messages_received": 0,
+              "error": "Multiple exceptions: [Errno 61] Connect call failed ('::1', 8000, 0, 0), [Errno 61] Connect call failed ('fe80::1', 8000, 0, 1), [Errno 61] Connect call failed ('127.0.0.1', 8000)",
+              "timestamp": "2025-06-16T23:50:20.303412",
+              "description": "Real-time metrics WebSocket"
+            },
+            {
+              "test_name": "WebSocket /ws/analytics",
+              "endpoint": "/ws/analytics",
+              "success": false,
+              "connection_time_ms": 0,
+              "messages_sent": 0,
+              "messages_received": 0,
+              "error": "Multiple exceptions: [Errno 61] Connect call failed ('::1', 8000, 0, 0), [Errno 61] Connect call failed ('fe80::1', 8000, 0, 1), [Errno 61] Connect call failed ('127.0.0.1', 8000)",
+              "timestamp": "2025-06-16T23:50:20.304132",
+              "description": "Analytics WebSocket"
+            },
+            {
+              "test_name": "WebSocket /ws/profiling",
+              "endpoint": "/ws/profiling",
+              "success": false,
+              "connection_time_ms": 0,
+              "messages_sent": 0,
+              "messages_received": 0,
+              "error": "Multiple exceptions: [Errno 61] Connect call failed ('::1', 8000, 0, 0), [Errno 61] Connect call failed ('fe80::1', 8000, 0, 1), [Errno 61] Connect call failed ('127.0.0.1', 8000)",
+              "timestamp": "2025-06-16T23:50:20.304735",
+              "description": "Performance profiling WebSocket"
+            }
+          ]
+        },
+        "recommendations": [
+          "API success rate (0.0%) is below 90%. Investigate failing endpoints.",
+          "Rate limiting is not working properly. Review rate limiting configuration.",
+          "Authentication middleware needs attention. Verify API key validation.",
+          "Error handling needs improvement. Ensure proper HTTP status codes and error responses."
+        ]
+      },
+      "error": null
+    },
+    "security_tests": {
+      "status": "completed",
+      "report": {
+        "security_summary": {
+          "total_execution_time_seconds": 0.2,
+          "total_tests": 4,
+          "passed_tests": 0,
+          "failed_tests": 4,
+          "security_score": 0.0,
+          "security_grade": "F"
+        },
+        "vulnerability_analysis": {
+          "severity_breakdown": {
+            "CRITICAL": 0,
+            "HIGH": 0,
+            "MEDIUM": 4,
+            "LOW": 0
+          },
+          "category_breakdown": {
+            "Rate Limiting": 4
+          },
+          "vulnerability_types": {
+            "DDoS Vulnerability": 4
+          }
+        },
+        "risk_assessment": {
+          "critical_risk": false,
+          "high_risk": false,
+          "medium_risk": true,
+          "overall_risk_level": "LOW"
+        },
+        "detailed_results": [
+          {
+            "test_name": "Rate Limiting Bypass - /api/v1/config/prompt-optimization",
+            "test_category": "Rate Limiting",
+            "endpoint": "/api/v1/config/prompt-optimization",
+            "vulnerability_type": "DDoS Vulnerability",
+            "severity": "MEDIUM",
+            "success": false,
+            "details": "No rate limiting detected. 3048.4 req/s allowed",
+            "recommendation": "Implement rate limiting to prevent DDoS attacks",
+            "timestamp": "2025-06-16T23:50:20.377682"
+          },
+          {
+            "test_name": "Rate Limiting Bypass - /api/v1/contextual/query",
+            "test_category": "Rate Limiting",
+            "endpoint": "/api/v1/contextual/query",
+            "vulnerability_type": "DDoS Vulnerability",
+            "severity": "MEDIUM",
+            "success": false,
+            "details": "No rate limiting detected. 2270.9 req/s allowed",
+            "recommendation": "Implement rate limiting to prevent DDoS attacks",
+            "timestamp": "2025-06-16T23:50:20.399776"
+          },
+          {
+            "test_name": "Rate Limiting Bypass - /retrieval/api/v1/config/",
+            "test_category": "Rate Limiting",
+            "endpoint": "/retrieval/api/v1/config/",
+            "vulnerability_type": "DDoS Vulnerability",
+            "severity": "MEDIUM",
+            "success": false,
+            "details": "No rate limiting detected. 3059.4 req/s allowed",
+            "recommendation": "Implement rate limiting to prevent DDoS attacks",
+            "timestamp": "2025-06-16T23:50:20.416194"
+          },
+          {
+            "test_name": "Rate Limiting Bypass - /api/v1/config/feature-flags",
+            "test_category": "Rate Limiting",
+            "endpoint": "/api/v1/config/feature-flags",
+            "vulnerability_type": "DDoS Vulnerability",
+            "severity": "MEDIUM",
+            "success": false,
+            "details": "No rate limiting detected. 3026.1 req/s allowed",
+            "recommendation": "Implement rate limiting to prevent DDoS attacks",
+            "timestamp": "2025-06-16T23:50:20.432791"
+          }
+        ],
+        "security_recommendations": [
+          "\ud83d\udfe0 MEDIUM: Address medium-severity vulnerabilities within 1 week"
+        ],
+        "compliance_status": {
+          "owasp_top_10_compliant": true,
+          "production_ready": false,
+          "security_headers_compliant": true,
+          "authentication_secure": true
+        }
+      },
+      "error": null
+    }
+  },
+  "consolidated_analysis": {
+    "overall_assessment": {
+      "overall_score": 0.0,
+      "grade": "F",
+      "functional_success_rate": 0.0,
+      "security_score": 0.0,
+      "risk_level": "MEDIUM"
+    },
+    "functional_analysis": {
+      "total_tests": 46,
+      "successful_tests": 0,
+      "avg_response_time_ms": 0,
+      "websocket_success_rate": 0.0
+    },
+    "security_analysis": {
+      "total_security_tests": 4,
+      "security_vulnerabilities": 4,
+      "critical_vulnerabilities": 0,
+      "high_vulnerabilities": 0,
+      "medium_vulnerabilities": 4
+    },
+    "compliance_status": {
+      "functional_compliance": false,
+      "security_compliance": false,
+      "performance_compliance": true,
+      "overall_compliance": false
+    },
+    "recommendations": [
+      "\ud83d\udea8 Overall score (0.0%) is below 80%. Immediate attention required.",
+      "\ud83d\udd27 API success rate (0.0%) is below 90%. Investigate failing endpoints.",
+      "\ud83d\udd27 Rate limiting is not working properly. Review rate limiting configuration.",
+      "\ud83d\udd27 Authentication middleware needs attention. Verify API key validation.",
+      "\ud83d\udd12 \ud83d\udfe0 MEDIUM: Address medium-severity vulnerabilities within 1 week"
+    ]
+  },
+  "baseline_compliance": {
+    "api_functionality": true,
+    "security_testing": true,
+    "performance_validation": true,
+    "vulnerability_assessment": true,
+    "overall_compliance": false
+  },
+  "quality_metrics": {
+    "api_endpoint_coverage": 85,
+    "security_test_coverage": 90,
+    "test_automation_score": 100,
+    "documentation_completeness": 95
+  },
+  "next_steps": [
+    "\ud83d\udea8 Critical issues must be resolved",
+    "\ud83d\udee0\ufe0f Focus on high-priority recommendations",
+    "\ud83d\udd04 Re-run full test suite after major fixes",
+    "\ud83d\udcde Consider consulting security experts if needed"
+  ]
+}
