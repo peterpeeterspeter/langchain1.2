@@ -1,0 +1,30 @@
+{
+  "response_time": {
+    "avg_response_time_ms": 317.1237309773763,
+    "baseline_compliance": true,
+    "response_times": [
+      281.01515769958496,
+      334.8691463470459,
+      335.48688888549805
+    ]
+  },
+  "cache_performance": {
+    "cache_hit_rate": 0.75,
+    "baseline_compliance": true
+  },
+  "load_testing": {
+    "max_stable_throughput_qps": 8.5,
+    "baseline_compliance": true
+  },
+  "resource_monitoring": {
+    "peak_memory_mb": 33.65234375,
+    "baseline_compliance": true
+  },
+  "performance_report": {
+    "overall_compliance_rate": 1.0,
+    "compliance_status": "PASS",
+    "recommendations": [
+      "All performance benchmarks meet baseline requirements."
+    ]
+  }
+}
