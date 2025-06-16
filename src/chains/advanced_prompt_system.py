@@ -635,6 +635,36 @@ Query: {query}
 Provide a clear, reassuring response that helps beginners make safe choices.
                 """.strip(),
                 
+                ExpertiseLevel.INTERMEDIATE: """
+As a casino evaluation specialist, provide a balanced assessment covering:
+- Licensing verification and regulatory compliance
+- Security measures and fair play certifications
+- Payment method evaluation and withdrawal policies
+- Customer service quality and response times
+- Game selection and software providers
+- User experience and interface design
+
+Context: {context}
+Query: {query}
+
+Deliver a comprehensive review with practical insights for informed decision-making.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a casino industry consultant, provide an advanced analysis including:
+- Regulatory framework analysis and compliance history
+- Technical security audit findings and certifications
+- Financial operations and payout verification
+- Market positioning and competitive analysis
+- Risk management and responsible gambling measures
+- Business model evaluation and sustainability assessment
+
+Context: {context}
+Query: {query}
+
+Provide detailed professional analysis with strategic recommendations.
+                """.strip(),
+                
                 ExpertiseLevel.EXPERT: """
 As a professional casino industry analyst, provide an expert-level assessment including:
 - Comprehensive licensing and regulatory analysis
@@ -662,6 +692,34 @@ Context: {context}
 Query: {query}
 
 Make this accessible and encouraging for someone just starting out.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As a game strategy coach, provide intermediate guidance covering:
+- Core strategy principles and decision-making frameworks
+- Common variations and house rules to understand
+- Bankroll management and betting strategies
+- Intermediate techniques and tactical approaches
+- Risk assessment and probability considerations
+
+Context: {context}
+Query: {query}
+
+Help players advance their skills with practical strategic insights.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a professional gaming analyst, deliver advanced instruction including:
+- Complex strategic frameworks and optimization techniques
+- Mathematical analysis and statistical foundations
+- Advanced betting systems and risk management
+- Game theory applications and decision trees
+- Professional play considerations and tournament strategies
+
+Context: {context}
+Query: {query}
+
+Provide sophisticated analysis for serious players seeking mastery.
                 """.strip(),
                 
                 ExpertiseLevel.EXPERT: """
@@ -692,6 +750,34 @@ Query: {query}
 Help beginners understand if this is a good deal and how to proceed safely.
                 """.strip(),
                 
+                ExpertiseLevel.INTERMEDIATE: """
+As a bonus evaluation specialist, provide detailed analysis covering:
+- Terms and conditions breakdown with practical implications
+- Wagering requirement analysis and playthrough strategies
+- Game contribution rates and optimal play selection
+- Time limits and withdrawal restrictions evaluation
+- Value assessment compared to market standards
+
+Context: {context}
+Query: {query}
+
+Deliver practical guidance for maximizing promotional value while managing risk.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a promotional strategy analyst, provide comprehensive evaluation including:
+- Advanced mathematical modeling of expected value
+- Complex wagering requirement optimization strategies
+- Game selection algorithms for maximum contribution
+- Risk-adjusted return calculations and variance analysis
+- Multi-promotional combination strategies
+
+Context: {context}
+Query: {query}
+
+Provide sophisticated analysis with optimization strategies and quantitative insights.
+                """.strip(),
+                
                 ExpertiseLevel.EXPERT: """
 As a professional bonus optimization analyst, provide detailed analysis including:
 - Comprehensive mathematical evaluation of expected value
@@ -704,6 +790,296 @@ Context: {context}
 Query: {query}
 
 Deliver quantitative analysis with strategic recommendations for maximizing value.
+                """.strip()
+            },
+            
+            QueryType.COMPARISON: {
+                ExpertiseLevel.BEGINNER: """
+As a comparison shopping expert, create a beginner-friendly comparison focusing on:
+- Simple side-by-side feature comparison
+- Clear pros and cons for each option
+- Easy-to-understand recommendations
+- Key differences that matter most to beginners
+- Safety and reliability considerations
+
+Context: {context}
+Query: {query}
+
+Help beginners make informed choices with clear, simple comparisons.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As a product evaluation specialist, provide comprehensive comparison including:
+- Detailed feature analysis with practical implications
+- Performance metrics and user experience evaluation
+- Value proposition assessment for different use cases
+- Market positioning and competitive advantages
+- Cost-benefit analysis with clear recommendations
+
+Context: {context}
+Query: {query}
+
+Deliver balanced analysis to help informed decision-making.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a strategic comparison analyst, provide in-depth evaluation covering:
+- Multi-dimensional analysis across all relevant criteria
+- Quantitative performance metrics and benchmarking
+- Strategic positioning and competitive landscape analysis
+- Advanced feature comparison with technical specifications
+- ROI analysis and long-term value considerations
+
+Context: {context}
+Query: {query}
+
+Provide comprehensive analysis with strategic insights and detailed recommendations.
+                """.strip(),
+                
+                ExpertiseLevel.EXPERT: """
+As a professional market analyst, deliver expert-level comparison including:
+- Comprehensive competitive analysis framework
+- Technical deep-dive with architectural considerations
+- Market dynamics and strategic positioning evaluation
+- Risk-reward analysis and investment perspectives
+- Industry benchmarking with predictive insights
+
+Context: {context}
+Query: {query}
+
+Deliver professional-grade analysis with strategic market insights.
+                """.strip()
+            },
+            
+            QueryType.NEWS_UPDATE: {
+                ExpertiseLevel.BEGINNER: """
+As a news correspondent, provide accessible news coverage focusing on:
+- Clear explanation of what happened and why it matters
+- Simple context and background information
+- Impact on everyday users or consumers
+- What this means going forward
+- Key takeaways in plain language
+
+Context: {context}
+Query: {query}
+
+Make complex news accessible and relevant to general audiences.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As a news analyst, provide comprehensive coverage including:
+- Detailed event analysis with broader context
+- Industry implications and stakeholder impact
+- Historical perspective and trend analysis
+- Market reactions and economic considerations
+- Expert opinions and future outlook
+
+Context: {context}
+Query: {query}
+
+Deliver informative analysis that connects current events to broader trends.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As an industry news specialist, provide expert coverage including:
+- Deep analysis of industry implications and regulatory impact
+- Complex stakeholder analysis and strategic considerations
+- Market dynamics and competitive landscape effects
+- Technical aspects and implementation challenges
+- Long-term industry transformation implications
+
+Context: {context}
+Query: {query}
+
+Provide sophisticated analysis for industry professionals and serious observers.
+                """.strip(),
+                
+                ExpertiseLevel.EXPERT: """
+As a specialized industry analyst, deliver expert news analysis covering:
+- Strategic implications and market dynamics
+- Regulatory and compliance considerations
+- Technical architecture and implementation details
+- Competitive landscape shifts and strategic responses
+- Investment implications and industry transformation
+
+Context: {context}
+Query: {query}
+
+Deliver professional-grade analysis with strategic and technical insights.
+                """.strip()
+            },
+            
+            QueryType.GENERAL_INFO: {
+                ExpertiseLevel.BEGINNER: """
+As a helpful information guide, provide clear and accessible information covering:
+- Simple explanations with easy-to-understand language
+- Practical examples and real-world applications
+- Basic concepts and foundational knowledge
+- Step-by-step guidance where applicable
+- Safety considerations and best practices
+
+Context: {context}
+Query: {query}
+
+Make information accessible and actionable for beginners.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As an information specialist, provide comprehensive coverage including:
+- Detailed explanations with practical context
+- Multiple perspectives and use cases
+- Implementation guidance and best practices
+- Common challenges and solutions
+- Advanced concepts with clear explanations
+
+Context: {context}
+Query: {query}
+
+Deliver thorough information that builds understanding and practical knowledge.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a subject matter expert, provide in-depth information covering:
+- Complex concepts with technical accuracy
+- Advanced implementation strategies and methodologies
+- Industry best practices and professional standards
+- Comparative analysis of different approaches
+- Expert insights and professional recommendations
+
+Context: {context}
+Query: {query}
+
+Provide comprehensive information for serious practitioners and professionals.
+                """.strip(),
+                
+                ExpertiseLevel.EXPERT: """
+As a domain expert, deliver authoritative information including:
+- Comprehensive technical analysis and specifications
+- Professional implementation frameworks and methodologies
+- Industry standards and regulatory considerations
+- Advanced concepts with mathematical or technical rigor
+- Expert insights and professional best practices
+
+Context: {context}
+Query: {query}
+
+Deliver authoritative information with professional depth and technical accuracy.
+                """.strip()
+            },
+            
+            QueryType.TROUBLESHOOTING: {
+                ExpertiseLevel.BEGINNER: """
+As a technical support specialist, provide beginner-friendly troubleshooting guidance:
+- Simple step-by-step diagnostic process
+- Easy fixes to try first
+- Clear explanations of what might be wrong
+- When to seek additional help
+- Prevention tips to avoid future issues
+
+Context: {context}
+Query: {query}
+
+Help beginners solve problems with confidence and prevent future issues.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As a technical problem solver, provide comprehensive troubleshooting including:
+- Systematic diagnostic methodology
+- Multiple solution approaches and alternatives
+- Root cause analysis and prevention strategies
+- Tool recommendations and resource guidance
+- Escalation paths for complex issues
+
+Context: {context}
+Query: {query}
+
+Deliver effective problem-solving guidance with practical solutions.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a technical expert, provide advanced troubleshooting covering:
+- Complex diagnostic frameworks and methodologies
+- Advanced technical solutions and workarounds
+- System-level analysis and integration considerations
+- Performance optimization and monitoring strategies
+- Professional tools and enterprise solutions
+
+Context: {context}
+Query: {query}
+
+Provide sophisticated troubleshooting for complex technical challenges.
+                """.strip(),
+                
+                ExpertiseLevel.EXPERT: """
+As a systems architect, deliver expert-level troubleshooting including:
+- Comprehensive system analysis and architectural review
+- Advanced diagnostic tools and methodologies
+- Performance optimization and scalability considerations
+- Integration challenges and enterprise solutions
+- Strategic recommendations for system improvements
+
+Context: {context}
+Query: {query}
+
+Deliver professional-grade technical solutions with architectural insights.
+                """.strip()
+            },
+            
+            QueryType.REGULATORY: {
+                ExpertiseLevel.BEGINNER: """
+As a regulatory compliance guide, provide accessible regulatory information covering:
+- Simple explanation of relevant rules and requirements
+- What this means for everyday users or businesses
+- Basic compliance steps and necessary actions
+- Common violations to avoid
+- Where to get additional help and resources
+
+Context: {context}
+Query: {query}
+
+Make regulatory information accessible and actionable for general audiences.
+                """.strip(),
+                
+                ExpertiseLevel.INTERMEDIATE: """
+As a compliance specialist, provide comprehensive regulatory guidance including:
+- Detailed regulatory framework analysis
+- Implementation requirements and timelines
+- Compliance strategies and best practices
+- Risk assessment and mitigation approaches
+- Industry impact and adaptation strategies
+
+Context: {context}
+Query: {query}
+
+Deliver practical compliance guidance for businesses and professionals.
+                """.strip(),
+                
+                ExpertiseLevel.ADVANCED: """
+As a regulatory expert, provide advanced compliance analysis covering:
+- Complex regulatory interpretation and implementation
+- Multi-jurisdictional compliance considerations
+- Advanced risk management and audit strategies
+- Industry-specific requirements and exemptions
+- Strategic compliance planning and optimization
+
+Context: {context}
+Query: {query}
+
+Provide sophisticated regulatory analysis for complex compliance challenges.
+                """.strip(),
+                
+                ExpertiseLevel.EXPERT: """
+As a regulatory affairs professional, deliver expert regulatory analysis including:
+- Comprehensive regulatory framework interpretation
+- Strategic compliance architecture and implementation
+- Cross-jurisdictional analysis and harmonization
+- Advanced risk management and audit methodologies
+- Policy development and regulatory strategy
+
+Context: {context}
+Query: {query}
+
+Deliver professional-grade regulatory analysis with strategic insights.
                 """.strip()
             }
         }

@@ -365,17 +365,34 @@ class EnhancedFTIOrchestrator:
             research_text = f"Research findings:\n{json.dumps(research_results['data'], indent=2)[:1000]}..."
         
         # Generate response using optimized prompt
-        prompt_template = """You are an expert creating high-quality content.
+        prompt_template = """You are an expert content creator specializing in high-quality, comprehensive content generation.
 
-Context: {context}
+**Content Creation Guidelines:**
+- Create detailed, well-structured content that addresses all aspects of the query
+- Use clear headings and organization for readability
+- Include specific examples, facts, and actionable insights
+- Maintain professional tone while being accessible to the target audience
+- Cite information from provided context when relevant
+- Ensure accuracy and provide balanced perspectives
 
-Research Data: {research}
+**Context Information:**
+{context}
 
-Query: {query}
+**Research Data:**
+{research}
 
-Generate comprehensive, high-quality content that addresses the query using the provided context and research data.
+**User Query:**
+{query}
 
-Content:"""
+**Content Requirements:**
+- Minimum 800-1200 words for comprehensive coverage
+- Include relevant sections: Overview, Key Features, Analysis, Recommendations
+- Use bullet points and lists for clarity where appropriate
+- Include ratings or scores when evaluating products/services
+- Provide clear next steps or actionable advice
+- Maintain engaging and informative tone throughout
+
+**Generated Content:**"""
         
         prompt = ChatPromptTemplate.from_template(prompt_template)
         chain = prompt | self.llm | StrOutputParser()

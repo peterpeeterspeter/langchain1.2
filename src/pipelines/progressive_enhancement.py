@@ -125,69 +125,117 @@ class ProgressiveEnhancementSystem:
         """Initialize enhancement prompts for different stages"""
         self.enhancement_prompts = {
             EnhancementStage.BASIC_PROCESSING: ChatPromptTemplate.from_messages([
-                ("system", """You are a content processing expert. Analyze the content and perform basic improvements:
-                
-                1. Fix obvious formatting issues
-                2. Correct spelling and grammar errors
-                3. Improve readability and structure
-                4. Standardize formatting conventions
-                
-                Content Type: {content_type}
-                Original Content: {content}
-                
-                Return the improved content with a brief summary of changes made."""),
-                ("human", "Please enhance this content with basic processing improvements.")
+                ("system", """You are a professional content editor and quality specialist. Your role is to enhance content through fundamental improvements while preserving the original message and intent.
+
+**Your Enhancement Tasks:**
+1. **Grammar & Language**: Fix spelling, grammar, punctuation, and syntax errors
+2. **Readability**: Improve sentence structure, flow, and clarity
+3. **Formatting**: Standardize formatting, headings, bullet points, and structure
+4. **Consistency**: Ensure consistent tone, style, and terminology throughout
+5. **Accessibility**: Make content more accessible and easier to understand
+
+**Content Type:** {content_type}
+**Original Content:** {content}
+
+**Instructions:**
+- Maintain the original meaning and intent
+- Improve clarity without changing core information
+- Fix obvious errors and inconsistencies
+- Enhance readability and structure
+- Keep the same approximate length and scope
+
+**Enhanced Content:**"""),
+                ("human", "Please enhance this content with basic processing improvements while preserving its original intent and information.")
             ]),
             
             EnhancementStage.QUALITY_ANALYSIS: ChatPromptTemplate.from_messages([
-                ("system", """You are a quality analysis expert. Analyze the content quality and identify areas for improvement:
-                
-                1. Assess information accuracy and completeness
-                2. Identify missing context or details
-                3. Evaluate source credibility indicators
-                4. Check for bias or subjective language
-                5. Assess technical accuracy (if applicable)
-                
-                Content Type: {content_type}
-                Content: {content}
-                Current Quality Score: {quality_score}
-                
-                Provide detailed quality analysis and specific improvement recommendations."""),
-                ("human", "Please analyze the quality of this content and provide improvement recommendations.")
+                ("system", """You are a content quality analyst and fact-checking expert. Your role is to assess content quality and identify areas for improvement with specific, actionable recommendations.
+
+**Quality Assessment Criteria:**
+1. **Accuracy**: Verify factual correctness and identify potential inaccuracies
+2. **Completeness**: Assess if important information is missing
+3. **Source Credibility**: Evaluate the reliability of information sources
+4. **Objectivity**: Identify bias, subjective language, or unsupported claims
+5. **Technical Accuracy**: Check domain-specific technical details
+6. **Currency**: Assess if information is current and up-to-date
+7. **Depth**: Evaluate if coverage is sufficient for the topic
+8. **Authority**: Assess credibility indicators and expert backing
+
+**Content Type:** {content_type}
+**Content Under Review:** {content}
+**Current Quality Score:** {quality_score}
+
+**Provide:**
+1. Overall quality assessment (1-10 scale)
+2. Specific issues identified with examples
+3. Fact-checking concerns or recommendations
+4. Missing information that should be added
+5. Bias or objectivity concerns
+6. Technical accuracy assessment
+7. Specific improvement recommendations
+8. Priority ranking of suggested changes
+
+**Quality Analysis Report:**"""),
+                ("human", "Please provide a comprehensive quality analysis of this content with specific improvement recommendations and priority rankings.")
             ]),
             
             EnhancementStage.CONTEXTUAL_ENRICHMENT: ChatPromptTemplate.from_messages([
-                ("system", """You are a contextual enrichment expert. Enhance the content with additional context:
-                
-                1. Add relevant background information
-                2. Include related concepts and terminology
-                3. Provide historical or industry context
-                4. Add cross-references to related topics
-                5. Include practical examples or use cases
-                
-                Content Type: {content_type}
-                Content: {content}
-                Metadata: {metadata}
-                
-                Return enriched content with added contextual information."""),
-                ("human", "Please enrich this content with additional context and background information.")
+                ("system", """You are a content enrichment specialist and research expert. Your role is to enhance content by adding valuable context, background information, and related insights that improve understanding and utility.
+
+**Enrichment Strategies:**
+1. **Background Context**: Add relevant historical, industry, or domain background
+2. **Terminology**: Define technical terms and industry jargon
+3. **Related Concepts**: Include relevant related topics and cross-references
+4. **Practical Examples**: Add real-world examples and use cases
+5. **Comparative Information**: Include relevant comparisons and alternatives
+6. **Current Trends**: Add recent developments and industry trends
+7. **Expert Insights**: Include expert opinions and professional perspectives
+8. **Actionable Information**: Add practical next steps and implementation guidance
+
+**Content Type:** {content_type}
+**Base Content:** {content}
+**Available Metadata:** {metadata}
+
+**Enhancement Requirements:**
+- Add 20-30% more valuable information
+- Maintain readability and flow
+- Include relevant examples and case studies
+- Add practical insights and actionable advice
+- Ensure all additions are relevant and valuable
+- Maintain professional tone and accuracy
+
+**Enriched Content:**"""),
+                ("human", "Please enrich this content with additional context, background information, examples, and practical insights that enhance its value and usefulness.")
             ]),
             
             EnhancementStage.SEMANTIC_ENHANCEMENT: ChatPromptTemplate.from_messages([
-                ("system", """You are a semantic enhancement expert. Improve the semantic structure and meaning:
-                
-                1. Enhance semantic clarity and precision
-                2. Improve concept relationships and hierarchies
-                3. Add semantic tags and annotations
-                4. Optimize for search and retrieval
-                5. Ensure consistent terminology usage
-                
-                Content Type: {content_type}
-                Content: {content}
-                Keywords: {keywords}
-                
-                Return semantically enhanced content with improved structure and clarity."""),
-                ("human", "Please enhance the semantic structure and meaning of this content.")
+                ("system", """You are a semantic optimization expert and information architecture specialist. Your role is to enhance content structure, meaning clarity, and searchability while optimizing for comprehension and retrieval.
+
+**Semantic Enhancement Goals:**
+1. **Conceptual Clarity**: Improve concept definitions and relationships
+2. **Information Architecture**: Optimize content structure and hierarchy
+3. **Semantic Tags**: Add relevant semantic markers and annotations
+4. **Terminology Consistency**: Ensure consistent use of key terms
+5. **Searchability**: Optimize for search engines and information retrieval
+6. **Cross-References**: Add internal links and related topic connections
+7. **Knowledge Graphs**: Structure information for better understanding
+8. **Context Relationships**: Clarify how concepts relate to each other
+
+**Content Type:** {content_type}
+**Content for Enhancement:** {content}
+**Target Keywords:** {keywords}
+
+**Enhancement Tasks:**
+- Improve semantic structure and concept relationships
+- Add semantic markup and annotations where appropriate
+- Optimize keyword usage and semantic density
+- Enhance concept hierarchies and information flow
+- Improve searchability and discoverability
+- Add relevant cross-references and connections
+- Ensure consistent terminology and definitions
+
+**Semantically Enhanced Content:**"""),
+                ("human", "Please enhance the semantic structure and meaning of this content to improve clarity, searchability, and conceptual understanding.")
             ])
         }
     
