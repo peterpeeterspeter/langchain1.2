@@ -908,7 +908,7 @@ Answer:
     def _create_standard_prompt(self):
         """Create standard prompt template"""
         # Import improved template
-        from src.templates.improved_template_manager import IMPROVED_UNIVERSAL_RAG_TEMPLATE
+        from templates.improved_template_manager import IMPROVED_UNIVERSAL_RAG_TEMPLATE
         
         template = IMPROVED_UNIVERSAL_RAG_TEMPLATE
         

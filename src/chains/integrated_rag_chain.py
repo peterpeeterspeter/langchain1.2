@@ -34,21 +34,21 @@ from .universal_rag_lcel import (
 )
 
 # Import configuration and monitoring components from Task 2.5
-from src.config.prompt_config import (
+from config.prompt_config import (
     ConfigurationManager, get_config_manager,
     PromptOptimizationConfig, QueryType as ConfigQueryType
 )
-from src.monitoring.prompt_analytics import (
+from monitoring.prompt_analytics import (
     PromptAnalytics, track_query_metrics, QueryMetrics
 )
-from src.monitoring.performance_profiler import (
+from monitoring.performance_profiler import (
     PerformanceProfiler, profile_operation
 )
-from src.config.feature_flags import (
+from config.feature_flags import (
     FeatureFlagManager, FeatureFlag, FeatureStatus,
     feature_flag
 )
-from src.utils.enhanced_logging import (
+from utils.enhanced_logging import (
     get_logger, StructuredLogger, LogCategory, LogContext,
     RAGPipelineLogger
 )

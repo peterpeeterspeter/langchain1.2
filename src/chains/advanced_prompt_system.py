@@ -621,7 +621,7 @@ class DomainSpecificPrompts:
     
     def __init__(self):
         # Import improved templates
-        from src.templates.improved_template_manager import ImprovedAdvancedPromptTemplates, ExpertiseLevel as ImprovedExpertiseLevel
+        from templates.improved_template_manager import ImprovedAdvancedPromptTemplates, ExpertiseLevel as ImprovedExpertiseLevel
         
         self.improved_templates = ImprovedAdvancedPromptTemplates()
         
