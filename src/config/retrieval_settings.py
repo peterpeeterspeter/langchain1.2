@@ -143,7 +143,7 @@ class MultiQueryConfig(BaseModel):
         description="Maximum number of query variations"
     )
     query_expansion_model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4.1-mini",
         description="Model for query expansion"
     )
     enable_parallel_search: bool = Field(
@@ -171,7 +171,7 @@ class SelfQueryConfig(BaseModel):
         description="Enable automatic metadata filtering"
     )
     filter_extraction_model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4.1-mini",
         description="Model for filter extraction"
     )
     max_filters_per_query: int = Field(

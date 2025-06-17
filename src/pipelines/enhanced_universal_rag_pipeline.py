@@ -66,7 +66,7 @@ class EnhancedUniversalRAGPipeline:
         # Initialize components
         try:
             self.llm = ChatOpenAI(
-                model=config.get("model", "gpt-4o-mini"),
+                model=config.get("model", "gpt-4.1-mini"),
                 temperature=config.get("temperature", 0.7)
             )
         except Exception as e:

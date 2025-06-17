@@ -121,7 +121,7 @@ class ProductionSettings(BaseSettings):
         description="Embedding model to use"
     )
     llm_model: str = Field(
-        default="gpt-4o-mini",
+        default="gpt-4.1-mini",
         description="LLM model for query expansion"
     )
     

@@ -247,7 +247,7 @@ class SelfQueryConfig(BaseModel):
     
     # Analysis settings
     enable_llm_analysis: bool = Field(default=True, description="Enable LLM-based query analysis")
-    llm_model: str = Field(default="gpt-3.5-turbo", description="LLM model for query analysis")
+    llm_model: str = Field(default="gpt-4.1-mini", description="LLM model for query analysis")
     analysis_confidence_threshold: float = Field(default=0.7, description="Minimum confidence for filter application")
     
     # Filter settings
@@ -292,7 +292,7 @@ class QueryAnalyzer:
                     max_tokens=1000
                 )
             else:
-                self.llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1)
+                self.llm = ChatOpenAI(model="gpt-4.1-mini", temperature=0.1)
         else:
             self.llm = None
         

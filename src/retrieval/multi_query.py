@@ -101,7 +101,7 @@ class MultiQueryConfig(BaseModel):
     )
     
     # LLM settings
-    llm_model: str = Field(default="gpt-3.5-turbo", description="LLM model for query expansion")
+    llm_model: str = Field(default="gpt-4.1-mini", description="LLM model for query expansion")
     llm_temperature: float = Field(default=0.3, ge=0.0, le=1.0, description="Temperature for query generation")
     max_tokens: int = Field(default=500, ge=100, le=2000, description="Max tokens for LLM response")
     
@@ -146,7 +146,7 @@ class QueryExpander:
         else:
             # Default to OpenAI
             self.llm = ChatOpenAI(
-                model="gpt-3.5-turbo",
+                model="gpt-4.1-mini",
                 temperature=config.llm_temperature,
                 max_tokens=config.max_tokens
             )
