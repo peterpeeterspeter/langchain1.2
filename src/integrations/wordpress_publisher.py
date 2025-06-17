@@ -1,0 +1,864 @@
+#!/usr/bin/env python3
+"""
+WordPress REST API Publisher for Universal RAG CMS
+Enterprise-grade WordPress integration with advanced features
+
+This module provides comprehensive WordPress publishing capabilities including:
+- Multi-authentication support (Application Passwords, JWT, OAuth2)
+- Bulletproof image processing with retry mechanisms
+- Rich HTML formatting and responsive design
+- Smart contextual image embedding
+- Comprehensive error recovery
+- Integration with Tasks 1 & 5 (Supabase + DataForSEO)
+"""
+
+import asyncio
+import base64
+import json
+import logging
+import mimetypes
+import os
+import re
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from io import BytesIO
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from urllib.parse import urljoin, urlparse
+from uuid import uuid4
+
+import aiohttp
+from bs4 import BeautifulSoup
+from PIL import Image, ImageOps
+from supabase import create_client, Client
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+@dataclass
+class WordPressConfig:
+    """WordPress configuration with environment-driven defaults"""
+    site_url: str = field(default_factory=lambda: os.getenv("WORDPRESS_SITE_URL", ""))
+    username: str = field(default_factory=lambda: os.getenv("WORDPRESS_USERNAME", ""))
+    application_password: str = field(default_factory=lambda: os.getenv("WORDPRESS_APP_PASSWORD", ""))
+    jwt_token: Optional[str] = field(default_factory=lambda: os.getenv("WORDPRESS_JWT_TOKEN"))
+    oauth_token: Optional[str] = field(default_factory=lambda: os.getenv("WORDPRESS_OAUTH_TOKEN"))
+    
+    # Publishing defaults
+    default_status: str = "draft"  # draft, publish, private
+    default_author_id: int = 1
+    default_category_ids: List[int] = field(default_factory=list)
+    default_tags: List[str] = field(default_factory=list)
+    
+    # Performance settings
+    max_concurrent_uploads: int = 3
+    request_timeout: int = 30
+    retry_attempts: int = 3
+    retry_delay: float = 1.0
+    
+    # Image processing
+    max_image_size: Tuple[int, int] = (1920, 1080)
+    image_quality: int = 85
+    image_formats: Set[str] = field(default_factory=lambda: {"JPEG", "PNG", "WebP"})
+    
+    def __post_init__(self):
+        """Validate configuration after initialization"""
+        if not self.site_url:
+            raise ValueError("WordPress site URL is required")
+        if not self.username:
+            raise ValueError("WordPress username is required")
+        if not (self.application_password or self.jwt_token or self.oauth_token):
+            raise ValueError("At least one authentication method is required")
+
+class WordPressAuthManager:
+    """Multi-authentication manager for WordPress REST API"""
+    
+    def __init__(self, config: WordPressConfig):
+        self.config = config
+        self._auth_headers = {}
+        self._auth_method = None
+        self._setup_authentication()
+    
+    def _setup_authentication(self):
+        """Setup authentication headers based on available credentials"""
+        if self.config.application_password:
+            # Application Password authentication (recommended)
+            credentials = f"{self.config.username}:{self.config.application_password}"
+            encoded = base64.b64encode(credentials.encode()).decode()
+            self._auth_headers = {
+                "Authorization": f"Basic {encoded}",
+                "Content-Type": "application/json",
+                "User-Agent": "UniversalRAGCMS/1.0"
+            }
+            self._auth_method = "application_password"
+            logger.info("Using Application Password authentication")
+            
+        elif self.config.jwt_token:
+            # JWT authentication
+            self._auth_headers = {
+                "Authorization": f"Bearer {self.config.jwt_token}",
+                "Content-Type": "application/json",
+                "User-Agent": "UniversalRAGCMS/1.0"
+            }
+            self._auth_method = "jwt"
+            logger.info("Using JWT authentication")
+            
+        elif self.config.oauth_token:
+            # OAuth2 authentication
+            self._auth_headers = {
+                "Authorization": f"Bearer {self.config.oauth_token}",
+                "Content-Type": "application/json",
+                "User-Agent": "UniversalRAGCMS/1.0"
+            }
+            self._auth_method = "oauth2"
+            logger.info("Using OAuth2 authentication")
+    
+    @property
+    def headers(self) -> Dict[str, str]:
+        """Get authentication headers"""
+        return self._auth_headers.copy()
+    
+    @property
+    def auth_method(self) -> str:
+        """Get current authentication method"""
+        return self._auth_method
+    
+    async def verify_authentication(self, session: aiohttp.ClientSession) -> bool:
+        """Verify authentication with WordPress"""
+        try:
+            url = urljoin(self.config.site_url, "/wp-json/wp/v2/users/me")
+            async with session.get(url, headers=self.headers) as response:
+                if response.status == 200:
+                    user_data = await response.json()
+                    logger.info(f"Authentication verified for user: {user_data.get('name', 'Unknown')}")
+                    return True
+                else:
+                    logger.error(f"Authentication failed with status: {response.status}")
+                    return False
+        except Exception as e:
+            logger.error(f"Authentication verification failed: {e}")
+            return False
+
+class BulletproofImageProcessor:
+    """Advanced image processing with retry mechanisms and optimization"""
+    
+    def __init__(self, config: WordPressConfig):
+        self.config = config
+        self.supported_formats = {
+            'image/jpeg': 'JPEG',
+            'image/png': 'PNG',
+            'image/webp': 'WebP',
+            'image/gif': 'GIF'
+        }
+    
+    async def process_image(self, image_data: bytes, filename: str) -> Tuple[bytes, str, Dict[str, Any]]:
+        """Process image with optimization and format conversion"""
+        try:
+            # Open image
+            with Image.open(BytesIO(image_data)) as img:
+                # Get original metadata
+                original_size = img.size
+                original_format = img.format
+                original_mode = img.mode
+                
+                # Convert to RGB if necessary
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    background = Image.new('RGB', img.size, (255, 255, 255))
+                    if img.mode == 'P':
+                        img = img.convert('RGBA')
+                    background.paste(img, mask=img.split()[-1] if img.mode in ('RGBA', 'LA') else None)
+                    img = background
+                elif img.mode != 'RGB':
+                    img = img.convert('RGB')
+                
+                # Resize if necessary
+                if img.size[0] > self.config.max_image_size[0] or img.size[1] > self.config.max_image_size[1]:
+                    img.thumbnail(self.config.max_image_size, Image.Resampling.LANCZOS)
+                
+                # Apply auto-orientation
+                img = ImageOps.exif_transpose(img)
+                
+                # Save optimized image
+                output = BytesIO()
+                img.save(
+                    output,
+                    format='JPEG',
+                    quality=self.config.image_quality,
+                    optimize=True,
+                    progressive=True
+                )
+                
+                processed_data = output.getvalue()
+                
+                # Generate metadata
+                metadata = {
+                    'original_size': original_size,
+                    'processed_size': img.size,
+                    'original_format': original_format,
+                    'processed_format': 'JPEG',
+                    'original_mode': original_mode,
+                    'compression_ratio': len(processed_data) / len(image_data),
+                    'file_size_reduction': len(image_data) - len(processed_data)
+                }
+                
+                # Generate optimized filename
+                name_parts = os.path.splitext(filename)
+                optimized_filename = f"{name_parts[0]}_optimized.jpg"
+                
+                logger.info(f"Image processed: {filename} -> {optimized_filename} "
+                          f"({len(image_data)} -> {len(processed_data)} bytes)")
+                
+                return processed_data, optimized_filename, metadata
+                
+        except Exception as e:
+            logger.error(f"Image processing failed for {filename}: {e}")
+            # Return original data if processing fails
+            return image_data, filename, {'error': str(e)}
+    
+    async def download_image(self, session: aiohttp.ClientSession, url: str) -> Optional[Tuple[bytes, str]]:
+        """Download image with retry mechanism"""
+        for attempt in range(self.config.retry_attempts):
+            try:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=self.config.request_timeout)) as response:
+                    if response.status == 200:
+                        data = await response.read()
+                        # Extract filename from URL or Content-Disposition
+                        filename = self._extract_filename(url, response.headers)
+                        return data, filename
+                    else:
+                        logger.warning(f"Failed to download image {url}: HTTP {response.status}")
+                        
+            except Exception as e:
+                logger.warning(f"Image download attempt {attempt + 1} failed for {url}: {e}")
+                if attempt < self.config.retry_attempts - 1:
+                    await asyncio.sleep(self.config.retry_delay * (2 ** attempt))
+        
+        return None
+    
+    def _extract_filename(self, url: str, headers: Dict[str, str]) -> str:
+        """Extract filename from URL or headers"""
+        # Try Content-Disposition header first
+        if 'content-disposition' in headers:
+            cd = headers['content-disposition']
+            filename_match = re.search(r'filename="([^"]+)"', cd)
+            if filename_match:
+                return filename_match.group(1)
+        
+        # Extract from URL
+        parsed = urlparse(url)
+        filename = os.path.basename(parsed.path)
+        if filename and '.' in filename:
+            return filename
+        
+        # Generate fallback filename
+        return f"image_{uuid4().hex[:8]}.jpg"
+
+class RichHTMLFormatter:
+    """Advanced HTML formatting with responsive design and SEO optimization"""
+    
+    def __init__(self):
+        self.soup_parser = 'html.parser'
+    
+    def format_content(self, content: str, title: str = "", meta_description: str = "") -> str:
+        """Format content with rich HTML structure"""
+        soup = BeautifulSoup(content, self.soup_parser)
+        
+        # Add structured data and meta information
+        if title:
+            soup = self._add_title_structure(soup, title)
+        
+        # Enhance paragraphs and text formatting
+        soup = self._enhance_typography(soup)
+        
+        # Add responsive image classes
+        soup = self._make_images_responsive(soup)
+        
+        # Add table styling
+        soup = self._enhance_tables(soup)
+        
+        # Add call-to-action styling
+        soup = self._enhance_cta_elements(soup)
+        
+        # Add schema markup for gaming content
+        soup = self._add_schema_markup(soup, title, meta_description)
+        
+        return str(soup)
+    
+    def _add_title_structure(self, soup: BeautifulSoup, title: str) -> BeautifulSoup:
+        """Add proper heading structure"""
+        # Ensure proper H1 if not present
+        if not soup.find('h1'):
+            h1 = soup.new_tag('h1', **{'class': 'entry-title'})
+            h1.string = title
+            if soup.body:
+                soup.body.insert(0, h1)
+            else:
+                soup.insert(0, h1)
+        
+        return soup
+    
+    def _enhance_typography(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """Enhance typography with proper classes"""
+        # Add classes to paragraphs
+        for p in soup.find_all('p'):
+            if not p.get('class'):
+                p['class'] = ['content-paragraph']
+        
+        # Enhance lists
+        for ul in soup.find_all('ul'):
+            if not ul.get('class'):
+                ul['class'] = ['content-list']
+        
+        for ol in soup.find_all('ol'):
+            if not ol.get('class'):
+                ol['class'] = ['content-ordered-list']
+        
+        return soup
+    
+    def _make_images_responsive(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """Add responsive classes to images"""
+        for img in soup.find_all('img'):
+            current_classes = img.get('class', [])
+            if isinstance(current_classes, str):
+                current_classes = current_classes.split()
+            
+            current_classes.extend(['responsive-image', 'wp-image'])
+            img['class'] = current_classes
+            
+            # Add loading lazy if not present
+            if not img.get('loading'):
+                img['loading'] = 'lazy'
+        
+        return soup
+    
+    def _enhance_tables(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """Add responsive table styling"""
+        for table in soup.find_all('table'):
+            current_classes = table.get('class', [])
+            if isinstance(current_classes, str):
+                current_classes = current_classes.split()
+            
+            current_classes.extend(['wp-table', 'responsive-table'])
+            table['class'] = current_classes
+        
+        return soup
+    
+    def _enhance_cta_elements(self, soup: BeautifulSoup) -> BeautifulSoup:
+        """Enhance call-to-action elements"""
+        # Look for common CTA patterns
+        cta_patterns = ['play now', 'sign up', 'join', 'register', 'get bonus']
+        
+        for a in soup.find_all('a'):
+            link_text = a.get_text().lower()
+            if any(pattern in link_text for pattern in cta_patterns):
+                current_classes = a.get('class', [])
+                if isinstance(current_classes, str):
+                    current_classes = current_classes.split()
+                
+                current_classes.extend(['cta-button', 'wp-element-button'])
+                a['class'] = current_classes
+        
+        return soup
+    
+    def _add_schema_markup(self, soup: BeautifulSoup, title: str, description: str) -> BeautifulSoup:
+        """Add JSON-LD schema markup for gaming content"""
+        if title and description:
+            schema = {
+                "@context": "https://schema.org",
+                "@type": "Article",
+                "headline": title,
+                "description": description,
+                "datePublished": datetime.now().isoformat(),
+                "author": {
+                    "@type": "Organization",
+                    "name": "Crash Casino"
+                },
+                "publisher": {
+                    "@type": "Organization",
+                    "name": "Crash Casino",
+                    "url": "https://crashcasino.io"
+                }
+            }
+            
+            script = soup.new_tag('script', type='application/ld+json')
+            script.string = json.dumps(schema, indent=2)
+            
+            if soup.head:
+                soup.head.append(script)
+            else:
+                soup.insert(0, script)
+        
+        return soup
+
+class ErrorRecoveryManager:
+    """Enterprise-grade error handling and recovery"""
+    
+    def __init__(self, config: WordPressConfig):
+        self.config = config
+        self.error_counts = {}
+        self.circuit_breaker_states = {}
+    
+    async def execute_with_retry(self, operation, *args, **kwargs):
+        """Execute operation with exponential backoff retry"""
+        last_exception = None
+        
+        for attempt in range(self.config.retry_attempts):
+            try:
+                return await operation(*args, **kwargs)
+            except Exception as e:
+                last_exception = e
+                logger.warning(f"Operation failed (attempt {attempt + 1}): {e}")
+                
+                if attempt < self.config.retry_attempts - 1:
+                    delay = self.config.retry_delay * (2 ** attempt)
+                    logger.info(f"Retrying in {delay} seconds...")
+                    await asyncio.sleep(delay)
+        
+        logger.error(f"Operation failed after {self.config.retry_attempts} attempts")
+        raise last_exception
+    
+    def circuit_breaker(self, operation_name: str, failure_threshold: int = 5, recovery_timeout: int = 60):
+        """Circuit breaker decorator for operations"""
+        def decorator(func):
+            async def wrapper(*args, **kwargs):
+                now = time.time()
+                
+                # Check circuit breaker state
+                if operation_name in self.circuit_breaker_states:
+                    state = self.circuit_breaker_states[operation_name]
+                    if state['state'] == 'open':
+                        if now - state['last_failure'] < recovery_timeout:
+                            raise Exception(f"Circuit breaker open for {operation_name}")
+                        else:
+                            # Try to close circuit breaker
+                            state['state'] = 'half-open'
+                
+                try:
+                    result = await func(*args, **kwargs)
+                    
+                    # Reset on success
+                    if operation_name in self.circuit_breaker_states:
+                        del self.circuit_breaker_states[operation_name]
+                    
+                    return result
+                    
+                except Exception as e:
+                    # Track failures
+                    if operation_name not in self.error_counts:
+                        self.error_counts[operation_name] = 0
+                    
+                    self.error_counts[operation_name] += 1
+                    
+                    # Open circuit breaker if threshold reached
+                    if self.error_counts[operation_name] >= failure_threshold:
+                        self.circuit_breaker_states[operation_name] = {
+                            'state': 'open',
+                            'last_failure': now
+                        }
+                        logger.error(f"Circuit breaker opened for {operation_name}")
+                    
+                    raise e
+            
+            return wrapper
+        return decorator
+
+class WordPressRESTPublisher:
+    """Main WordPress publisher with enterprise features"""
+    
+    def __init__(self, config: WordPressConfig, supabase_client: Optional[Client] = None):
+        self.config = config
+        self.auth_manager = WordPressAuthManager(config)
+        self.image_processor = BulletproofImageProcessor(config)
+        self.html_formatter = RichHTMLFormatter()
+        self.error_manager = ErrorRecoveryManager(config)
+        self.supabase = supabase_client
+        self.session: Optional[aiohttp.ClientSession] = None
+        
+        # Performance tracking
+        self.stats = {
+            'posts_published': 0,
+            'images_processed': 0,
+            'errors_recovered': 0,
+            'total_processing_time': 0.0
+        }
+    
+    async def __aenter__(self):
+        """Async context manager entry"""
+        connector = aiohttp.TCPConnector(limit=self.config.max_concurrent_uploads)
+        timeout = aiohttp.ClientTimeout(total=self.config.request_timeout)
+        self.session = aiohttp.ClientSession(connector=connector, timeout=timeout)
+        
+        # Verify authentication
+        if not await self.auth_manager.verify_authentication(self.session):
+            raise Exception("WordPress authentication failed")
+        
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit"""
+        if self.session:
+            await self.session.close()
+    
+    async def publish_post(self, 
+                          title: str, 
+                          content: str, 
+                          status: str = None,
+                          featured_image_url: str = None,
+                          categories: List[int] = None,
+                          tags: List[str] = None,
+                          meta_description: str = "",
+                          custom_fields: Dict[str, Any] = None) -> Dict[str, Any]:
+        """Publish a post to WordPress with all enhancements"""
+        start_time = time.time()
+        
+        try:
+            # Format content with rich HTML
+            formatted_content = self.html_formatter.format_content(content, title, meta_description)
+            
+            # Process featured image if provided
+            featured_media_id = None
+            if featured_image_url:
+                featured_media_id = await self._upload_featured_image(featured_image_url, title)
+            
+            # Prepare post data
+            post_data = {
+                'title': title,
+                'content': formatted_content,
+                'status': status or self.config.default_status,
+                'author': self.config.default_author_id,
+                'excerpt': meta_description[:150] if meta_description else "",
+                'meta': custom_fields or {}
+            }
+            
+            # Add categories and tags
+            if categories:
+                post_data['categories'] = categories
+            elif self.config.default_category_ids:
+                post_data['categories'] = self.config.default_category_ids
+            
+            if tags:
+                post_data['tags'] = await self._get_or_create_tags(tags)
+            elif self.config.default_tags:
+                post_data['tags'] = await self._get_or_create_tags(self.config.default_tags)
+            
+            # Add featured media
+            if featured_media_id:
+                post_data['featured_media'] = featured_media_id
+            
+            # Publish post
+            url = urljoin(self.config.site_url, "/wp-json/wp/v2/posts")
+            async with self.session.post(url, 
+                                       headers=self.auth_manager.headers, 
+                                       json=post_data) as response:
+                
+                if response.status in [200, 201]:
+                    result = await response.json()
+                    
+                    # Log to Supabase if available
+                    if self.supabase:
+                        await self._log_publication(result, start_time)
+                    
+                    # Update stats
+                    self.stats['posts_published'] += 1
+                    self.stats['total_processing_time'] += time.time() - start_time
+                    
+                    logger.info(f"Post published successfully: {result['id']}")
+                    return result
+                else:
+                    error_text = await response.text()
+                    raise Exception(f"WordPress API error {response.status}: {error_text}")
+        
+        except Exception as e:
+            logger.error(f"Failed to publish post '{title}': {e}")
+            raise
+    
+    async def _upload_featured_image(self, image_url: str, alt_text: str = "") -> Optional[int]:
+        """Upload and set featured image"""
+        try:
+            # Download image
+            image_data = await self.image_processor.download_image(self.session, image_url)
+            if not image_data:
+                return None
+            
+            data, filename = image_data
+            
+            # Process image
+            processed_data, processed_filename, metadata = await self.image_processor.process_image(data, filename)
+            
+            # Upload to WordPress media library
+            media_url = urljoin(self.config.site_url, "/wp-json/wp/v2/media")
+            
+            # Prepare multipart data
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', processed_data, filename=processed_filename, content_type='image/jpeg')
+            form_data.add_field('alt_text', alt_text)
+            form_data.add_field('caption', f"Optimized image - {metadata.get('compression_ratio', 1):.2f}x compression")
+            
+            # Upload
+            headers = self.auth_manager.headers.copy()
+            headers.pop('Content-Type', None)  # Let aiohttp set this for multipart
+            
+            async with self.session.post(media_url, headers=headers, data=form_data) as response:
+                if response.status in [200, 201]:
+                    result = await response.json()
+                    self.stats['images_processed'] += 1
+                    logger.info(f"Image uploaded successfully: {result['id']}")
+                    return result['id']
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Image upload failed: {error_text}")
+                    return None
+        
+        except Exception as e:
+            logger.error(f"Failed to upload featured image: {e}")
+            return None
+    
+    async def _get_or_create_tags(self, tag_names: List[str]) -> List[int]:
+        """Get existing tags or create new ones"""
+        tag_ids = []
+        
+        for tag_name in tag_names:
+            try:
+                # Search for existing tag
+                search_url = urljoin(self.config.site_url, f"/wp-json/wp/v2/tags?search={tag_name}")
+                async with self.session.get(search_url, headers=self.auth_manager.headers) as response:
+                    if response.status == 200:
+                        tags = await response.json()
+                        if tags:
+                            tag_ids.append(tags[0]['id'])
+                            continue
+                
+                # Create new tag if not found
+                create_url = urljoin(self.config.site_url, "/wp-json/wp/v2/tags")
+                tag_data = {'name': tag_name, 'slug': tag_name.lower().replace(' ', '-')}
+                
+                async with self.session.post(create_url, 
+                                           headers=self.auth_manager.headers, 
+                                           json=tag_data) as response:
+                    if response.status in [200, 201]:
+                        result = await response.json()
+                        tag_ids.append(result['id'])
+                    else:
+                        logger.warning(f"Failed to create tag '{tag_name}'")
+            
+            except Exception as e:
+                logger.warning(f"Error processing tag '{tag_name}': {e}")
+        
+        return tag_ids
+    
+    async def _log_publication(self, post_result: Dict[str, Any], start_time: float):
+        """Log publication to Supabase audit trail"""
+        try:
+            log_data = {
+                'wordpress_post_id': post_result['id'],
+                'title': post_result['title']['rendered'],
+                'status': post_result['status'],
+                'url': post_result['link'],
+                'processing_time': time.time() - start_time,
+                'auth_method': self.auth_manager.auth_method,
+                'published_at': datetime.now().isoformat(),
+                'metadata': {
+                    'featured_media': post_result.get('featured_media'),
+                    'categories': post_result.get('categories', []),
+                    'tags': post_result.get('tags', [])
+                }
+            }
+            
+            self.supabase.table('wordpress_publications').insert(log_data).execute()
+            logger.info(f"Publication logged to Supabase: {post_result['id']}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to log publication to Supabase: {e}")
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get performance statistics"""
+        avg_processing_time = (self.stats['total_processing_time'] / 
+                             max(self.stats['posts_published'], 1))
+        
+        return {
+            **self.stats,
+            'average_processing_time': avg_processing_time,
+            'auth_method': self.auth_manager.auth_method,
+            'success_rate': (self.stats['posts_published'] / 
+                           max(self.stats['posts_published'] + self.stats['errors_recovered'], 1))
+        }
+
+class WordPressIntegration:
+    """High-level WordPress integration facade"""
+    
+    def __init__(self, wordpress_config: WordPressConfig = None, supabase_client: Client = None):
+        self.config = wordpress_config or WordPressConfig()
+        self.supabase = supabase_client or self._create_supabase_client()
+        self.publisher: Optional[WordPressRESTPublisher] = None
+    
+    def _create_supabase_client(self) -> Optional[Client]:
+        """Create Supabase client if credentials available"""
+        try:
+            url = os.getenv("SUPABASE_URL")
+            key = os.getenv("SUPABASE_SERVICE_KEY")
+            if url and key:
+                return create_client(url, key)
+        except Exception as e:
+            logger.warning(f"Failed to create Supabase client: {e}")
+        return None
+    
+    async def publish_rag_content(self, 
+                                 query: str, 
+                                 rag_response: str, 
+                                 title: str = None,
+                                 featured_image_query: str = None) -> Dict[str, Any]:
+        """Publish RAG-generated content with smart enhancements"""
+        
+        # Generate title if not provided
+        if not title:
+            title = self._generate_title_from_query(query)
+        
+        # Extract meta description from content
+        meta_description = self._extract_meta_description(rag_response)
+        
+        # Find contextual image if DataForSEO integration available
+        featured_image_url = None
+        if featured_image_query:
+            featured_image_url = await self._find_contextual_image(featured_image_query)
+        
+        # Publish with full integration
+        async with WordPressRESTPublisher(self.config, self.supabase) as publisher:
+            self.publisher = publisher
+            
+            result = await publisher.publish_post(
+                title=title,
+                content=rag_response,
+                status=self.config.default_status,
+                featured_image_url=featured_image_url,
+                meta_description=meta_description,
+                custom_fields={
+                    'rag_query': query,
+                    'generated_at': datetime.now().isoformat(),
+                    'content_type': 'rag_generated'
+                }
+            )
+            
+            return result
+    
+    def _generate_title_from_query(self, query: str) -> str:
+        """Generate SEO-friendly title from query"""
+        # Simple title generation - can be enhanced with LLM
+        title = query.strip()
+        if not title.endswith('?'):
+            title = f"Complete Guide: {title}"
+        else:
+            title = title.replace('?', ' - Everything You Need to Know')
+        
+        return title[:60]  # SEO-friendly length
+    
+    def _extract_meta_description(self, content: str) -> str:
+        """Extract meta description from content"""
+        # Remove HTML tags and get first paragraph
+        soup = BeautifulSoup(content, 'html.parser')
+        text = soup.get_text()
+        
+        # Get first sentence or paragraph
+        sentences = text.split('.')
+        if sentences:
+            description = sentences[0].strip()
+            return description[:155] + "..." if len(description) > 155 else description
+        
+        return ""
+    
+    async def _find_contextual_image(self, query: str) -> Optional[str]:
+        """Find contextual image using DataForSEO integration"""
+        try:
+            # This would integrate with DataForSEO image search
+            # For now, return None - implementation depends on Task 5 integration
+            logger.info(f"Image search for query: {query}")
+            return None
+        except Exception as e:
+            logger.warning(f"Contextual image search failed: {e}")
+            return None
+    
+    def get_performance_stats(self) -> Dict[str, Any]:
+        """Get comprehensive performance statistics"""
+        base_stats = self.publisher.get_stats() if self.publisher else {}
+        
+        return {
+            **base_stats,
+            'config': {
+                'site_url': self.config.site_url,
+                'auth_method': self.config.default_status,
+                'max_concurrent_uploads': self.config.max_concurrent_uploads
+            },
+            'integration_status': {
+                'supabase_connected': self.supabase is not None,
+                'wordpress_configured': bool(self.config.site_url and self.config.username)
+            }
+        }
+
+# Factory function for easy initialization
+def create_wordpress_integration(
+    site_url: str = None,
+    username: str = None, 
+    application_password: str = None,
+    **config_kwargs
+) -> WordPressIntegration:
+    """Create WordPress integration with environment defaults"""
+    
+    config = WordPressConfig(
+        site_url=site_url or os.getenv("WORDPRESS_SITE_URL", ""),
+        username=username or os.getenv("WORDPRESS_USERNAME", ""),
+        application_password=application_password or os.getenv("WORDPRESS_APP_PASSWORD", ""),
+        **config_kwargs
+    )
+    
+    return WordPressIntegration(config)
+
+# Example usage and testing
+async def example_usage():
+    """Example usage of WordPress integration"""
+    
+    # Create integration
+    wp = create_wordpress_integration()
+    
+    # Publish RAG content
+    sample_query = "What are the best online casino bonuses for new players?"
+    sample_content = """
+    <h2>Best Online Casino Bonuses for New Players</h2>
+    
+    <p>New players have access to some of the most generous casino bonuses available online. 
+    Here's your complete guide to finding and claiming the best welcome offers.</p>
+    
+    <h3>Types of Welcome Bonuses</h3>
+    <ul>
+        <li><strong>Match Bonuses:</strong> Casino matches your deposit up to a certain amount</li>
+        <li><strong>Free Spins:</strong> Complimentary spins on popular slot games</li>
+        <li><strong>No Deposit Bonuses:</strong> Free money just for signing up</li>
+    </ul>
+    
+    <h3>Top Recommended Casinos</h3>
+    <p>Based on our comprehensive analysis, here are the top casinos offering 
+    exceptional welcome bonuses for new players in 2024.</p>
+    """
+    
+    try:
+        result = await wp.publish_rag_content(
+            query=sample_query,
+            rag_response=sample_content,
+            title="Best Online Casino Bonuses for New Players 2024",
+            featured_image_query="casino bonus welcome offer"
+        )
+        
+        print(f"✅ Post published successfully!")
+        print(f"📝 Post ID: {result['id']}")
+        print(f"🔗 URL: {result['link']}")
+        
+        # Get performance stats
+        stats = wp.get_performance_stats()
+        print(f"📊 Performance: {stats}")
+        
+    except Exception as e:
+        print(f"❌ Publishing failed: {e}")
+
+if __name__ == "__main__":
+    # Run example
+    asyncio.run(example_usage()) 
