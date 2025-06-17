@@ -1,0 +1,454 @@
+name: Coverage Enforcement
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+  push:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+  workflow_dispatch:
+    inputs:
+      coverage_threshold:
+        description: 'Minimum coverage threshold percentage'
+        required: false
+        default: '80'
+        type: string
+      generate_badge:
+        description: 'Generate coverage badge'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: ${{ github.event.inputs.coverage_threshold || '80' }}
+  GENERATE_BADGE: ${{ github.event.inputs.generate_badge || 'true' }}
+
+jobs:
+  coverage_analysis:
+    name: 📊 Coverage Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      coverage_percentage: ${{ steps.coverage.outputs.percentage }}
+      coverage_passed: ${{ steps.coverage.outputs.passed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-html coverage[toml] coverage-badge
+
+      - name: Run tests with coverage
+        run: |
+          cd tests
+          python -m pytest \
+            --cov=../src \
+            --cov-report=xml:coverage.xml \
+            --cov-report=html:htmlcov \
+            --cov-report=term-missing \
+            --cov-report=json:coverage.json \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --junitxml=junit.xml \
+            -v
+
+      - name: Parse coverage results
+        id: coverage
+        run: |
+          cd tests
+          
+          # Extract coverage percentage from JSON report
+          if [ -f coverage.json ]; then
+            COVERAGE_PCT=$(python -c "
+            import json
+            with open('coverage.json', 'r') as f:
+                data = json.load(f)
+            print(f\"{data['totals']['percent_covered']:.2f}\")
+            ")
+            echo "percentage=$COVERAGE_PCT" >> $GITHUB_OUTPUT
+            
+            # Check if coverage meets threshold
+            THRESHOLD=${{ env.COVERAGE_THRESHOLD }}
+            if (( $(echo "$COVERAGE_PCT >= $THRESHOLD" | bc -l) )); then
+              echo "passed=true" >> $GITHUB_OUTPUT
+              echo "✅ Coverage: $COVERAGE_PCT% (threshold: $THRESHOLD%)"
+            else
+              echo "passed=false" >> $GITHUB_OUTPUT
+              echo "❌ Coverage: $COVERAGE_PCT% (threshold: $THRESHOLD%)"
+            fi
+          else
+            echo "percentage=0" >> $GITHUB_OUTPUT
+            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "❌ Coverage report not found"
+          fi
+
+      - name: Generate coverage badge
+        if: env.GENERATE_BADGE == 'true'
+        run: |
+          cd tests
+          if [ -f coverage.json ]; then
+            coverage-badge -o coverage-badge.svg -f
+            echo "📊 Coverage badge generated"
+          fi
+
+      - name: Generate detailed coverage report
+        run: |
+          cd tests
+          
+          # Create markdown coverage report
+          cat > coverage-report.md << 'EOF'
+          # 📊 Test Coverage Report
+          
+          ## Summary
+          - **Total Coverage**: ${{ steps.coverage.outputs.percentage }}%
+          - **Threshold**: ${{ env.COVERAGE_THRESHOLD }}%
+          - **Status**: ${{ steps.coverage.outputs.passed == 'true' && '✅ PASSED' || '❌ FAILED' }}
+          
+          ## Coverage by Module
+          EOF
+          
+          # Add detailed coverage info
+          if [ -f coverage.json ]; then
+            python -c "
+            import json
+            with open('coverage.json', 'r') as f:
+                data = json.load(f)
+            
+            print('| Module | Coverage | Lines | Missing |')
+            print('|--------|----------|-------|---------|')
+            
+            for file_path, file_data in data['files'].items():
+                if file_path.startswith('../src/'):
+                    module = file_path.replace('../src/', '').replace('.py', '').replace('/', '.')
+                    coverage_pct = file_data['summary']['percent_covered']
+                    total_lines = file_data['summary']['num_statements']
+                    missing_lines = file_data['summary']['missing_lines']
+                    
+                    status = '✅' if coverage_pct >= ${{ env.COVERAGE_THRESHOLD }} else '❌'
+                    print(f'| {module} | {status} {coverage_pct:.1f}% | {total_lines} | {missing_lines} |')
+            " >> coverage-report.md
+          fi
+          
+          echo "" >> coverage-report.md
+          echo "## Uncovered Lines" >> coverage-report.md
+          echo "" >> coverage-report.md
+          
+          # Add uncovered lines details
+          if [ -f coverage.json ]; then
+            python -c "
+            import json
+            with open('coverage.json', 'r') as f:
+                data = json.load(f)
+            
+            for file_path, file_data in data['files'].items():
+                if file_path.startswith('../src/'):
+                    missing_lines = file_data.get('missing_lines', [])
+                    if missing_lines:
+                        module = file_path.replace('../src/', '')
+                        print(f'### {module}')
+                        print(f'**Missing lines:** {missing_lines}')
+                        print('')
+            " >> coverage-report.md
+          fi
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: coverage-reports
+          path: |
+            tests/coverage.xml
+            tests/coverage.json
+            tests/htmlcov/
+            tests/coverage-badge.svg
+            tests/coverage-report.md
+            tests/junit.xml
+          retention-days: 30
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = "## 📊 Test Coverage Report\n\n";
+            
+            const coveragePct = "${{ steps.coverage.outputs.percentage }}";
+            const threshold = "${{ env.COVERAGE_THRESHOLD }}";
+            const passed = "${{ steps.coverage.outputs.passed }}" === "true";
+            
+            const status = passed ? "✅ PASSED" : "❌ FAILED";
+            const emoji = passed ? "🎉" : "⚠️";
+            
+            comment += `${emoji} **Coverage: ${coveragePct}%** (threshold: ${threshold}%)\n`;
+            comment += `**Status: ${status}**\n\n`;
+            
+            if (fs.existsSync('tests/coverage-report.md')) {
+              const report = fs.readFileSync('tests/coverage-report.md', 'utf8');
+              // Skip the first line (header) since we already added it
+              const reportLines = report.split('\n').slice(1);
+              comment += reportLines.join('\n');
+            }
+            
+            comment += "\n---\n";
+            comment += "*📈 [View detailed HTML coverage report in artifacts]*\n";
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  coverage_diff:
+    name: 📈 Coverage Diff
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    needs: coverage_analysis
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+
+      - name: Checkout base branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.base_ref }}
+          path: base
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov coverage[toml]
+
+      - name: Run coverage on base branch
+        run: |
+          cd base/tests
+          python -m pytest \
+            --cov=../src \
+            --cov-report=json:base-coverage.json \
+            -q || true
+
+      - name: Run coverage on PR branch
+        run: |
+          cd tests
+          python -m pytest \
+            --cov=../src \
+            --cov-report=json:pr-coverage.json \
+            -q || true
+
+      - name: Compare coverage
+        run: |
+          cat > compare_coverage.py << 'EOF'
+          import json
+          import sys
+          from pathlib import Path
+          
+          def load_coverage(file_path):
+              try:
+                  with open(file_path, 'r') as f:
+                      return json.load(f)
+              except (FileNotFoundError, json.JSONDecodeError):
+                  return None
+          
+          def compare_coverage():
+              base_coverage = load_coverage('base/tests/base-coverage.json')
+              pr_coverage = load_coverage('tests/pr-coverage.json')
+              
+              if not base_coverage or not pr_coverage:
+                  print("❌ Unable to compare coverage - missing data")
+                  return
+              
+              base_pct = base_coverage['totals']['percent_covered']
+              pr_pct = pr_coverage['totals']['percent_covered']
+              diff = pr_pct - base_pct
+              
+              print(f"# 📊 Coverage Comparison")
+              print(f"")
+              print(f"| Metric | Base Branch | PR Branch | Difference |")
+              print(f"|--------|-------------|-----------|------------|")
+              print(f"| **Total Coverage** | {base_pct:.2f}% | {pr_pct:.2f}% | {diff:+.2f}% |")
+              
+              if diff > 0:
+                  print(f"")
+                  print(f"✅ **Coverage improved by {diff:.2f}%**")
+              elif diff < -1:
+                  print(f"")
+                  print(f"⚠️ **Coverage decreased by {abs(diff):.2f}%**")
+              else:
+                  print(f"")
+                  print(f"📊 **Coverage remained stable**")
+              
+              # File-level comparison
+              print(f"")
+              print(f"## File-Level Changes")
+              print(f"")
+              
+              base_files = base_coverage.get('files', {})
+              pr_files = pr_coverage.get('files', {})
+              
+              all_files = set(base_files.keys()) | set(pr_files.keys())
+              changes = []
+              
+              for file_path in sorted(all_files):
+                  if file_path.startswith('../src/'):
+                      module = file_path.replace('../src/', '')
+                      
+                      base_file_pct = base_files.get(file_path, {}).get('summary', {}).get('percent_covered', 0)
+                      pr_file_pct = pr_files.get(file_path, {}).get('summary', {}).get('percent_covered', 0)
+                      file_diff = pr_file_pct - base_file_pct
+                      
+                      if abs(file_diff) > 1:  # Only show significant changes
+                          status = "📈" if file_diff > 0 else "📉"
+                          changes.append((module, base_file_pct, pr_file_pct, file_diff, status))
+              
+              if changes:
+                  print(f"| File | Base | PR | Change | |")
+                  print(f"|------|------|----|---------|-|")
+                  for module, base_pct, pr_pct, diff, status in changes:
+                      print(f"| {module} | {base_pct:.1f}% | {pr_pct:.1f}% | {diff:+.1f}% | {status} |")
+              else:
+                  print(f"*No significant file-level coverage changes*")
+          
+          if __name__ == "__main__":
+              compare_coverage()
+          EOF
+          
+          python compare_coverage.py > coverage-diff.md
+
+      - name: Comment coverage diff on PR
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            if (fs.existsSync('coverage-diff.md')) {
+              const diff = fs.readFileSync('coverage-diff.md', 'utf8');
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: diff
+              });
+            }
+
+  coverage_enforcement:
+    name: 🚨 Coverage Enforcement
+    runs-on: ubuntu-latest
+    needs: coverage_analysis
+    if: always()
+    steps:
+      - name: Enforce coverage threshold
+        run: |
+          COVERAGE_PASSED="${{ needs.coverage_analysis.outputs.coverage_passed }}"
+          COVERAGE_PCT="${{ needs.coverage_analysis.outputs.coverage_percentage }}"
+          THRESHOLD="${{ env.COVERAGE_THRESHOLD }}"
+          
+          echo "Coverage: $COVERAGE_PCT%"
+          echo "Threshold: $THRESHOLD%"
+          echo "Passed: $COVERAGE_PASSED"
+          
+          if [ "$COVERAGE_PASSED" = "true" ]; then
+            echo "✅ Coverage enforcement PASSED"
+            echo "Coverage meets the minimum threshold of $THRESHOLD%"
+          else
+            echo "❌ Coverage enforcement FAILED"
+            echo "Coverage $COVERAGE_PCT% is below the minimum threshold of $THRESHOLD%"
+            echo ""
+            echo "To fix this:"
+            echo "1. Add more unit tests to cover untested code"
+            echo "2. Review the coverage report to identify missing coverage"
+            echo "3. Consider refactoring complex code to improve testability"
+            exit 1
+          fi
+
+  update_coverage_badge:
+    name: 📊 Update Coverage Badge
+    runs-on: ubuntu-latest
+    needs: coverage_analysis
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-reports
+          path: coverage-reports
+
+      - name: Update coverage badge in README
+        run: |
+          COVERAGE_PCT="${{ needs.coverage_analysis.outputs.coverage_percentage }}"
+          
+          # Create coverage badge URL
+          if (( $(echo "$COVERAGE_PCT >= 90" | bc -l) )); then
+            COLOR="brightgreen"
+          elif (( $(echo "$COVERAGE_PCT >= 80" | bc -l) )); then
+            COLOR="green"
+          elif (( $(echo "$COVERAGE_PCT >= 70" | bc -l) )); then
+            COLOR="yellow"
+          elif (( $(echo "$COVERAGE_PCT >= 60" | bc -l) )); then
+            COLOR="orange"
+          else
+            COLOR="red"
+          fi
+          
+          BADGE_URL="https://img.shields.io/badge/coverage-${COVERAGE_PCT}%25-${COLOR}"
+          
+          # Update README.md if it exists
+          if [ -f README.md ]; then
+            # Look for existing coverage badge and replace it
+            if grep -q "coverage-.*%-" README.md; then
+              sed -i "s|coverage-.*%-[^)]*|coverage-${COVERAGE_PCT}%25-${COLOR}|g" README.md
+              echo "📊 Updated existing coverage badge in README.md"
+            else
+              # Add coverage badge if it doesn't exist
+              echo "📊 No existing coverage badge found in README.md"
+            fi
+          fi
+          
+          # Copy the generated badge file
+          if [ -f coverage-reports/coverage-badge.svg ]; then
+            mkdir -p docs/badges
+            cp coverage-reports/coverage-badge.svg docs/badges/coverage.svg
+            echo "📊 Copied coverage badge to docs/badges/coverage.svg"
+          fi
+
+      - name: Commit coverage badge updates
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Update coverage badge to ${{ needs.coverage_analysis.outputs.coverage_percentage }}% [skip ci]"
+            git push
+            echo "📊 Coverage badge updates committed"
+          else
+            echo "📊 No coverage badge changes to commit"
+          fi 

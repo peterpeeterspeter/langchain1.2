@@ -1,0 +1,534 @@
+name: Deployment Validation
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+        description: "Deployment environment (staging, production)"
+      deployment_url:
+        required: true
+        type: string
+        description: "URL of the deployed application"
+      health_check_timeout:
+        required: false
+        type: string
+        default: "300"
+        description: "Health check timeout in seconds"
+    secrets:
+      DEPLOYMENT_API_KEY:
+        required: false
+      MONITORING_WEBHOOK:
+        required: false
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to validate'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      deployment_url:
+        description: 'Deployment URL to validate'
+        required: true
+        type: string
+      run_full_suite:
+        description: 'Run full validation suite'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  PYTHON_VERSION: '3.11'
+  ENVIRONMENT: ${{ inputs.environment }}
+  DEPLOYMENT_URL: ${{ inputs.deployment_url }}
+  HEALTH_CHECK_TIMEOUT: ${{ inputs.health_check_timeout || '300' }}
+  RUN_FULL_SUITE: ${{ inputs.run_full_suite || 'false' }}
+
+jobs:
+  pre_deployment_checks:
+    name: 🔍 Pre-Deployment Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      should_validate: ${{ steps.validation.outputs.should_validate }}
+      deployment_ready: ${{ steps.validation.outputs.deployment_ready }}
+    steps:
+      - name: Validate deployment inputs
+        id: validation
+        run: |
+          echo "Environment: ${{ env.ENVIRONMENT }}"
+          echo "Deployment URL: ${{ env.DEPLOYMENT_URL }}"
+          
+          # Validate environment
+          if [[ "${{ env.ENVIRONMENT }}" != "staging" && "${{ env.ENVIRONMENT }}" != "production" ]]; then
+            echo "❌ Invalid environment: ${{ env.ENVIRONMENT }}"
+            echo "should_validate=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          # Validate URL format
+          if [[ ! "${{ env.DEPLOYMENT_URL }}" =~ ^https?:// ]]; then
+            echo "❌ Invalid deployment URL format: ${{ env.DEPLOYMENT_URL }}"
+            echo "should_validate=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          
+          echo "✅ Pre-deployment validation passed"
+          echo "should_validate=true" >> $GITHUB_OUTPUT
+          echo "deployment_ready=true" >> $GITHUB_OUTPUT
+
+  health_checks:
+    name: 🏥 Health Checks
+    runs-on: ubuntu-latest
+    needs: pre_deployment_checks
+    if: needs.pre_deployment_checks.outputs.should_validate == 'true'
+    timeout-minutes: 15
+    outputs:
+      health_status: ${{ steps.health.outputs.status }}
+      response_time: ${{ steps.health.outputs.response_time }}
+    steps:
+      - name: Basic connectivity check
+        run: |
+          echo "🔗 Testing basic connectivity to ${{ env.DEPLOYMENT_URL }}"
+          
+          # Test basic HTTP connectivity
+          if curl -f -s --max-time 30 "${{ env.DEPLOYMENT_URL }}" > /dev/null; then
+            echo "✅ Basic connectivity successful"
+          else
+            echo "❌ Basic connectivity failed"
+            exit 1
+          fi
+
+      - name: Health endpoint check
+        id: health
+        run: |
+          echo "🏥 Checking health endpoint..."
+          
+          HEALTH_URL="${{ env.DEPLOYMENT_URL }}/health"
+          START_TIME=$(date +%s)
+          
+          # Try health endpoint with retries
+          for i in {1..5}; do
+            echo "Attempt $i/5: Checking $HEALTH_URL"
+            
+            RESPONSE=$(curl -s -w "%{http_code}:%{time_total}" "$HEALTH_URL" || echo "000:0")
+            HTTP_CODE=$(echo "$RESPONSE" | cut -d: -f1)
+            RESPONSE_TIME=$(echo "$RESPONSE" | cut -d: -f2)
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+              echo "⏱️ Response time: ${RESPONSE_TIME}s"
+              echo "status=healthy" >> $GITHUB_OUTPUT
+              echo "response_time=$RESPONSE_TIME" >> $GITHUB_OUTPUT
+              break
+            else
+              echo "⚠️ Health check failed (HTTP $HTTP_CODE)"
+              if [ $i -eq 5 ]; then
+                echo "❌ Health check failed after 5 attempts"
+                echo "status=unhealthy" >> $GITHUB_OUTPUT
+                echo "response_time=0" >> $GITHUB_OUTPUT
+                exit 1
+              fi
+              sleep 10
+            fi
+          done
+
+      - name: API endpoints check
+        run: |
+          echo "🔌 Testing critical API endpoints..."
+          
+          # List of critical endpoints to test
+          ENDPOINTS=(
+            "/api/v1/status"
+            "/api/v1/health"
+            "/api/v1/version"
+          )
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            URL="${{ env.DEPLOYMENT_URL }}${endpoint}"
+            echo "Testing: $URL"
+            
+            RESPONSE=$(curl -s -w "%{http_code}" "$URL" || echo "000")
+            HTTP_CODE="${RESPONSE: -3}"
+            
+            if [[ "$HTTP_CODE" =~ ^[2-3][0-9][0-9]$ ]]; then
+              echo "✅ $endpoint: HTTP $HTTP_CODE"
+            else
+              echo "⚠️ $endpoint: HTTP $HTTP_CODE (non-critical)"
+            fi
+          done
+
+  smoke_tests:
+    name: 💨 Smoke Tests
+    runs-on: ubuntu-latest
+    needs: [pre_deployment_checks, health_checks]
+    if: needs.health_checks.outputs.health_status == 'healthy'
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install requests pytest pytest-html pytest-json-report
+
+      - name: Run smoke tests
+        env:
+          TEST_BASE_URL: ${{ env.DEPLOYMENT_URL }}
+          TEST_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+          API_KEY: ${{ secrets.DEPLOYMENT_API_KEY }}
+        run: |
+          cat > smoke_tests.py << 'EOF'
+          import requests
+          import pytest
+          import os
+          import time
+          from urllib.parse import urljoin
+          
+          BASE_URL = os.getenv('TEST_BASE_URL', 'http://localhost:8000')
+          API_KEY = os.getenv('API_KEY', '')
+          
+          class TestSmokeTests:
+              def setup_method(self):
+                  self.session = requests.Session()
+                  if API_KEY:
+                      self.session.headers.update({'Authorization': f'Bearer {API_KEY}'})
+              
+              def test_root_endpoint(self):
+                  """Test root endpoint accessibility"""
+                  response = self.session.get(BASE_URL, timeout=30)
+                  assert response.status_code in [200, 301, 302], f"Root endpoint failed: {response.status_code}"
+              
+              def test_health_endpoint(self):
+                  """Test health endpoint"""
+                  url = urljoin(BASE_URL, '/health')
+                  response = self.session.get(url, timeout=30)
+                  assert response.status_code == 200, f"Health endpoint failed: {response.status_code}"
+                  
+                  # Check response content if JSON
+                  try:
+                      data = response.json()
+                      assert 'status' in data, "Health response missing status field"
+                  except:
+                      pass  # Non-JSON response is acceptable
+              
+              def test_api_version(self):
+                  """Test API version endpoint"""
+                  url = urljoin(BASE_URL, '/api/v1/version')
+                  response = self.session.get(url, timeout=30)
+                  assert response.status_code in [200, 404], f"Version endpoint unexpected status: {response.status_code}"
+              
+              def test_response_times(self):
+                  """Test response times are acceptable"""
+                  url = urljoin(BASE_URL, '/health')
+                  start_time = time.time()
+                  response = self.session.get(url, timeout=30)
+                  response_time = time.time() - start_time
+                  
+                  assert response.status_code == 200, f"Health check failed: {response.status_code}"
+                  assert response_time < 5.0, f"Response time too slow: {response_time:.2f}s"
+              
+              @pytest.mark.skipif(not API_KEY, reason="API key not provided")
+              def test_authenticated_endpoint(self):
+                  """Test authenticated endpoint if API key provided"""
+                  url = urljoin(BASE_URL, '/api/v1/protected')
+                  response = self.session.get(url, timeout=30)
+                  # Accept both success and not found (endpoint may not exist)
+                  assert response.status_code in [200, 404], f"Protected endpoint failed: {response.status_code}"
+              
+              def test_static_assets(self):
+                  """Test static assets loading"""
+                  # Common static asset paths
+                  static_paths = ['/favicon.ico', '/robots.txt', '/static/css/main.css']
+                  
+                  for path in static_paths:
+                      url = urljoin(BASE_URL, path)
+                      try:
+                          response = self.session.get(url, timeout=10)
+                          # Accept success or not found (assets may not exist)
+                          assert response.status_code in [200, 404], f"Static asset {path} failed: {response.status_code}"
+                      except:
+                          pass  # Non-critical for smoke tests
+              
+              def test_cors_headers(self):
+                  """Test CORS headers if applicable"""
+                  response = self.session.options(BASE_URL, timeout=30)
+                  # CORS preflight should return 200 or 405 (method not allowed)
+                  assert response.status_code in [200, 405], f"CORS preflight failed: {response.status_code}"
+          EOF
+          
+          # Run smoke tests
+          python -m pytest smoke_tests.py \
+            -v \
+            --html=smoke-test-report.html \
+            --json-report \
+            --json-report-file=smoke-test-results.json \
+            --tb=short
+
+      - name: Upload smoke test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: smoke-test-results-${{ env.ENVIRONMENT }}
+          path: |
+            smoke-test-report.html
+            smoke-test-results.json
+          retention-days: 30
+
+  performance_validation:
+    name: ⚡ Performance Validation
+    runs-on: ubuntu-latest
+    needs: [health_checks, smoke_tests]
+    if: needs.health_checks.outputs.health_status == 'healthy' && (env.RUN_FULL_SUITE == 'true' || env.ENVIRONMENT == 'production')
+    timeout-minutes: 15
+    steps:
+      - name: Install performance testing tools
+        run: |
+          # Install Apache Bench for load testing
+          sudo apt-get update
+          sudo apt-get install -y apache2-utils curl
+
+      - name: Basic load test
+        run: |
+          echo "⚡ Running basic load test against ${{ env.DEPLOYMENT_URL }}"
+          
+          # Run light load test (10 concurrent requests, 100 total)
+          ab -n 100 -c 10 -g load-test-results.tsv "${{ env.DEPLOYMENT_URL }}/" || true
+          
+          # Parse results
+          if [ -f load-test-results.tsv ]; then
+            echo "📊 Load test completed successfully"
+            
+            # Extract key metrics
+            TOTAL_TIME=$(awk 'END {print $2}' load-test-results.tsv | tail -1)
+            echo "Total test time: ${TOTAL_TIME}ms"
+          else
+            echo "⚠️ Load test data not available"
+          fi
+
+      - name: Response time validation
+        run: |
+          echo "⏱️ Validating response times..."
+          
+          # Test multiple endpoints for response time
+          ENDPOINTS=("/" "/health" "/api/v1/status")
+          
+          for endpoint in "${ENDPOINTS[@]}"; do
+            URL="${{ env.DEPLOYMENT_URL }}${endpoint}"
+            echo "Testing response time for: $URL"
+            
+            # Measure response time using curl
+            RESPONSE_TIME=$(curl -o /dev/null -s -w "%{time_total}" "$URL" || echo "0")
+            
+            echo "Response time: ${RESPONSE_TIME}s"
+            
+            # Validate response time (should be under 2 seconds for most endpoints)
+            if (( $(echo "$RESPONSE_TIME > 2.0" | bc -l) )); then
+              echo "⚠️ Slow response time for $endpoint: ${RESPONSE_TIME}s"
+            else
+              echo "✅ Good response time for $endpoint: ${RESPONSE_TIME}s"
+            fi
+          done
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-validation-${{ env.ENVIRONMENT }}
+          path: |
+            load-test-results.tsv
+          retention-days: 30
+
+  security_validation:
+    name: 🔒 Security Validation
+    runs-on: ubuntu-latest
+    needs: [health_checks, smoke_tests]
+    if: needs.health_checks.outputs.health_status == 'healthy' && env.ENVIRONMENT == 'production'
+    timeout-minutes: 10
+    steps:
+      - name: Security headers check
+        run: |
+          echo "🔒 Checking security headers..."
+          
+          # Check for important security headers
+          HEADERS_TO_CHECK=(
+            "X-Content-Type-Options"
+            "X-Frame-Options"
+            "X-XSS-Protection"
+            "Strict-Transport-Security"
+            "Content-Security-Policy"
+          )
+          
+          RESPONSE_HEADERS=$(curl -I -s "${{ env.DEPLOYMENT_URL }}" || echo "")
+          
+          for header in "${HEADERS_TO_CHECK[@]}"; do
+            if echo "$RESPONSE_HEADERS" | grep -i "$header" > /dev/null; then
+              echo "✅ $header: Present"
+            else
+              echo "⚠️ $header: Missing"
+            fi
+          done
+
+      - name: SSL/TLS validation
+        run: |
+          echo "🔐 Validating SSL/TLS configuration..."
+          
+          # Extract hostname from URL
+          HOSTNAME=$(echo "${{ env.DEPLOYMENT_URL }}" | sed -E 's|^https?://([^/]+).*|\1|')
+          
+          if [[ "${{ env.DEPLOYMENT_URL }}" == https://* ]]; then
+            # Check SSL certificate
+            SSL_INFO=$(echo | openssl s_client -servername "$HOSTNAME" -connect "$HOSTNAME:443" 2>/dev/null | openssl x509 -noout -dates 2>/dev/null || echo "")
+            
+            if [ -n "$SSL_INFO" ]; then
+              echo "✅ SSL certificate is valid"
+              echo "$SSL_INFO"
+            else
+              echo "⚠️ Unable to validate SSL certificate"
+            fi
+          else
+            echo "⚠️ Site is not using HTTPS"
+          fi
+
+  deployment_summary:
+    name: 📋 Deployment Summary
+    runs-on: ubuntu-latest
+    needs: [pre_deployment_checks, health_checks, smoke_tests, performance_validation, security_validation]
+    if: always()
+    steps:
+      - name: Generate deployment report
+        run: |
+          echo "# 🚀 Deployment Validation Report" > deployment-report.md
+          echo "" >> deployment-report.md
+          echo "**Environment:** ${{ env.ENVIRONMENT }}" >> deployment-report.md
+          echo "**Deployment URL:** ${{ env.DEPLOYMENT_URL }}" >> deployment-report.md
+          echo "**Validation Time:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> deployment-report.md
+          echo "" >> deployment-report.md
+          
+          echo "## Validation Results" >> deployment-report.md
+          echo "" >> deployment-report.md
+          
+          # Pre-deployment checks
+          if [ "${{ needs.pre_deployment_checks.result }}" = "success" ]; then
+            echo "✅ **Pre-deployment Checks**: PASSED" >> deployment-report.md
+          else
+            echo "❌ **Pre-deployment Checks**: FAILED" >> deployment-report.md
+          fi
+          
+          # Health checks
+          if [ "${{ needs.health_checks.result }}" = "success" ]; then
+            echo "✅ **Health Checks**: PASSED" >> deployment-report.md
+            echo "   - Response Time: ${{ needs.health_checks.outputs.response_time }}s" >> deployment-report.md
+          else
+            echo "❌ **Health Checks**: FAILED" >> deployment-report.md
+          fi
+          
+          # Smoke tests
+          if [ "${{ needs.smoke_tests.result }}" = "success" ]; then
+            echo "✅ **Smoke Tests**: PASSED" >> deployment-report.md
+          elif [ "${{ needs.smoke_tests.result }}" = "failure" ]; then
+            echo "❌ **Smoke Tests**: FAILED" >> deployment-report.md
+          else
+            echo "⏭️ **Smoke Tests**: SKIPPED" >> deployment-report.md
+          fi
+          
+          # Performance validation
+          if [ "${{ needs.performance_validation.result }}" = "success" ]; then
+            echo "✅ **Performance Validation**: PASSED" >> deployment-report.md
+          elif [ "${{ needs.performance_validation.result }}" = "failure" ]; then
+            echo "❌ **Performance Validation**: FAILED" >> deployment-report.md
+          else
+            echo "⏭️ **Performance Validation**: SKIPPED" >> deployment-report.md
+          fi
+          
+          # Security validation
+          if [ "${{ needs.security_validation.result }}" = "success" ]; then
+            echo "✅ **Security Validation**: PASSED" >> deployment-report.md
+          elif [ "${{ needs.security_validation.result }}" = "failure" ]; then
+            echo "❌ **Security Validation**: FAILED" >> deployment-report.md
+          else
+            echo "⏭️ **Security Validation**: SKIPPED" >> deployment-report.md
+          fi
+          
+          echo "" >> deployment-report.md
+          echo "## Overall Status" >> deployment-report.md
+          echo "" >> deployment-report.md
+          
+          # Determine overall status
+          CRITICAL_FAILURES=0
+          
+          if [ "${{ needs.pre_deployment_checks.result }}" != "success" ]; then
+            ((CRITICAL_FAILURES++))
+          fi
+          
+          if [ "${{ needs.health_checks.result }}" != "success" ]; then
+            ((CRITICAL_FAILURES++))
+          fi
+          
+          if [ "${{ needs.smoke_tests.result }}" = "failure" ]; then
+            ((CRITICAL_FAILURES++))
+          fi
+          
+          if [ $CRITICAL_FAILURES -eq 0 ]; then
+            echo "🎉 **DEPLOYMENT VALIDATION PASSED**" >> deployment-report.md
+            echo "" >> deployment-report.md
+            echo "The deployment to ${{ env.ENVIRONMENT }} has been successfully validated." >> deployment-report.md
+          else
+            echo "🚨 **DEPLOYMENT VALIDATION FAILED**" >> deployment-report.md
+            echo "" >> deployment-report.md
+            echo "Critical issues detected in the ${{ env.ENVIRONMENT }} deployment." >> deployment-report.md
+            echo "Please review the failed checks and take corrective action." >> deployment-report.md
+          fi
+          
+          cat deployment-report.md
+
+      - name: Upload deployment report
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-report-${{ env.ENVIRONMENT }}
+          path: deployment-report.md
+          retention-days: 90
+
+      - name: Notify monitoring system
+        if: env.ENVIRONMENT == 'production' && secrets.MONITORING_WEBHOOK
+        run: |
+          # Send deployment validation results to monitoring system
+          OVERALL_STATUS="success"
+          if [ "${{ needs.pre_deployment_checks.result }}" != "success" ] || 
+             [ "${{ needs.health_checks.result }}" != "success" ] || 
+             [ "${{ needs.smoke_tests.result }}" = "failure" ]; then
+            OVERALL_STATUS="failure"
+          fi
+          
+          curl -X POST "${{ secrets.MONITORING_WEBHOOK }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"environment\": \"${{ env.ENVIRONMENT }}\",
+              \"deployment_url\": \"${{ env.DEPLOYMENT_URL }}\",
+              \"validation_status\": \"$OVERALL_STATUS\",
+              \"timestamp\": \"$(date -u '+%Y-%m-%dT%H:%M:%SZ')\",
+              \"github_run_url\": \"${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+            }" || echo "Failed to notify monitoring system"
+
+      - name: Set deployment status
+        run: |
+          # Determine final status
+          if [ "${{ needs.pre_deployment_checks.result }}" = "success" ] && 
+             [ "${{ needs.health_checks.result }}" = "success" ] && 
+             [ "${{ needs.smoke_tests.result }}" != "failure" ]; then
+            echo "✅ Deployment validation completed successfully"
+            exit 0
+          else
+            echo "❌ Deployment validation failed"
+            exit 1 

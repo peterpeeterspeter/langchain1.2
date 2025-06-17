@@ -1,0 +1,409 @@
+name: Performance Regression Detection
+
+on:
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'src/**'
+      - 'tests/performance/**'
+      - 'tests/test_*performance*.py'
+  workflow_dispatch:
+    inputs:
+      baseline_ref:
+        description: 'Baseline reference (branch/tag/commit)'
+        required: false
+        default: 'main'
+        type: string
+      regression_threshold:
+        description: 'Regression threshold percentage'
+        required: false
+        default: '10'
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
+  BASELINE_REF: ${{ github.event.inputs.baseline_ref || 'main' }}
+  REGRESSION_THRESHOLD: ${{ github.event.inputs.regression_threshold || '10' }}
+
+jobs:
+  performance_baseline:
+    name: 📊 Performance Baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      baseline_results: ${{ steps.baseline.outputs.results }}
+    steps:
+      - name: Checkout baseline code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BASELINE_REF }}
+          path: baseline
+
+      - name: Set up Python for baseline
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install baseline dependencies
+        run: |
+          cd baseline
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-benchmark pytest-timeout memory_profiler
+
+      - name: Run baseline performance tests
+        id: baseline
+        run: |
+          cd baseline/tests
+          python -m pytest \
+            -m "performance" \
+            --benchmark-json=baseline-results.json \
+            --benchmark-only \
+            --timeout=1800 \
+            -v
+          
+          # Extract key metrics
+          if [ -f baseline-results.json ]; then
+            echo "results=$(cat baseline-results.json | jq -c .)" >> $GITHUB_OUTPUT
+          else
+            echo "results={}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload baseline results
+        uses: actions/upload-artifact@v3
+        with:
+          name: baseline-performance-results
+          path: baseline/tests/baseline-results.json
+          retention-days: 7
+
+  performance_current:
+    name: 🚀 Current Performance
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      current_results: ${{ steps.current.outputs.results }}
+    steps:
+      - name: Checkout current code
+        uses: actions/checkout@v4
+
+      - name: Set up Python for current
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install current dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-benchmark pytest-timeout memory_profiler
+
+      - name: Run current performance tests
+        id: current
+        run: |
+          cd tests
+          python -m pytest \
+            -m "performance" \
+            --benchmark-json=current-results.json \
+            --benchmark-only \
+            --timeout=1800 \
+            -v
+          
+          # Extract key metrics
+          if [ -f current-results.json ]; then
+            echo "results=$(cat current-results.json | jq -c .)" >> $GITHUB_OUTPUT
+          else
+            echo "results={}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload current results
+        uses: actions/upload-artifact@v3
+        with:
+          name: current-performance-results
+          path: tests/current-results.json
+          retention-days: 7
+
+  regression_analysis:
+    name: 📈 Regression Analysis
+    runs-on: ubuntu-latest
+    needs: [performance_baseline, performance_current]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download performance results
+        uses: actions/download-artifact@v3
+        with:
+          path: performance-results
+
+      - name: Install analysis tools
+        run: |
+          pip install jq pandas numpy matplotlib seaborn
+
+      - name: Analyze performance regression
+        id: analysis
+        run: |
+          cat > analyze_performance.py << 'EOF'
+          import json
+          import sys
+          import pandas as pd
+          import numpy as np
+          from pathlib import Path
+          
+          def load_results(file_path):
+              try:
+                  with open(file_path, 'r') as f:
+                      return json.load(f)
+              except (FileNotFoundError, json.JSONDecodeError):
+                  return {}
+          
+          def analyze_regression(baseline_file, current_file, threshold_pct=10):
+              baseline = load_results(baseline_file)
+              current = load_results(current_file)
+              
+              if not baseline or not current:
+                  print("❌ Missing performance data")
+                  return False, {}
+              
+              baseline_benchmarks = {b['name']: b['stats'] for b in baseline.get('benchmarks', [])}
+              current_benchmarks = {b['name']: b['stats'] for b in current.get('benchmarks', [])}
+              
+              regressions = []
+              improvements = []
+              analysis_results = {}
+              
+              for name in baseline_benchmarks:
+                  if name not in current_benchmarks:
+                      continue
+                  
+                  baseline_mean = baseline_benchmarks[name]['mean']
+                  current_mean = current_benchmarks[name]['mean']
+                  
+                  change_pct = ((current_mean - baseline_mean) / baseline_mean) * 100
+                  
+                  analysis_results[name] = {
+                      'baseline_mean': baseline_mean,
+                      'current_mean': current_mean,
+                      'change_pct': change_pct,
+                      'is_regression': change_pct > threshold_pct,
+                      'is_improvement': change_pct < -threshold_pct
+                  }
+                  
+                  if change_pct > threshold_pct:
+                      regressions.append((name, change_pct))
+                  elif change_pct < -threshold_pct:
+                      improvements.append((name, abs(change_pct)))
+              
+              has_regressions = len(regressions) > 0
+              
+              # Generate summary
+              print("# 📊 Performance Analysis Summary")
+              print(f"**Regression Threshold:** {threshold_pct}%")
+              print(f"**Benchmarks Analyzed:** {len(analysis_results)}")
+              print("")
+              
+              if regressions:
+                  print("## ⚠️ Performance Regressions Detected")
+                  for name, change in sorted(regressions, key=lambda x: x[1], reverse=True):
+                      print(f"- **{name}**: {change:.2f}% slower")
+                  print("")
+              
+              if improvements:
+                  print("## ✅ Performance Improvements")
+                  for name, change in sorted(improvements, key=lambda x: x[1], reverse=True):
+                      print(f"- **{name}**: {change:.2f}% faster")
+                  print("")
+              
+              if not regressions and not improvements:
+                  print("## 📊 No Significant Changes")
+                  print("Performance is within acceptable thresholds.")
+                  print("")
+              
+              # Detailed results table
+              print("## 📋 Detailed Results")
+              print("| Benchmark | Baseline (s) | Current (s) | Change (%) | Status |")
+              print("|-----------|--------------|-------------|------------|--------|")
+              
+              for name, data in analysis_results.items():
+                  status = "🔴 Regression" if data['is_regression'] else "🟢 Improvement" if data['is_improvement'] else "⚪ Stable"
+                  print(f"| {name} | {data['baseline_mean']:.6f} | {data['current_mean']:.6f} | {data['change_pct']:+.2f}% | {status} |")
+              
+              return has_regressions, analysis_results
+          
+          if __name__ == "__main__":
+              threshold = float(sys.argv[1]) if len(sys.argv) > 1 else 10.0
+              
+              baseline_file = "performance-results/baseline-performance-results/baseline-results.json"
+              current_file = "performance-results/current-performance-results/current-results.json"
+              
+              has_regressions, results = analyze_regression(baseline_file, current_file, threshold)
+              
+              # Save results for GitHub Actions
+              with open('regression_analysis.json', 'w') as f:
+                  json.dump({
+                      'has_regressions': has_regressions,
+                      'threshold': threshold,
+                      'results': results
+                  }, f, indent=2)
+              
+              sys.exit(1 if has_regressions else 0)
+          EOF
+          
+          python analyze_performance.py ${{ env.REGRESSION_THRESHOLD }} > performance_report.md
+          REGRESSION_EXIT_CODE=$?
+          
+          echo "regression_detected=$REGRESSION_EXIT_CODE" >> $GITHUB_OUTPUT
+          
+          if [ $REGRESSION_EXIT_CODE -eq 1 ]; then
+            echo "⚠️ Performance regressions detected!"
+          else
+            echo "✅ No performance regressions detected"
+          fi
+
+      - name: Generate performance charts
+        run: |
+          cat > generate_charts.py << 'EOF'
+          import json
+          import matplotlib.pyplot as plt
+          import numpy as np
+          from pathlib import Path
+          
+          def generate_performance_chart():
+              try:
+                  with open('regression_analysis.json', 'r') as f:
+                      data = json.load(f)
+                  
+                  results = data.get('results', {})
+                  if not results:
+                      return
+                  
+                  names = list(results.keys())
+                  changes = [results[name]['change_pct'] for name in names]
+                  colors = ['red' if change > data['threshold'] else 'green' if change < -data['threshold'] else 'gray' for change in changes]
+                  
+                  plt.figure(figsize=(12, 8))
+                  bars = plt.bar(range(len(names)), changes, color=colors, alpha=0.7)
+                  
+                  plt.axhline(y=data['threshold'], color='red', linestyle='--', alpha=0.5, label=f'Regression Threshold (+{data["threshold"]}%)')
+                  plt.axhline(y=-data['threshold'], color='green', linestyle='--', alpha=0.5, label=f'Improvement Threshold (-{data["threshold"]}%)')
+                  plt.axhline(y=0, color='black', linestyle='-', alpha=0.3)
+                  
+                  plt.xlabel('Benchmarks')
+                  plt.ylabel('Performance Change (%)')
+                  plt.title('Performance Regression Analysis')
+                  plt.xticks(range(len(names)), [name.replace('test_', '').replace('_', ' ') for name in names], rotation=45, ha='right')
+                  plt.legend()
+                  plt.grid(True, alpha=0.3)
+                  plt.tight_layout()
+                  
+                  plt.savefig('performance_chart.png', dpi=300, bbox_inches='tight')
+                  print("📊 Performance chart generated")
+                  
+              except Exception as e:
+                  print(f"❌ Error generating chart: {e}")
+          
+          if __name__ == "__main__":
+              generate_performance_chart()
+          EOF
+          
+          python generate_charts.py
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            
+            let comment = "## 📊 Performance Regression Analysis\n\n";
+            
+            if (fs.existsSync('performance_report.md')) {
+              const report = fs.readFileSync('performance_report.md', 'utf8');
+              comment += report;
+            } else {
+              comment += "❌ Performance analysis failed - no report generated\n";
+            }
+            
+            comment += "\n---\n";
+            comment += `*Analysis performed against baseline: \`${{ env.BASELINE_REF }}\`*\n`;
+            comment += `*Regression threshold: ${{ env.REGRESSION_THRESHOLD }}%*\n`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: regression-analysis
+          path: |
+            performance_report.md
+            regression_analysis.json
+            performance_chart.png
+          retention-days: 30
+
+      - name: Fail on regression
+        if: steps.analysis.outputs.regression_detected == '1'
+        run: |
+          echo "❌ Performance regression detected - failing the check"
+          echo "Review the performance analysis report for details"
+          exit 1
+
+  performance_trends:
+    name: 📈 Performance Trends
+    runs-on: ubuntu-latest
+    needs: [performance_current]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download current results
+        uses: actions/download-artifact@v3
+        with:
+          name: current-performance-results
+          path: current-results
+
+      - name: Store performance history
+        run: |
+          # Create performance history directory
+          mkdir -p .performance-history
+          
+          # Copy current results to history with timestamp
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          COMMIT_SHA=${GITHUB_SHA:0:8}
+          
+          if [ -f current-results/current-results.json ]; then
+            cp current-results/current-results.json ".performance-history/perf-${TIMESTAMP}-${COMMIT_SHA}.json"
+            echo "📊 Performance results stored for trend analysis"
+          fi
+          
+          # Keep only last 50 results to prevent repository bloat
+          cd .performance-history
+          ls -1t perf-*.json | tail -n +51 | xargs -r rm
+          
+          echo "📈 Performance history updated"
+
+      - name: Commit performance history
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          
+          if [ -n "$(git status --porcelain .performance-history/)" ]; then
+            git add .performance-history/
+            git commit -m "Update performance history [skip ci]"
+            git push
+            echo "📊 Performance history committed"
+          else
+            echo "📊 No performance history changes to commit"
+          fi 

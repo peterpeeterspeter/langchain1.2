@@ -1,0 +1,581 @@
+name: Universal RAG CMS - CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main, master, develop ]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Test suite to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - unit
+        - integration
+        - performance
+        - security
+      coverage_threshold:
+        description: 'Coverage threshold percentage'
+        required: false
+        default: '80'
+        type: string
+
+env:
+  PYTHON_VERSION: '3.11'
+  COVERAGE_THRESHOLD: ${{ github.event.inputs.coverage_threshold || '80' }}
+  TEST_SUITE: ${{ github.event.inputs.test_suite || 'all' }}
+
+jobs:
+  # Pre-flight checks
+  pre_flight:
+    name: 🔍 Pre-flight Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      should_run_tests: ${{ steps.changes.outputs.should_run }}
+      python_version: ${{ env.PYTHON_VERSION }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for relevant changes
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Manual trigger - running all tests"
+            exit 0
+          fi
+          
+          # Check if we have changes in relevant paths
+          CHANGED_FILES=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files: $CHANGED_FILES"
+          
+          if echo "$CHANGED_FILES" | grep -E "(src/|tests/|requirements\.txt|pyproject\.toml|\.github/workflows/)" > /dev/null; then
+            echo "should_run=true" >> $GITHUB_OUTPUT
+            echo "Relevant changes detected - running tests"
+          else
+            echo "should_run=false" >> $GITHUB_OUTPUT
+            echo "No relevant changes - skipping tests"
+          fi
+
+      - name: Validate configuration files
+        run: |
+          # Check if required files exist
+          test -f requirements.txt || (echo "requirements.txt not found" && exit 1)
+          test -f pyproject.toml || (echo "pyproject.toml not found" && exit 1)
+          test -f tests/pytest.ini || (echo "tests/pytest.ini not found" && exit 1)
+          echo "✅ Configuration files validated"
+
+  # Dependency and security checks
+  security_scan:
+    name: 🔒 Security & Dependency Scan
+    runs-on: ubuntu-latest
+    needs: pre_flight
+    if: needs.pre_flight.outputs.should_run_tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install security tools
+        run: |
+          pip install safety bandit semgrep
+
+      - name: Run safety check
+        run: |
+          safety check --json --output safety-report.json || true
+          if [ -f safety-report.json ]; then
+            echo "📊 Safety scan completed"
+            cat safety-report.json
+          fi
+
+      - name: Run bandit security scan
+        run: |
+          bandit -r src/ -f json -o bandit-report.json || true
+          if [ -f bandit-report.json ]; then
+            echo "📊 Bandit scan completed"
+            cat bandit-report.json
+          fi
+
+      - name: Upload security reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-reports
+          path: |
+            safety-report.json
+            bandit-report.json
+          retention-days: 30
+
+  # Code quality checks
+  code_quality:
+    name: 📊 Code Quality Analysis
+    runs-on: ubuntu-latest
+    needs: pre_flight
+    if: needs.pre_flight.outputs.should_run_tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install quality tools
+        run: |
+          pip install black isort flake8 mypy pylint
+
+      - name: Run black formatting check
+        run: |
+          black --check --diff src/ tests/ || (echo "❌ Code formatting issues found" && exit 1)
+          echo "✅ Code formatting check passed"
+
+      - name: Run isort import sorting check
+        run: |
+          isort --check-only --diff src/ tests/ || (echo "❌ Import sorting issues found" && exit 1)
+          echo "✅ Import sorting check passed"
+
+      - name: Run flake8 linting
+        run: |
+          flake8 src/ tests/ --output-file=flake8-report.txt || true
+          if [ -s flake8-report.txt ]; then
+            echo "📊 Flake8 issues found:"
+            cat flake8-report.txt
+          else
+            echo "✅ No flake8 issues found"
+          fi
+
+      - name: Run mypy type checking
+        run: |
+          mypy src/ --ignore-missing-imports --output-file=mypy-report.txt || true
+          if [ -s mypy-report.txt ]; then
+            echo "📊 MyPy type issues found:"
+            cat mypy-report.txt
+          else
+            echo "✅ No mypy issues found"
+          fi
+
+      - name: Upload quality reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: quality-reports
+          path: |
+            flake8-report.txt
+            mypy-report.txt
+          retention-days: 30
+
+  # Unit Tests
+  unit_tests:
+    name: 🧪 Unit Tests
+    runs-on: ubuntu-latest
+    needs: pre_flight
+    if: needs.pre_flight.outputs.should_run_tests == 'true' && (env.TEST_SUITE == 'all' || env.TEST_SUITE == 'unit')
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-xdist pytest-timeout
+
+      - name: Run unit tests
+        run: |
+          cd tests
+          python -m pytest \
+            -m "unit" \
+            --cov=../src \
+            --cov-report=xml:coverage-unit.xml \
+            --cov-report=html:htmlcov-unit \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ env.COVERAGE_THRESHOLD }} \
+            --junitxml=junit-unit.xml \
+            --timeout=300 \
+            -v
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: unit-test-results-py${{ matrix.python-version }}
+          path: |
+            tests/coverage-unit.xml
+            tests/htmlcov-unit/
+            tests/junit-unit.xml
+          retention-days: 30
+
+  # Integration Tests
+  integration_tests:
+    name: 🔗 Integration Tests
+    runs-on: ubuntu-latest
+    needs: [pre_flight, unit_tests]
+    if: needs.pre_flight.outputs.should_run_tests == 'true' && (env.TEST_SUITE == 'all' || env.TEST_SUITE == 'integration')
+    services:
+      postgres:
+        image: pgvector/pgvector:pg15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-cov pytest-xdist pytest-timeout
+
+      - name: Wait for services
+        run: |
+          sleep 10
+          pg_isready -h localhost -p 5432 -U postgres
+          redis-cli -h localhost -p 6379 ping
+
+      - name: Run integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          TEST_OPENAI_API_KEY: ${{ secrets.TEST_OPENAI_API_KEY }}
+          TEST_ANTHROPIC_API_KEY: ${{ secrets.TEST_ANTHROPIC_API_KEY }}
+          TEST_SUPABASE_URL: ${{ secrets.TEST_SUPABASE_URL }}
+          TEST_SUPABASE_KEY: ${{ secrets.TEST_SUPABASE_KEY }}
+        run: |
+          cd tests
+          python -m pytest \
+            -m "integration" \
+            --cov=../src \
+            --cov-report=xml:coverage-integration.xml \
+            --cov-report=html:htmlcov-integration \
+            --cov-report=term-missing \
+            --junitxml=junit-integration.xml \
+            --timeout=600 \
+            -v
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: integration-test-results
+          path: |
+            tests/coverage-integration.xml
+            tests/htmlcov-integration/
+            tests/junit-integration.xml
+          retention-days: 30
+
+  # Performance Tests
+  performance_tests:
+    name: ⚡ Performance Tests
+    runs-on: ubuntu-latest
+    needs: [pre_flight, unit_tests]
+    if: needs.pre_flight.outputs.should_run_tests == 'true' && (env.TEST_SUITE == 'all' || env.TEST_SUITE == 'performance')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest-benchmark pytest-timeout memory_profiler
+
+      - name: Run performance tests
+        run: |
+          cd tests
+          python -m pytest \
+            -m "performance" \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-histogram=benchmark-histogram \
+            --junitxml=junit-performance.xml \
+            --timeout=1200 \
+            -v
+
+      - name: Upload performance test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: performance-test-results
+          path: |
+            tests/benchmark-results.json
+            tests/benchmark-histogram.svg
+            tests/junit-performance.xml
+          retention-days: 30
+
+  # Security Tests
+  security_tests:
+    name: 🛡️ Security Tests
+    runs-on: ubuntu-latest
+    needs: [pre_flight, unit_tests]
+    if: needs.pre_flight.outputs.should_run_tests == 'true' && (env.TEST_SUITE == 'all' || env.TEST_SUITE == 'security')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run security tests
+        run: |
+          cd tests
+          python -m pytest \
+            -m "security" \
+            --junitxml=junit-security.xml \
+            --timeout=600 \
+            -v
+
+      - name: Upload security test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-test-results
+          path: |
+            tests/junit-security.xml
+          retention-days: 30
+
+  # Test Coverage Analysis
+  coverage_analysis:
+    name: 📈 Coverage Analysis
+    runs-on: ubuntu-latest
+    needs: [unit_tests, integration_tests]
+    if: always() && (needs.unit_tests.result == 'success' || needs.integration_tests.result == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Download test artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: test-results
+
+      - name: Install coverage tools
+        run: |
+          pip install coverage[toml] coverage-badge
+
+      - name: Combine coverage reports
+        run: |
+          # Combine coverage from different test runs
+          find test-results -name "coverage-*.xml" -exec cp {} . \;
+          if [ -f coverage-unit.xml ] && [ -f coverage-integration.xml ]; then
+            coverage combine coverage-unit.xml coverage-integration.xml
+            coverage report --format=markdown > coverage-report.md
+            coverage html -d htmlcov-combined
+            coverage-badge -o coverage-badge.svg
+          elif [ -f coverage-unit.xml ]; then
+            cp coverage-unit.xml coverage-combined.xml
+            coverage report --format=markdown > coverage-report.md
+          fi
+
+      - name: Comment coverage on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('coverage-report.md')) {
+              const coverage = fs.readFileSync('coverage-report.md', 'utf8');
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 📊 Coverage Report\n\n${coverage}`
+              });
+            }
+
+      - name: Upload combined coverage
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: combined-coverage
+          path: |
+            coverage-report.md
+            htmlcov-combined/
+            coverage-badge.svg
+          retention-days: 30
+
+  # Test Results Summary
+  test_summary:
+    name: 📋 Test Results Summary
+    runs-on: ubuntu-latest
+    needs: [unit_tests, integration_tests, performance_tests, security_tests, coverage_analysis]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: all-results
+
+      - name: Generate test summary
+        run: |
+          echo "# 🧪 Universal RAG CMS - Test Results Summary" > test-summary.md
+          echo "" >> test-summary.md
+          echo "## Test Execution Results" >> test-summary.md
+          echo "" >> test-summary.md
+          
+          # Check results
+          if [ "${{ needs.unit_tests.result }}" == "success" ]; then
+            echo "✅ **Unit Tests**: PASSED" >> test-summary.md
+          else
+            echo "❌ **Unit Tests**: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.integration_tests.result }}" == "success" ]; then
+            echo "✅ **Integration Tests**: PASSED" >> test-summary.md
+          else
+            echo "❌ **Integration Tests**: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.performance_tests.result }}" == "success" ]; then
+            echo "✅ **Performance Tests**: PASSED" >> test-summary.md
+          else
+            echo "❌ **Performance Tests**: FAILED" >> test-summary.md
+          fi
+          
+          if [ "${{ needs.security_tests.result }}" == "success" ]; then
+            echo "✅ **Security Tests**: PASSED" >> test-summary.md
+          else
+            echo "❌ **Security Tests**: FAILED" >> test-summary.md
+          fi
+          
+          echo "" >> test-summary.md
+          echo "## Artifacts Generated" >> test-summary.md
+          echo "- Test coverage reports (HTML + XML)" >> test-summary.md
+          echo "- Performance benchmarks" >> test-summary.md
+          echo "- Security scan results" >> test-summary.md
+          echo "- Code quality analysis" >> test-summary.md
+          
+          cat test-summary.md
+
+      - name: Upload test summary
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-summary
+          path: test-summary.md
+          retention-days: 30
+
+  # Deployment Gate
+  deployment_gate:
+    name: 🚀 Deployment Gate
+    runs-on: ubuntu-latest
+    needs: [security_scan, code_quality, unit_tests, integration_tests, performance_tests, security_tests]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    steps:
+      - name: Evaluate deployment readiness
+        run: |
+          echo "🔍 Evaluating deployment readiness..."
+          
+          # Check if all critical tests passed
+          UNIT_TESTS="${{ needs.unit_tests.result }}"
+          INTEGRATION_TESTS="${{ needs.integration_tests.result }}"
+          SECURITY_SCAN="${{ needs.security_scan.result }}"
+          CODE_QUALITY="${{ needs.code_quality.result }}"
+          
+          echo "Unit Tests: $UNIT_TESTS"
+          echo "Integration Tests: $INTEGRATION_TESTS"
+          echo "Security Scan: $SECURITY_SCAN"
+          echo "Code Quality: $CODE_QUALITY"
+          
+          if [[ "$UNIT_TESTS" == "success" && "$INTEGRATION_TESTS" == "success" && 
+                "$SECURITY_SCAN" == "success" && "$CODE_QUALITY" == "success" ]]; then
+            echo "✅ All critical checks passed - DEPLOYMENT APPROVED"
+            echo "deployment_approved=true" >> $GITHUB_ENV
+          else
+            echo "❌ Critical checks failed - DEPLOYMENT BLOCKED"
+            echo "deployment_approved=false" >> $GITHUB_ENV
+            exit 1
+          fi
+
+      - name: Create deployment tag
+        if: env.deployment_approved == 'true'
+        run: |
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+          TAG="deploy-$TIMESTAMP-${GITHUB_SHA:0:8}"
+          echo "Creating deployment tag: $TAG"
+          echo "deployment_tag=$TAG" >> $GITHUB_ENV
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ "${{ env.deployment_approved }}" == "true" ]; then
+            echo "🎉 Deployment gate PASSED - Ready for production deployment"
+            echo "📦 Deployment tag: ${{ env.deployment_tag }}"
+          else
+            echo "🚫 Deployment gate FAILED - Deployment blocked"
+          fi 
