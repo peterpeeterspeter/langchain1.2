@@ -480,7 +480,8 @@ class InferencePipeline:
                     return cached_response
             
             # Step 2: Query classification
-            query_type = await self.query_classifier.classify_query(query)
+            query_analysis = self.query_classifier.classify_query(query)
+            query_type = query_analysis.query_type.value
             logger.info(f"Classified query as: {query_type}")
             
             # Step 3: Contextual retrieval

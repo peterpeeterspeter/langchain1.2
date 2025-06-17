@@ -864,7 +864,8 @@
           1,
           2
         ],
-        "testStrategy": "Validate data integrity, test migration performance, verify compatibility layer, measure migration time, ensure rollback capability"
+        "testStrategy": "Validate data integrity, test migration performance, verify compatibility layer, measure migration time, ensure rollback capability",
+        "subtasks": []
       },
       {
         "id": 14,
