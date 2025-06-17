@@ -254,16 +254,19 @@ class ContextualRetrievalSystem(BaseRetriever):
             
             # Task 3.2: Hybrid Search Infrastructure (with fallback defaults)
             try:
-                hybrid_config = HybridSearchConfig(
-                    dense_weight=getattr(self.config, 'dense_weight', 0.7),
-                    sparse_weight=getattr(self.config, 'sparse_weight', 0.3),
-                    enable_caching=getattr(self.config, 'enable_caching', True)
-                )
-                self._hybrid_search = HybridSearchEngine(
-                    supabase_client=self.supabase_client,
-                    embeddings_model=self.embeddings_model,
-                    config=hybrid_config
-                )
+                # Use SupabaseVectorStore directly like the main chain does
+                if self.supabase_client and self.embeddings_model:
+                    from langchain_community.vectorstores import SupabaseVectorStore
+                    
+                    self._hybrid_search = SupabaseVectorStore(
+                        client=self.supabase_client,
+                        embedding=self.embeddings_model,
+                        table_name="documents",
+                        query_name="match_documents"
+                    )
+                else:
+                    self._hybrid_search = None
+                    
             except Exception as e:
                 self.logger.warning(f"Hybrid search initialization failed: {e}. Using fallback.")
                 self._hybrid_search = None
@@ -381,7 +384,7 @@ class ContextualRetrievalSystem(BaseRetriever):
             # Step 2: Extract metadata filters using self-query (Task 3.4)
             filters = []
             enable_filtering = getattr(self.config, 'enable_metadata_filtering', False)
-            mmr_k = getattr(self.config, 'mmr_k', 20)
+            mmr_k = getattr(self.config, 'mmr_k', 20)  # Default to 20 documents for MMR
             if self.self_query and enable_filtering:
                 try:
                     self_query_results = await self.self_query.retrieve(query, max_results=mmr_k)
@@ -399,7 +402,7 @@ class ContextualRetrievalSystem(BaseRetriever):
             # Step 4: Perform retrieval based on strategy
             if strategy == RetrievalStrategy.MULTI_QUERY and self.multi_query:
                 # Multi-query expansion (Task 3.3)
-                results = await self.multi_query.retrieve(query, max_results=self.config.mmr_k)
+                results = await self.multi_query.retrieve(query, max_results=mmr_k)
                 documents_with_embeddings = [
                     (doc, doc.metadata.get('embedding', []))
                     for doc in results.combined_results
@@ -415,16 +418,49 @@ class ContextualRetrievalSystem(BaseRetriever):
                     )
                     documents_with_embeddings.append((doc, chunk.embedding))
             else:
-                # Hybrid search (Task 3.2)
-                results = await self.hybrid_search.search(
-                    query=query,
-                    limit=self.config.mmr_k,
-                    filters=filters
-                )
-                documents_with_embeddings = [
-                    (doc, doc.metadata.get('embedding', []))
-                    for doc in results.documents
-                ]
+                # Vector search using SupabaseVectorStore
+                if self.hybrid_search:
+                    try:
+                        # Use the same direct RPC approach as the main chain
+                        query_embedding = await self.embeddings_model.aembed_query(query)
+                        
+                        response = self.supabase_client.rpc(
+                            'match_documents',
+                            {
+                                'query_embedding': query_embedding,
+                                'match_threshold': 0.3,  # Our fixed threshold
+                                'match_count': mmr_k
+                            }
+                        ).execute()
+                        
+                        documents_with_embeddings = []
+                        if response.data:
+                            for item in response.data:
+                                # Extract metadata safely
+                                item_metadata = item.get('metadata', {})
+                                
+                                doc = Document(
+                                    page_content=item.get('content', ''),
+                                    metadata={
+                                        'id': item.get('id'),
+                                        'similarity': float(item.get('similarity', 0.0)),
+                                        # Get data from metadata if available
+                                        'keyword': item_metadata.get('keyword', ''),
+                                        'article_id': item_metadata.get('article_id', ''),
+                                        'created_at': item_metadata.get('created_at', ''),
+                                        # Add original metadata
+                                        'original_metadata': item_metadata
+                                    }
+                                )
+                                documents_with_embeddings.append((doc, []))  # No embedding needed
+                        
+                        self.logger.info(f"Retrieved {len(documents_with_embeddings)} documents via direct RPC")
+                        
+                    except Exception as e:
+                        self.logger.error(f"Direct RPC search failed: {e}")
+                        documents_with_embeddings = []
+                else:
+                    documents_with_embeddings = []
             
             # Step 5: Apply MMR for diversity (Task 3.5)
             if query_embedding and documents_with_embeddings:
@@ -439,7 +475,8 @@ class ContextualRetrievalSystem(BaseRetriever):
                 final_documents = [doc for doc, _ in documents_with_embeddings[:k]]
             
             # Step 6: Enhance with source quality analysis (Task 2 integration)
-            if self.source_quality_analyzer and self.config.enable_source_quality_analysis:
+            enable_source_quality_analysis = getattr(self.config, 'enable_source_quality_analysis', True)
+            if self.source_quality_analyzer and enable_source_quality_analysis:
                 try:
                     for doc in final_documents:
                         quality_score = await self.source_quality_analyzer.analyze_source_quality(
@@ -452,8 +489,9 @@ class ContextualRetrievalSystem(BaseRetriever):
                 except Exception as e:
                     self.logger.warning(f"Source quality analysis failed: {e}")
             
-            # Step 7: Calculate confidence scores (Task 2 integration)
-            if self.config.enable_confidence_scoring and final_documents:
+            # Step 7: Calculate confidence scores (Task 2 integration) 
+            enable_confidence_scoring = getattr(self.config, 'enable_confidence_scoring', True)
+            if enable_confidence_scoring and final_documents:
                 # Simple confidence based on retrieval scores and quality
                 for doc in final_documents:
                     relevance = doc.metadata.get('relevance_score', 0.5)
@@ -504,13 +542,9 @@ class ContextualRetrievalSystem(BaseRetriever):
             
         except Exception as e:
             self.logger.error(f"Error in contextual retrieval: {e}")
-            # Fallback to basic search
-            try:
-                basic_results = await self.hybrid_search.search(query=query, limit=k)
-                return basic_results.documents[:k]
-            except Exception as fallback_error:
-                self.logger.error(f"Fallback search also failed: {fallback_error}")
-                return []
+            # Fallback to empty results - no fallback search needed
+            self.logger.warning("Returning empty results due to retrieval failure")
+            return []
     
     def _get_relevant_documents(
         self,
