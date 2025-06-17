@@ -387,7 +387,7 @@ class IntegratedRAGChain(UniversalRAGChain):
             logger.error(f"Hybrid retrieval failed: {e}")
             return await self._retrieve_and_format(inputs)  # Fallback to standard
     
-    async def ainvoke(self, query: str, **kwargs) -> RAGResponse:
+    async def ainvoke(self, input, **kwargs) -> RAGResponse:
         """
         Enhanced async invoke with full monitoring and configuration integration.
         
@@ -399,6 +399,12 @@ class IntegratedRAGChain(UniversalRAGChain):
         - Enhanced logging
         """
         
+        # Extract query from inputs (handle both dict and string)
+        if isinstance(input, dict):
+            query = input.get('query', input.get('question', ''))
+        else:
+            query = str(input)
+            
         # Generate query ID for tracking
         query_id = str(uuid.uuid4())
         user_context = kwargs.get('user_context', {})
@@ -429,20 +435,20 @@ class IntegratedRAGChain(UniversalRAGChain):
                 # Let parent handle cache check
                 cached_response = None  # Parent will check
             
-            # Call parent ainvoke with monitoring
+            # Call parent ainvoke with monitoring (pass original input format)
             if self.profiler:
                 async with self.profiler.profile("rag_pipeline", query_id=query_id):
                     if pipeline_context:
                         async with pipeline_context:
-                            response = await super().ainvoke(query, **kwargs)
+                            response = await super().ainvoke(input, **kwargs)
                     else:
-                        response = await super().ainvoke(query, **kwargs)
+                        response = await super().ainvoke(input, **kwargs)
             else:
                 if pipeline_context:
                     async with pipeline_context:
-                        response = await super().ainvoke(query, **kwargs)
+                        response = await super().ainvoke(input, **kwargs)
                 else:
-                    response = await super().ainvoke(query, **kwargs)
+                    response = await super().ainvoke(input, **kwargs)
             
             # Calculate total time
             total_time = (time.time() - start_time) * 1000

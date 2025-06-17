@@ -1,0 +1,97 @@
+{
+  "test_info": {
+    "query": "Comprehensive Betway Casino review covering games, bonuses, payment methods, mobile experience, and user safety",
+    "pipeline_version": "enhanced_v1.0.0_gpt4.1mini",
+    "execution_time": 31.74056077003479,
+    "total_time": 32.76819205284119,
+    "timestamp": "2025-06-17T16:17:16.591893",
+    "model": "gpt-4.1-mini"
+  },
+  "results": {
+    "title": "Error generating content for: Comprehensive Betway Casino review covering games, bonuses, payment me",
+    "content": "Error generating content for: Comprehensive Betway Casino review covering games, bonuses, payment methods, mobile experience, and user safety\n\n## Important Disclaimers\n\n> 🔞 This content is intended for adults aged 18 and over.\n\n> ⚠️ Gambling can be addictive. Please play responsibly.\n\n> 📞 For gambling addiction support, contact: National Problem Gambling Helpline 1-800-522-4700\n\n> 🚫 Void where prohibited. Check local laws and regulations.",
+    "images": [
+      {
+        "url": "https://vikingdashtrailrun.com/wp-content/uploads/2024/12/image-4.png",
+        "alt_text": "Image showing betway casino review - comprehensive ...",
+        "title": "Betway Casino Review - Comprehensive ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Introduction",
+        "width": null,
+        "height": null
+      },
+      {
+        "url": "https://i.ytimg.com/vi/_rwEtbZgc3E/sddefault.jpg",
+        "alt_text": "Image showing betway casino review 🔥 games, bonuses ...",
+        "title": "BETWAY CASINO REVIEW 🔥 Games, Bonuses ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Games",
+        "width": null,
+        "height": null
+      },
+      {
+        "url": "https://i.ytimg.com/vi/_rwEtbZgc3E/mqdefault.jpg",
+        "alt_text": "Image showing betway casino review 🔥 games, bonuses ...",
+        "title": "BETWAY CASINO REVIEW 🔥 Games, Bonuses ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Games",
+        "width": null,
+        "height": null
+      },
+      {
+        "url": "https://vikingdashtrailrun.com/wp-content/uploads/2024/12/image-4.png",
+        "alt_text": "Image showing betway casino review - comprehensive ...",
+        "title": "Betway Casino Review - Comprehensive ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Introduction",
+        "width": null,
+        "height": null
+      },
+      {
+        "url": "https://i.ytimg.com/vi/_rwEtbZgc3E/maxresdefault.jpg",
+        "alt_text": "Image showing betway casino review 🔥 games, bonuses ...",
+        "title": "BETWAY CASINO REVIEW 🔥 Games, Bonuses ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Games",
+        "width": null,
+        "height": null
+      },
+      {
+        "url": "https://vikingdashtrailrun.com/wp-content/uploads/2024/12/image-4.png",
+        "alt_text": "Image showing betway casino review - comprehensive ...",
+        "title": "Betway Casino Review - Comprehensive ...",
+        "relevance_score": 0.5857142857142857,
+        "section_suggestion": "Introduction",
+        "width": null,
+        "height": null
+      }
+    ],
+    "sources": [],
+    "compliance_notices": [
+      "🔞 This content is intended for adults aged 18 and over.",
+      "⚠️ Gambling can be addictive. Please play responsibly.",
+      "📞 For gambling addiction support, contact: National Problem Gambling Helpline 1-800-522-4700",
+      "🚫 Void where prohibited. Check local laws and regulations."
+    ],
+    "metadata": {
+      "category": "gambling",
+      "compliance_required": true,
+      "risk_level": "high",
+      "generation_time": "2025-06-17T16:17:16.588284",
+      "image_count": 6,
+      "source_count": 0
+    },
+    "pipeline_version": "enhanced_v1.0.0",
+    "processing_steps_completed": 7
+  },
+  "metrics": {
+    "word_count": 64,
+    "character_count": 442,
+    "paragraph_count": 5,
+    "header_count": 1,
+    "image_count": 6,
+    "source_count": 0,
+    "compliance_notice_count": 4,
+    "embedded_images": 0
+  }
+}
