@@ -160,7 +160,7 @@ class EnhancedUniversalRAGPipeline:
         """Step 2a: Gather relevant images using DataForSEO"""
         try:
             # Import here to avoid circular imports
-            from src.integrations.dataforseo_image_search import DataForSEOImageSearch
+            from src.integrations.dataforseo_image_search import EnhancedDataForSEOImageSearch
             
             query = input_data.get("query", "")
             analysis = input_data.get("analysis")
@@ -168,9 +168,9 @@ class EnhancedUniversalRAGPipeline:
             # Create search queries based on content
             search_queries = self._generate_image_search_queries(query, analysis)
             
-            image_service = DataForSEOImageSearch(
+            image_service = EnhancedDataForSEOImageSearch(
                 supabase_client=self.supabase,
-                config=self.config
+                config=self.config.get("dataforseo_config", {})
             )
             
             all_images = []
