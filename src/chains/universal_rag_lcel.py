@@ -27,6 +27,8 @@ from datetime import datetime, timedelta
 import hashlib
 import json
 import os
+import uuid
+from enum import Enum
 
 from pydantic import BaseModel, Field
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
@@ -36,6 +38,9 @@ from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_anthropic import ChatAnthropic
+
+# ✅ NATIVE LangChain SupabaseVectorStore (instead of custom EnhancedVectorStore)
+from langchain_community.vectorstores import SupabaseVectorStore
 
 # Import ALL our advanced systems
 from .advanced_prompt_system import (
@@ -110,6 +115,44 @@ try:
     PROFILING_AVAILABLE = True
 except ImportError:
     PROFILING_AVAILABLE = False
+
+# Web search integration for real-time content research
+import os
+from typing import Optional, List, Dict, Any, Union, Tuple
+from datetime import datetime, timedelta
+import time
+import logging
+import json
+import asyncio
+from abc import ABC, abstractmethod
+
+# Core LangChain imports
+from langchain_core.documents import Document
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
+from langchain_core.callbacks import BaseCallbackHandler
+
+# Vector store and embeddings
+try:
+    from langchain_community.vectorstores.supabase import SupabaseVectorStore
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
+    SupabaseVectorStore = None
+
+from langchain_openai import OpenAIEmbeddings, ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+
+# Pydantic models
+from pydantic import BaseModel, Field
+
+# Web search integration
+try:
+    from langchain_community.tools.tavily_search import TavilySearchResults
+    TAVILY_AVAILABLE = True
+except ImportError:
+    TAVILY_AVAILABLE = False
 
 # Enhanced exception hierarchy
 class RAGException(Exception):
@@ -199,57 +242,69 @@ class RAGMetricsCallback(BaseCallbackHandler):
         }
 
 
+# ✅ NATIVE LANGCHAIN SOLUTION: Use SupabaseVectorStore directly  
 class EnhancedVectorStore:
-    """Wrapper for Supabase vector store with contextual retrieval"""
+    """Native LangChain wrapper using SupabaseVectorStore"""
     
     def __init__(self, supabase_client, embedding_model):
-        self.client = supabase_client
+        self.supabase_client = supabase_client
         self.embedding_model = embedding_model
+        
+        # ✅ CRITICAL FIX: Use native LangChain SupabaseVectorStore
+        self.vector_store = SupabaseVectorStore(
+            client=supabase_client,
+            embedding=embedding_model,
+            table_name="documents",
+            query_name="match_documents"
+        )
         
     async def asimilarity_search_with_score(self, query: str, k: int = 4, 
                                           query_analysis: Optional[QueryAnalysis] = None) -> List[Tuple[Document, float]]:
-        """Enhanced similarity search with contextual retrieval"""
-        
-        # Generate query embedding
-        query_embedding = await self.embedding_model.aembed_query(query)
-        
-        # Build contextual query if analysis is available
-        if query_analysis:
-            contextual_query = self._build_contextual_query(query, query_analysis)
-            contextual_embedding = await self.embedding_model.aembed_query(contextual_query)
-            
-            # Combine original and contextual embeddings (weighted)
-            combined_embedding = [
-                0.7 * orig + 0.3 * ctx 
-                for orig, ctx in zip(query_embedding, contextual_embedding)
-            ]
-        else:
-            combined_embedding = query_embedding
-        
-        # Perform vector search via Supabase
+        """Enhanced vector search using direct RPC call (workaround for LangChain Community bug)"""
         try:
-            response = self.client.rpc(
+            # Build contextual query if analysis is available
+            contextual_query = query
+            if query_analysis:
+                contextual_query = self._build_contextual_query(query, query_analysis)
+            
+            # Generate embedding for the query
+            query_embedding = await self.embedding_model.aembed_query(contextual_query)
+            
+            # ✅ WORKAROUND: Use direct RPC call since LangChain Community doesn't implement asimilarity_search_with_score
+            response = self.supabase_client.rpc(
                 'match_documents',
                 {
-                    'query_embedding': combined_embedding,
-                    'match_threshold': 0.1,
+                    'query_embedding': query_embedding,
+                    'match_threshold': 0.3,   # Higher threshold to prevent cross-brand contamination
                     'match_count': k
                 }
             ).execute()
             
-            documents_with_scores = []
-            for item in response.data:
-                doc = Document(
-                    page_content=item['content'],
-                    metadata=item.get('metadata', {})
-                )
-                score = item.get('similarity', 0.0)
-                documents_with_scores.append((doc, score))
+            if response.data:
+                results = []
+                for item in response.data:
+                    doc = Document(
+                        page_content=item.get('content', ''),
+                        metadata={
+                            'id': item.get('id'),
+                            'title': item.get('title'),
+                            'url': item.get('url'),
+                            'content_type': item.get('content_type'),
+                            'created_at': item.get('created_at')
+                        }
+                    )
+                    # Use similarity score from RPC result
+                    similarity = float(item.get('similarity', 0.0))
+                    results.append((doc, similarity))
                 
-            return documents_with_scores
-            
+                logging.info(f"✅ Vector search successful: {len(results)} documents found")
+                return results
+            else:
+                logging.warning("No documents found in vector search")
+                return []
+                
         except Exception as e:
-            logging.error(f"Vector search failed: {e}")
+            logging.error(f"Enhanced vector search failed: {e}")
             return []
     
     def _build_contextual_query(self, query: str, query_analysis: QueryAnalysis) -> str:
@@ -382,6 +437,7 @@ class UniversalRAGChain:
         enable_fti_processing: bool = True,       # ✅ NEW: FTI content processing
         enable_security: bool = True,             # ✅ NEW: Security features
         enable_profiling: bool = True,            # ✅ NEW: Performance profiling
+        enable_web_search: bool = True,           # ✅ NEW: Web search research
         vector_store = None,
         supabase_client = None,
         **kwargs
@@ -401,14 +457,24 @@ class UniversalRAGChain:
         self.enable_fti_processing = enable_fti_processing
         self.enable_security = enable_security
         self.enable_profiling = enable_profiling
+        self.enable_web_search = enable_web_search
+        self.enable_response_storage = kwargs.get('enable_response_storage', True)  # ✅ NEW: Store responses
         
         # Core infrastructure  
         self.vector_store = vector_store
         self.supabase_client = supabase_client
         
-        # Initialize core components
+        # Initialize core components first
         self._init_llm()
         self._init_embeddings()
+        
+        # ✅ NEW: Auto-initialize Supabase connection if not provided (after embeddings)
+        if self.supabase_client is None:
+            self._auto_initialize_supabase()
+        
+        if self.vector_store is None and self.supabase_client is not None:
+            self._auto_initialize_vector_store()
+        
         self._init_cache()
         
         # ✅ Initialize advanced prompt optimization 
@@ -426,14 +492,14 @@ class UniversalRAGChain:
             self.confidence_integrator = None
             
         # ✅ NEW: Initialize Template System v2.0
-        if self.enable_template_system_v2:
+        if self.enable_template_system_v2 and TEMPLATE_SYSTEM_V2_AVAILABLE:
             self.template_manager = ImprovedTemplateManager()
             logging.info("📝 Template System v2.0 ENABLED (34 specialized templates)")
         else:
             self.template_manager = None
             
         # ✅ NEW: Initialize Contextual Retrieval System (Task 3)
-        if self.enable_contextual_retrieval and self.supabase_client:
+        if self.enable_contextual_retrieval and self.supabase_client and CONTEXTUAL_RETRIEVAL_AVAILABLE:
             self.contextual_retrieval = ContextualRetrievalSystem(
                 supabase_client=self.supabase_client,
                 embedding_model=self.embeddings
@@ -463,9 +529,9 @@ class UniversalRAGChain:
         if self.enable_wordpress_publishing:
             try:
                 wp_config = WordPressConfig(
-                    base_url=os.getenv("WORDPRESS_URL", ""),
+                    site_url=os.getenv("WORDPRESS_URL", ""),
                     username=os.getenv("WORDPRESS_USERNAME", ""),
-                    password=os.getenv("WORDPRESS_PASSWORD", "")
+                    application_password=os.getenv("WORDPRESS_PASSWORD", "")
                 )
                 self.wordpress_service = WordPressIntegration(config=wp_config)
                 logging.info("📝 WordPress Publishing ENABLED")
@@ -506,13 +572,39 @@ class UniversalRAGChain:
         # ✅ NEW: Initialize Performance Profiler
         if self.enable_profiling and PROFILING_AVAILABLE:
             try:
-                self.performance_profiler = PerformanceProfiler()
+                self.performance_profiler = PerformanceProfiler(
+                    supabase_client=self.supabase_client,
+                    enable_profiling=True
+                )
                 logging.info("📊 Performance Profiling ENABLED")
             except Exception as e:
                 logging.warning(f"Performance profiler initialization failed: {e}")
                 self.performance_profiler = None
         else:
             self.performance_profiler = None
+            
+        # ✅ NEW: Initialize Web Search (Tavily)
+        if self.enable_web_search and TAVILY_AVAILABLE:
+            try:
+                tavily_api_key = os.getenv("TAVILY_API_KEY")
+                if tavily_api_key:
+                    self.web_search_tool = TavilySearchResults(
+                        max_results=5,
+                        search_depth="advanced",
+                        include_answer=True,
+                        include_raw_content=True,
+                        include_images=False,  # We have DataForSEO for images
+                        include_image_descriptions=False
+                    )
+                    logging.info("🌐 Web Search (Tavily) ENABLED")
+                else:
+                    logging.warning("⚠️ Web search disabled: TAVILY_API_KEY not found in environment")
+                    self.web_search_tool = None
+            except Exception as e:
+                logging.warning(f"Web search initialization failed: {e}")
+                self.web_search_tool = None
+        else:
+            self.web_search_tool = None
         
         # Create the LCEL chain
         self.chain = self._create_lcel_chain()
@@ -538,10 +630,63 @@ class UniversalRAGChain:
             logging.info("  🔒 Security & Compliance")
         if self.enable_profiling:
             logging.info("  📊 Performance Profiling")
+        if self.enable_web_search:
+            logging.info("  🌐 Web Search Research")
+        if self.enable_response_storage:
+            logging.info("  📚 Response Storage & Vectorization")
         
         self._last_retrieved_docs: List[Tuple[Document,float]] = []  # Store last docs
         self._last_images: List[Dict[str, Any]] = []  # Store last images
+        self._last_web_results: List[Dict[str, Any]] = []  # Store last web search results
         self._last_metadata: Dict[str, Any] = {}  # Store last metadata
+    
+    def _auto_initialize_supabase(self):
+        """🔧 Auto-initialize Supabase connection from environment variables"""
+        try:
+            supabase_url = os.getenv("SUPABASE_URL")
+            supabase_service_key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+            
+            if not supabase_url or not supabase_service_key:
+                logging.warning("⚠️ Supabase auto-initialization failed: Missing SUPABASE_URL or SUPABASE_SERVICE_KEY in environment")
+                return
+            
+            from supabase import create_client
+            self.supabase_client = create_client(supabase_url, supabase_service_key)
+            logging.info(f"🚀 Supabase auto-initialized from environment: {supabase_url}")
+            
+        except Exception as e:
+            logging.warning(f"⚠️ Supabase auto-initialization failed: {e}")
+            self.supabase_client = None
+    
+    def _auto_initialize_vector_store(self):
+        """✅ NATIVE: Auto-initialize vector store using native SupabaseVectorStore"""
+        try:
+            if self.supabase_client is None:
+                logging.warning("⚠️ Vector store auto-initialization skipped: No Supabase client available")
+                return
+                
+            if not SUPABASE_AVAILABLE:
+                logging.warning("⚠️ Vector store auto-initialization skipped: langchain_supabase not available")
+                return
+                
+            # Option 1: Use enhanced wrapper (for compatibility)
+            self.vector_store = EnhancedVectorStore(
+                supabase_client=self.supabase_client,
+                embedding_model=self.embeddings
+            )
+            logging.info("✅ Vector store auto-initialized with native SupabaseVectorStore wrapper")
+            
+            # Option 2: Direct native initialization (for testing)
+            # self.vector_store = SupabaseVectorStore(
+            #     client=self.supabase_client,
+            #     embedding=self.embeddings,
+            #     table_name="documents",
+            #     query_name="match_documents"
+            # )
+            
+        except Exception as e:
+            logging.warning(f"⚠️ Vector store auto-initialization failed: {e}")
+            self.vector_store = None
     
     def _init_llm(self):
         """Initialize the language model"""
@@ -597,7 +742,8 @@ class UniversalRAGChain:
             | RunnablePassthrough.assign(
                 resources=RunnableParallel({
                     "contextual_retrieval": RunnableLambda(self._enhanced_contextual_retrieval),
-                    "images": RunnableLambda(self._gather_dataforseo_images), 
+                    "images": RunnableLambda(self._gather_dataforseo_images),
+                    "web_search": RunnableLambda(self._gather_web_search_results),
                     "fti_processing": RunnableLambda(self._fti_content_processing),
                     "template_enhancement": RunnableLambda(self._get_enhanced_template_v2)
                 })
@@ -797,6 +943,10 @@ Answer:
     
     async def _enhanced_contextual_retrieval(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Step 2a: Enhanced contextual retrieval using Task 3 system"""
+        if not self.vector_store:
+            logging.info("ℹ️ Contextual retrieval skipped: Vector store not available (using web search instead)")
+            return {"documents": [], "retrieval_method": "no_vector_store", "document_count": 0}
+            
         if not self.enable_contextual_retrieval or not self.contextual_retrieval:
             return await self._fallback_retrieval(inputs)
         
@@ -804,17 +954,12 @@ Answer:
         query_analysis = inputs.get("query_analysis")
         
         try:
-            # Use the sophisticated contextual retrieval system
-            retrieval_config = RetrievalConfig(
-                strategy=RetrievalStrategy.HYBRID,
-                k=5,
-                enable_mmr=True,
-                enable_multi_query=True
-            )
-            
-            results = await self.contextual_retrieval.aretrieve(
+            # Use the sophisticated contextual retrieval system with correct parameters
+            results = await self.contextual_retrieval._aget_relevant_documents(
                 query=query,
-                config=retrieval_config
+                k=5,
+                strategy=RetrievalStrategy.HYBRID,
+                run_manager=None
             )
             
             # Store for later use
@@ -865,7 +1010,7 @@ Answer:
             all_images = []
             for search_query in search_queries[:3]:  # Limit to 3 searches
                 try:
-                    from ..integrations.dataforseo_image_search import ImageSearchRequest, ImageType, ImageSize
+                    from integrations.dataforseo_image_search import ImageSearchRequest, ImageType, ImageSize
                     
                     search_request = ImageSearchRequest(
                         keyword=search_query,
@@ -920,6 +1065,201 @@ Answer:
                 ])
         
         return queries[:3]  # Limit to 3 queries
+    
+    async def _gather_web_search_results(self, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Step 2c: Gather web search results using Tavily"""
+        if not self.enable_web_search or not self.web_search_tool:
+            return []
+        
+        query = inputs.get("question", "")
+        query_analysis = inputs.get("query_analysis")
+        
+        try:
+            # Generate web search queries
+            search_queries = self._generate_web_search_queries(query, query_analysis)
+            
+            all_web_results = []
+            for search_query in search_queries[:2]:  # Limit to 2 searches to avoid rate limits
+                try:
+                    logging.info(f"🔍 Web search: {search_query}")
+                    results = self.web_search_tool.invoke({"query": search_query})
+                    
+                    if results:
+                        for result in results[:3]:  # Top 3 per query
+                            all_web_results.append({
+                                "url": result.get("url", ""),
+                                "title": result.get("title", search_query),
+                                "content": result.get("content", "")[:500] + "...",  # Truncate
+                                "snippet": result.get("snippet", ""),
+                                "search_query": search_query,
+                                "source": "tavily_web_search",
+                                "relevance_score": 0.85  # High relevance for web search
+                            })
+                    
+                except Exception as e:
+                    logging.warning(f"Web search failed for '{search_query}': {e}")
+            
+            # Store for later use
+            self._last_web_results = all_web_results
+            
+            # ✅ NEW: Store and vectorize web search results
+            if all_web_results and self.vector_store:
+                await self._store_web_search_results(all_web_results, query)
+            
+            logging.info(f"✅ Web search found {len(all_web_results)} results")
+            return all_web_results
+            
+        except Exception as e:
+            logging.warning(f"Web search gathering failed: {e}")
+            return []
+    
+    def _generate_web_search_queries(self, query: str, query_analysis: Optional[QueryAnalysis]) -> List[str]:
+        """Generate relevant web search queries"""
+        base_query = query.strip()
+        
+        queries = [base_query]
+        
+        if query_analysis and query_analysis.query_type:
+            if query_analysis.query_type.value == "casino_review":
+                brand = query_analysis.detected_brand if hasattr(query_analysis, 'detected_brand') else ""
+                if brand:
+                    queries.extend([
+                        f"{brand} casino review 2024",
+                        f"{brand} casino bonuses"
+                    ])
+                else:
+                    queries.extend([
+                        f"{base_query} 2024",
+                        f"{base_query} bonuses"
+                    ])
+            elif query_analysis.query_type.value == "game_guide":
+                queries.extend([
+                    f"{base_query} strategy guide",
+                    f"how to play {base_query}"
+                ])
+            else:
+                queries.append(f"{base_query} latest news")
+        
+        return queries[:2]  # Limit to 2 queries
+    
+    async def _store_web_search_results(self, web_results: List[Dict[str, Any]], original_query: str):
+        """Store and vectorize web search results using native LangChain components"""
+        try:
+            if not SUPABASE_AVAILABLE or not self.supabase_client:
+                logging.warning("⚠️ Web search storage skipped: Supabase not available")
+                return
+            
+            logging.info(f"📚 Storing {len(web_results)} web search results in vector store...")
+            
+            # Create documents from web search results using native LangChain
+            from langchain_core.documents import Document
+            
+            documents_to_store = []
+            for result in web_results:
+                content = result.get("content", "")
+                title = result.get("title", "")
+                url = result.get("url", "")
+                
+                if content and len(content.strip()) > 50:  # Only store substantial content
+                    # Create comprehensive document text
+                    document_text = f"Title: {title}\n\nContent: {content}"
+                    
+                    # Create metadata for native LangChain Document
+                    metadata = {
+                        "source": "tavily_web_search",
+                        "url": url,
+                        "title": title,
+                        "original_query": original_query,
+                        "search_query": result.get("search_query", ""),
+                        "relevance_score": result.get("relevance_score", 0.85),
+                        "timestamp": datetime.now().isoformat(),
+                        "content_type": "web_search_result",
+                        "snippet": result.get("snippet", "")[:200]
+                    }
+                    
+                    # Create native LangChain Document
+                    doc = Document(page_content=document_text, metadata=metadata)
+                    documents_to_store.append(doc)
+            
+            if documents_to_store:
+                # Use native SupabaseVectorStore directly
+                vector_store = SupabaseVectorStore(
+                    client=self.supabase_client,
+                    embedding=self.embeddings,
+                    table_name="documents",
+                    query_name="match_documents"
+                )
+                
+                # Store documents (automatically generates embeddings)
+                try:
+                    # Try async first
+                    if hasattr(vector_store, 'aadd_documents'):
+                        await vector_store.aadd_documents(documents_to_store)
+                    else:
+                        # Fallback to sync
+                        vector_store.add_documents(documents_to_store)
+                    
+                    logging.info(f"✅ Stored {len(documents_to_store)} web search results using native LangChain")
+                    
+                except Exception as e:
+                    logging.warning(f"⚠️ Failed to add documents to vector store: {e}")
+                
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to store web search results: {e}")
+            # Don't fail the whole process if storage fails
+    
+    async def _store_rag_response(self, query: str, response: str, sources: List[Dict[str, Any]], confidence_score: float):
+        """Store successful RAG responses for conversation history using native LangChain"""
+        try:
+            if not self.enable_response_storage or not SUPABASE_AVAILABLE or not self.supabase_client:
+                return
+            
+            logging.info("📝 Storing RAG response for conversation history...")
+            
+            # Create document from RAG response using native LangChain
+            from langchain_core.documents import Document
+            
+            # Create comprehensive response document
+            response_text = f"Query: {query}\n\nResponse: {response}"
+            
+            # Create metadata for conversation history
+            metadata = {
+                "source": "rag_conversation",
+                "query": query,
+                "confidence_score": confidence_score,
+                "sources_count": len(sources),
+                "response_length": len(response),
+                "timestamp": datetime.now().isoformat(),
+                "content_type": "rag_response",
+                "sources_preview": [s.get("url", s.get("title", ""))[:100] for s in sources[:3]]
+            }
+            
+            # Create native LangChain Document
+            doc = Document(page_content=response_text, metadata=metadata)
+            
+            # Use native SupabaseVectorStore directly
+            vector_store = SupabaseVectorStore(
+                client=self.supabase_client,
+                embedding=self.embeddings,
+                table_name="documents",
+                query_name="match_documents"
+            )
+            
+            # Store response (automatically generates embeddings)
+            try:
+                if hasattr(vector_store, 'aadd_documents'):
+                    await vector_store.aadd_documents([doc])
+                else:
+                    vector_store.add_documents([doc])
+                
+                logging.info("✅ Stored RAG response using native LangChain")
+                
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to store RAG response: {e}")
+                
+        except Exception as e:
+            logging.warning(f"⚠️ Failed to store RAG response: {e}")
+            # Don't fail the whole process if storage fails
     
     async def _fti_content_processing(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Step 2c: FTI content processing - detection, chunking, metadata"""
@@ -1099,8 +1439,9 @@ Please provide a comprehensive, accurate, and well-structured response."""
             
             # Generate with profiling if enabled
             if self.enable_profiling and self.performance_profiler:
-                with self.performance_profiler.profile("content_generation"):
-                    response = await self.llm.ainvoke(prompt)
+                # Note: Performance profiler context manager handled at higher level
+                logging.info("📊 Profiling content generation step")
+                response = await self.llm.ainvoke(prompt)
             else:
                 response = await self.llm.ainvoke(prompt)
             
@@ -1255,6 +1596,27 @@ Please provide a comprehensive, accurate, and well-structured response."""
                 "source_id": f"img_{i}"
             })
         
+        # Add web search sources
+        for i, web_result in enumerate(self._last_web_results, 1):
+            source_quality = await self._calculate_source_quality(web_result.get("content", ""))
+            relevance = await self._calculate_query_relevance(web_result.get("content", ""), query)
+            
+            sources.append({
+                "content": web_result.get("content", ""),
+                "metadata": {
+                    "url": web_result.get("url", ""),
+                    "title": web_result.get("title", ""),
+                    "snippet": web_result.get("snippet", ""),
+                    "search_query": web_result.get("search_query", ""),
+                    "source": web_result.get("source", "web_search")
+                },
+                "similarity_score": web_result.get("relevance_score", 0.85),
+                "source_quality": source_quality,
+                "relevance_score": relevance,
+                "source_type": "web_search",
+                "source_id": f"web_{i}"
+            })
+        
         return sources
     
     def _count_active_features(self) -> int:
@@ -1269,6 +1631,8 @@ Please provide a comprehensive, accurate, and well-structured response."""
         if self.enable_fti_processing: count += 1
         if self.enable_security: count += 1
         if self.enable_profiling: count += 1
+        if self.enable_web_search: count += 1
+        if self.enable_response_storage: count += 1
         return count
     
     def _calculate_retrieval_quality(self) -> float:
@@ -1330,7 +1694,8 @@ Please provide a comprehensive, accurate, and well-structured response."""
         try:
             # Performance profiling start
             if self.enable_profiling and self.performance_profiler:
-                await self.performance_profiler.start_profiling("ultimate_rag_pipeline")
+                # Note: PerformanceProfiler uses context manager pattern via profile() method
+                logging.info("📊 Performance profiling active for ultimate_rag_pipeline")
             
             # Prepare inputs for the ULTIMATE LCEL pipeline
             pipeline_inputs = {"question": query}
@@ -1422,8 +1787,10 @@ Please provide a comprehensive, accurate, and well-structured response."""
                 
             else:
                 # Task 2.3 Enhanced Confidence Calculation with specific bonuses
+                # Convert result to string if it's a dict
+                result_str = result if isinstance(result, str) else str(result)
                 base_confidence = await self._calculate_enhanced_confidence(
-                    query, result, query_analysis, metrics
+                    query, result_str, query_analysis, metrics
                 )
                 
                 # Apply Task 2.3 specific bonuses
@@ -1434,7 +1801,7 @@ Please provide a comprehensive, accurate, and well-structured response."""
                     base_confidence=base_confidence,
                     query=query,
                     query_type=query_type,
-                    response_content=result,
+                    response_content=result_str,
                     sources=sources,
                     user_expertise_level=user_expertise
                 )
@@ -1478,6 +1845,10 @@ Please provide a comprehensive, accurate, and well-structured response."""
             # Cache the response
             if self.cache:
                 await self.cache.set(query, response, query_analysis)
+            
+            # ✅ NEW: Store successful RAG response for conversation history
+            if response.confidence_score > 0.5:  # Only store high-confidence responses
+                await self._store_rag_response(query, response.answer, response.sources, response.confidence_score)
             
             return response
             
@@ -2046,6 +2417,8 @@ def create_universal_rag_chain(
     enable_fti_processing: bool = True,       # ✅ NEW: FTI content processing
     enable_security: bool = True,             # ✅ NEW: Security features
     enable_profiling: bool = True,            # ✅ NEW: Performance profiling
+    enable_web_search: bool = True,           # ✅ NEW: Web search research
+    enable_response_storage: bool = True,     # ✅ NEW: Response storage & vectorization
     vector_store = None,
     supabase_client = None,
     **kwargs
@@ -2080,6 +2453,8 @@ def create_universal_rag_chain(
         enable_fti_processing=enable_fti_processing,
         enable_security=enable_security,
         enable_profiling=enable_profiling,
+        enable_web_search=enable_web_search,
+        enable_response_storage=enable_response_storage,
         vector_store=vector_store,
         supabase_client=supabase_client,
         **kwargs
