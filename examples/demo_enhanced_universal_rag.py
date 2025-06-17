@@ -68,8 +68,16 @@ TEST_QUERIES = [
 
 def setup_environment():
     """Setup environment variables"""
-    os.environ["OPENAI_API_KEY"] = "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"
-    os.environ["ANTHROPIC_API_KEY"] = "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"
+    # Check if API keys are set in environment
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("⚠️ OPENAI_API_KEY not set in environment variables")
+        print("   Please set: export OPENAI_API_KEY='your_openai_api_key_here'")
+        return False
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("⚠️ ANTHROPIC_API_KEY not set in environment variables") 
+        print("   Please set: export ANTHROPIC_API_KEY='your_anthropic_api_key_here'")
+        return False
+    return True
     
 def create_supabase_client() -> Client:
     """Create Supabase client"""
@@ -263,7 +271,9 @@ def main():
     print_pipeline_overview()
     
     # Setup
-    setup_environment()
+    if not setup_environment():
+        print("❌ Environment setup failed. Please set API keys and try again.")
+        return
     supabase = create_supabase_client()
     
     # Create enhanced pipeline
