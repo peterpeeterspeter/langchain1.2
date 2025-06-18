@@ -629,9 +629,9 @@ class UniversalRAGChain:
             try:
                 self.comprehensive_web_research_chain = create_comprehensive_web_research_chain(
                     casino_domain="casino.org",  # Default domain
-                    categories=['trustworthiness', 'games', 'bonuses']  # Core categories for performance
+                    categories=None  # Uses ALL 8 categories by default for complete 95-field analysis
                 )
-                logging.info("🔍 Comprehensive Web Research (WebBaseLoader) ENABLED")
+                logging.info("🔍 Comprehensive Web Research (WebBaseLoader) ENABLED - ALL 8 categories (95 fields)")
             except Exception as e:
                 logging.warning(f"Comprehensive web research initialization failed: {e}")
                 self.comprehensive_web_research_chain = None

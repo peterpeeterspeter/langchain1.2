@@ -58,32 +58,43 @@ class URLStrategy:
                 'trustworthiness': [
                     '/about', '/about-us', '/company', '/licensing', 
                     '/legal', '/terms', '/privacy', '/responsible-gaming',
-                    '/security', '/fairness'
+                    '/security', '/fairness', '/audits', '/certifications'
                 ],
                 'games': [
                     '/casino', '/games', '/slots', '/live-casino',
                     '/table-games', '/jackpots', '/new-games',
-                    '/providers', '/software'
+                    '/providers', '/software', '/demo', '/tournaments'
                 ],
                 'bonuses': [
                     '/promotions', '/bonuses', '/welcome-bonus',
                     '/free-spins', '/loyalty', '/vip', '/rewards',
-                    '/offers', '/deals'
+                    '/offers', '/deals', '/cashback', '/reload'
                 ],
                 'payments': [
                     '/banking', '/payments', '/deposit', '/withdrawal',
                     '/payment-methods', '/cashier', '/transactions',
-                    '/fees', '/limits'
+                    '/fees', '/limits', '/crypto', '/verification'
                 ],
                 'user_experience': [
                     '/support', '/help', '/contact', '/faq',
                     '/mobile', '/app', '/download', '/languages',
-                    '/reviews', '/testimonials'
+                    '/reviews', '/testimonials', '/feedback'
+                ],
+                'innovations': [
+                    '/technology', '/innovation', '/vr', '/ar',
+                    '/ai', '/blockchain', '/social', '/gamification',
+                    '/partnerships', '/beta', '/new-features'
                 ],
                 'compliance': [
                     '/responsible-gambling', '/self-exclusion',
                     '/age-verification', '/aml', '/kyc',
-                    '/complaints', '/dispute-resolution'
+                    '/complaints', '/dispute-resolution', '/transparency',
+                    '/ethics', '/data-protection'
+                ],
+                'assessment': [
+                    '/reviews', '/ratings', '/awards', '/comparisons',
+                    '/testimonials', '/case-studies', '/analysis',
+                    '/reports', '/statistics', '/performance'
                 ]
             }
 
@@ -308,7 +319,7 @@ class ComprehensiveWebResearchChain:
         self.casino_domain = casino_domain
         self.alternative_domains = alternative_domains or []
         self.llm = llm or ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1)
-        self.categories = categories or ['trustworthiness', 'games', 'bonuses', 'payments', 'user_experience', 'compliance']
+        self.categories = categories or ['trustworthiness', 'games', 'bonuses', 'payments', 'user_experience', 'innovations', 'compliance', 'assessment']
         
         # Initialize components
         self.url_strategy = URLStrategy(
@@ -319,7 +330,7 @@ class ComprehensiveWebResearchChain:
         self.web_loader = EnhancedWebBaseLoader(
             strategy=self.url_strategy,
             requests_per_second=0.5,
-            max_workers=3,
+            max_workers=6,  # Increased for 8-category processing
             timeout=30
         )
         
@@ -351,8 +362,8 @@ class ComprehensiveWebResearchChain:
                 'research_summary': {}
             }
             
-            # Process each category in parallel
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            # Process each category in parallel (ALL 8 categories for complete 95-field analysis)
+            with ThreadPoolExecutor(max_workers=6) as executor:
                 future_to_category = {}
                 
                 for category, urls in url_collection.items():
@@ -429,13 +440,36 @@ def create_comprehensive_web_research_chain(casino_domain: str = "casino.org",
                                            alternative_domains: Optional[List[str]] = None,
                                            llm: Optional[ChatOpenAI] = None,
                                            categories: Optional[List[str]] = None) -> ComprehensiveWebResearchChain:
-    """Create a comprehensive web research chain for casino analysis"""
+    """
+    Create a comprehensive web research chain for casino analysis
+    
+    Args:
+        casino_domain: Target casino domain for analysis
+        alternative_domains: Alternative domains to try (.com, .co.uk, etc.)
+        llm: Language model for data extraction
+        categories: Categories to analyze (defaults to ALL 8 for complete 95-field analysis)
+        
+    Returns:
+        ComprehensiveWebResearchChain configured for complete 95-field casino analysis
+    """
+    
+    # Default to ALL 8 categories for complete 95-field analysis
+    default_categories = [
+        'trustworthiness',    # 15 fields - Licensing, security, reputation
+        'games',             # 12 fields - Slots, tables, providers, RTP
+        'bonuses',           # 12 fields - Welcome, loyalty, wagering requirements  
+        'payments',          # 15 fields - Methods, fees, processing times
+        'user_experience',   # 12 fields - Support, mobile, interface
+        'innovations',       # 8 fields - VR, AI, blockchain, social features
+        'compliance',        # 10 fields - RG, AML, data protection
+        'assessment'         # 11 fields - Ratings, recommendations, improvements
+    ]
     
     return ComprehensiveWebResearchChain(
         casino_domain=casino_domain,
         alternative_domains=alternative_domains,
         llm=llm,
-        categories=categories
+        categories=categories or default_categories
     )
 
 # Example usage and testing
@@ -446,10 +480,10 @@ if __name__ == "__main__":
     print(f"{'='*60}")
     
     try:
-        # Create research chain
+        # Create research chain with ALL 8 categories (complete 95-field analysis)
         research_chain = create_comprehensive_web_research_chain(
-            casino_domain='casino.org',
-            categories=['trustworthiness', 'games', 'bonuses']  # Limited for testing
+            casino_domain='casino.org'
+            # Uses default ALL 8 categories for complete analysis
         )
         
         # Run research
