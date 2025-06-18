@@ -120,6 +120,7 @@ except ImportError:
 
 # Web search integration for real-time content research
 import os
+import re
 from typing import Optional, List, Dict, Any, Union, Tuple
 from datetime import datetime, timedelta
 import time
@@ -1179,7 +1180,7 @@ Answer:
         return queries[:2]  # Limit to 2 queries
     
     async def _gather_comprehensive_web_research(self, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Step 2c: Comprehensive web research using WebBaseLoader for deep site analysis"""
+        """Step 2c: Comprehensive web research using WebBaseLoader with Casino Review Sites"""
         if not self.enable_comprehensive_web_research or not self.comprehensive_web_research_chain:
             return []
         
@@ -1187,38 +1188,41 @@ Answer:
         query_analysis = inputs.get("query_analysis")
         
         try:
-            # Extract casino domain from query if present
+            # Extract casino brand/name from query
             import re
+            casino_brands = ['betway', 'bet365', 'william hill', 'ladbrokes', 'bwin', 'pokerstars', 
+                           'party', 'virgin', 'genting', 'sky', 'coral', 'paddy power', 'unibet',
+                           'casumo', 'leovegas', 'mr green', 'rizk', 'jackpotjoy', '888', 'royal vegas']
+            
+            detected_casino = None
+            query_lower = query.lower()
+            
+            # Check for casino brands in query
+            for brand in casino_brands:
+                if brand in query_lower:
+                    detected_casino = brand
+                    break
+            
+            # Also check for direct domain mentions
             casino_domain_pattern = r'(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})'
             domain_match = re.search(casino_domain_pattern, query)
             
-            if domain_match:
-                casino_domain = domain_match.group(1)
-                logging.info(f"🔍 Comprehensive web research for casino domain: {casino_domain}")
+            casino_name = detected_casino or (domain_match.group(1) if domain_match else None)
+            
+            if casino_name or any(term in query_lower for term in ['casino', 'betting', 'gambling', 'slots', 'poker']):
+                casino_query_term = casino_name or "casino"
+                logging.info(f"🔍 Comprehensive web research for: {casino_query_term}")
                 
-                # Run comprehensive web research chain
-                research_result = self.comprehensive_web_research_chain.invoke({
-                    'casino_domain': casino_domain,
-                    'categories': ['trustworthiness', 'games', 'bonuses']  # Limit for performance
-                })
+                # Major Casino Review Sites - High Authority Sources
+                review_sites_research = await self._research_casino_review_sites(casino_query_term, query)
                 
-                # Convert to standard format for integration
-                comprehensive_results = []
+                # Direct casino site research (if domain detected)
+                direct_site_research = []
+                if domain_match:
+                    direct_site_research = await self._research_direct_casino_site(domain_match.group(1))
                 
-                if research_result and research_result.get('category_data'):
-                    for category, data in research_result['category_data'].items():
-                        if data.get('sources'):
-                            for source_url in data['sources']:
-                                comprehensive_results.append({
-                                    "url": source_url,
-                                    "title": f"{category.title()} - {casino_domain}",
-                                    "content": f"Category: {category}. Research data from {source_url}",
-                                    "category": category,
-                                    "casino_domain": casino_domain,
-                                    "source": "comprehensive_web_research",
-                                    "confidence_score": data.get('confidence_score', 0.7),
-                                    "research_grade": research_result.get('overall_quality', {}).get('research_grade', 'C')
-                                })
+                # Combine all research results
+                comprehensive_results = review_sites_research + direct_site_research
                 
                 # Store results for source generation
                 self._last_comprehensive_web_research = comprehensive_results
@@ -1227,11 +1231,160 @@ Answer:
                 return comprehensive_results
                 
             else:
-                logging.info("🔍 No casino domain detected - skipping comprehensive web research")
+                logging.info("🔍 No casino-related query detected - skipping comprehensive web research")
                 return []
                 
         except Exception as e:
             logging.warning(f"Comprehensive web research failed: {e}")
+            return []
+    
+    async def _research_casino_review_sites(self, casino_term: str, original_query: str) -> List[Dict[str, Any]]:
+        """Research major casino review sites for authoritative information"""
+        review_sites = [
+            {
+                'domain': 'askgamblers.com',
+                'name': 'AskGamblers',
+                'authority': 0.95,
+                'search_paths': [
+                    f'/casino-reviews/{casino_term}-casino-review',
+                    f'/casino-reviews/{casino_term}-review',
+                    f'/casinos/{casino_term}',
+                    f'/search?q={casino_term}'
+                ]
+            },
+            {
+                'domain': 'casino.guru',
+                'name': 'Casino.Guru',
+                'authority': 0.93,
+                'search_paths': [
+                    f'/{casino_term}-casino-review',
+                    f'/casinos/{casino_term}',
+                    f'/search/{casino_term}',
+                    f'/casino-reviews/{casino_term}'
+                ]
+            },
+            {
+                'domain': 'casinomeister.com',
+                'name': 'Casinomeister',
+                'authority': 0.90,
+                'search_paths': [
+                    f'/casino-reviews/{casino_term}',
+                    f'/casinos/{casino_term}-casino',
+                    f'/forums/casino-reviews/{casino_term}'
+                ]
+            },
+            {
+                'domain': 'gamblingcommission.gov.uk',
+                'name': 'UK Gambling Commission',
+                'authority': 0.98,
+                'search_paths': [
+                    f'/check-a-licence?name={casino_term}',
+                    f'/licensee-search?company={casino_term}'
+                ]
+            },
+            {
+                'domain': 'lcb.org',
+                'name': 'Latest Casino Bonuses',
+                'authority': 0.88,
+                'search_paths': [
+                    f'/lcb-casino-reviews/{casino_term}-casino',
+                    f'/casinos/{casino_term}',
+                    f'/casino-reviews/{casino_term}'
+                ]
+            },
+            {
+                'domain': 'thepogg.com',
+                'name': 'The POGG',
+                'authority': 0.85,
+                'search_paths': [
+                    f'/casino-review/{casino_term}',
+                    f'/casinos/{casino_term}-casino'
+                ]
+            }
+        ]
+        
+        comprehensive_results = []
+        
+        from langchain_community.document_loaders import WebBaseLoader
+        
+        for site in review_sites:
+            try:
+                logging.info(f"🔍 Researching {site['name']} for {casino_term}")
+                
+                # Try multiple search paths for this review site
+                for path in site['search_paths'][:2]:  # Limit to 2 paths per site
+                    try:
+                        url = f"https://{site['domain']}{path}"
+                        
+                        # Load content with WebBaseLoader
+                        loader = WebBaseLoader([url])
+                        docs = loader.load()
+                        
+                        if docs and len(docs[0].page_content.strip()) > 300:
+                            # Extract meaningful content
+                            content = docs[0].page_content[:1000] + "..."
+                            
+                            comprehensive_results.append({
+                                "url": url,
+                                "title": f"{casino_term} Review - {site['name']}",
+                                "content": content,
+                                "source": "comprehensive_web_research",
+                                "source_type": "comprehensive_web_research",  # Added for test compatibility
+                                "authority": site['authority'],
+                                "review_site": site['name'],
+                                "casino_name": casino_term,
+                                "confidence_score": site['authority'],
+                                "content_type": "casino_review",
+                                "research_grade": "A" if site['authority'] > 0.9 else "B"
+                            })
+                            
+                            logging.info(f"✅ Found content from {site['name']} - Authority: {site['authority']}")
+                            break  # Found content, no need to try other paths
+                            
+                    except Exception as e:
+                        logging.debug(f"Failed to load {url}: {e}")
+                        continue
+                        
+            except Exception as e:
+                logging.debug(f"Failed to research {site['name']}: {e}")
+                continue
+        
+        return comprehensive_results
+    
+    async def _research_direct_casino_site(self, casino_domain: str) -> List[Dict[str, Any]]:
+        """Research the direct casino site using enhanced WebBaseLoader"""
+        try:
+            # Use the comprehensive web research chain for direct site analysis
+            research_result = self.comprehensive_web_research_chain.invoke({
+                'casino_domain': casino_domain,
+                'categories': None  # Use ALL 8 categories for complete analysis
+            })
+            
+            # Convert to standard format
+            direct_results = []
+            
+            if research_result and research_result.get('category_data'):
+                for category, data in research_result['category_data'].items():
+                    if data.get('sources'):
+                        for source_url in data['sources']:
+                            direct_results.append({
+                                "url": source_url,
+                                "title": f"{category.title()} - {casino_domain}",
+                                "content": f"Direct site analysis: {category} data from {casino_domain}",
+                                "category": category,
+                                "casino_domain": casino_domain,
+                                "source": "comprehensive_web_research",
+                                "source_type": "comprehensive_web_research",  # Added for test compatibility
+                                "authority": 0.75,  # Direct site authority
+                                "confidence_score": data.get('confidence_score', 0.7),
+                                "research_grade": research_result.get('overall_quality', {}).get('research_grade', 'C'),
+                                "content_type": "direct_casino_site"
+                            })
+            
+            return direct_results
+            
+        except Exception as e:
+            logging.warning(f"Direct casino site research failed for {casino_domain}: {e}")
             return []
     
     async def _store_web_search_results(self, web_results: List[Dict[str, Any]], original_query: str):
@@ -1447,15 +1600,17 @@ Answer:
         return mapping.get(expertise_level.name if hasattr(expertise_level, 'name') else str(expertise_level), TemplateExpertiseLevel.INTERMEDIATE)
     
     async def _integrate_all_context(self, inputs: Dict[str, Any]) -> str:
-        """Step 3a: Integrate all gathered context"""
+        """Step 3a: Integrate all gathered context INCLUDING structured 95-field data"""
         resources = inputs.get("resources", {})
         
         # Get all context sources
         contextual_retrieval = resources.get("contextual_retrieval", {})
         images = resources.get("images", [])
         fti_processing = resources.get("fti_processing", {})
+        web_search = resources.get("web_search", [])
+        comprehensive_web_research = resources.get("comprehensive_web_research", [])
         
-        # Build comprehensive context
+        # Build comprehensive context with structured data integration
         context_parts = []
         
         # Add document context
@@ -1464,28 +1619,192 @@ Answer:
             context_parts.append("## Retrieved Information:")
             for i, doc in enumerate(documents, 1):
                 context_parts.append(f"**Source {i}:** {doc.get('content', '')}")
+
+        # ✅ NEW: Add structured 95-field casino analysis data
+        if comprehensive_web_research:
+            context_parts.append("\n## 🎰 Comprehensive Casino Analysis (95-Field Framework):")
+            
+            # Extract structured data from comprehensive research sources
+            casino_data = self._extract_structured_casino_data(comprehensive_web_research)
+            
+            if casino_data:
+                # Add trustworthiness data
+                if casino_data.get('trustworthiness'):
+                    trust_data = casino_data['trustworthiness']
+                    context_parts.append("\n### 🛡️ Trustworthiness & Licensing:")
+                    if trust_data.get('license_authorities'):
+                        context_parts.append(f"- **Licensed by:** {', '.join(trust_data['license_authorities'])}")
+                    if trust_data.get('years_in_operation'):
+                        context_parts.append(f"- **Experience:** {trust_data['years_in_operation']} years in operation")
+                    if trust_data.get('ssl_certification'):
+                        context_parts.append(f"- **Security:** SSL encryption enabled")
+                
+                # Add games data
+                if casino_data.get('games'):
+                    games_data = casino_data['games']
+                    context_parts.append("\n### 🎮 Games & Software:")
+                    if games_data.get('slot_count'):
+                        context_parts.append(f"- **Slots:** {games_data['slot_count']}+ slot games")
+                    if games_data.get('providers'):
+                        context_parts.append(f"- **Providers:** {', '.join(games_data['providers'][:3])}...")
+                    if games_data.get('live_casino'):
+                        context_parts.append(f"- **Live Casino:** Available")
+                
+                # Add bonus data
+                if casino_data.get('bonuses'):
+                    bonus_data = casino_data['bonuses']
+                    context_parts.append("\n### 🎁 Bonuses & Promotions:")
+                    if bonus_data.get('welcome_bonus_amount'):
+                        context_parts.append(f"- **Welcome Bonus:** {bonus_data['welcome_bonus_amount']}")
+                    if bonus_data.get('wagering_requirements'):
+                        context_parts.append(f"- **Wagering:** {bonus_data['wagering_requirements']}x requirement")
+                
+                # Add payment data
+                if casino_data.get('payments'):
+                    payment_data = casino_data['payments']
+                    context_parts.append("\n### 💳 Payment Methods:")
+                    if payment_data.get('deposit_methods'):
+                        context_parts.append(f"- **Deposits:** {', '.join(payment_data['deposit_methods'][:3])}")
+                    if payment_data.get('withdrawal_processing_time'):
+                        context_parts.append(f"- **Withdrawal Time:** {payment_data['withdrawal_processing_time']}")
+                
+                # Add user experience data
+                if casino_data.get('user_experience'):
+                    ux_data = casino_data['user_experience']
+                    context_parts.append("\n### 📱 User Experience:")
+                    if ux_data.get('mobile_app_available'):
+                        context_parts.append(f"- **Mobile:** App available")
+                    if ux_data.get('customer_support_24_7'):
+                        context_parts.append(f"- **Support:** 24/7 customer service")
+        
+        # Add web search context
+        if web_search:
+            context_parts.append("\n## 🌐 Recent Web Research:")
+            for i, result in enumerate(web_search[:3], 1):
+                title = result.get('title', f'Web Source {i}')
+                content = result.get('content', '')[:200] + "..."
+                context_parts.append(f"**{title}:** {content}")
         
         # Add image context
         if images:
-            context_parts.append("\\n## Available Images:")
+            context_parts.append("\n## 🖼️ Available Images:")
             for img in images:
                 context_parts.append(f"- {img.get('alt_text', 'Image')}: {img.get('url', '')}")
         
         # Add FTI metadata
         if fti_processing.get("metadata"):
-            context_parts.append("\\n## Content Analysis:")
+            context_parts.append("\n## ⚙️ Content Analysis:")
             context_parts.append(f"Content Type: {fti_processing.get('content_type', 'unknown')}")
         
-        return "\\n\\n".join(context_parts)
+        return "\n".join(context_parts)
+    
+    def _extract_structured_casino_data(self, comprehensive_sources: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Extract structured casino data from comprehensive research sources"""
+        structured_data = {
+            'trustworthiness': {},
+            'games': {},
+            'bonuses': {},
+            'payments': {},
+            'user_experience': {},
+            'innovations': {},
+            'compliance': {},
+            'assessment': {}
+        }
+        
+        # Parse content from all comprehensive sources
+        all_content = ""
+        for source in comprehensive_sources:
+            content = source.get('content', '')
+            all_content += f" {content}"
+        
+        content_lower = all_content.lower()
+        
+        # Extract trustworthiness data
+        if 'malta' in content_lower or 'mga' in content_lower:
+            structured_data['trustworthiness']['license_authorities'] = ['Malta Gaming Authority (MGA)']
+        if 'uk gambling commission' in content_lower or 'ukgc' in content_lower:
+            structured_data['trustworthiness'].setdefault('license_authorities', []).append('UK Gambling Commission')
+        if 'ssl' in content_lower:
+            structured_data['trustworthiness']['ssl_certification'] = True
+        
+        # Extract games data  
+        slot_match = re.search(r'(\d+)[+\s]*slot', content_lower)
+        if slot_match:
+            structured_data['games']['slot_count'] = int(slot_match.group(1))
+        
+        providers = ['netent', 'microgaming', 'pragmatic play', 'evolution gaming', 'playtech']
+        found_providers = [p for p in providers if p in content_lower]
+        if found_providers:
+            structured_data['games']['providers'] = found_providers
+        
+        if 'live casino' in content_lower or 'live dealer' in content_lower:
+            structured_data['games']['live_casino'] = True
+        
+        # Extract payment data
+        payment_methods = ['visa', 'mastercard', 'paypal', 'skrill', 'neteller', 'bitcoin']
+        found_methods = [m for m in payment_methods if m in content_lower]
+        if found_methods:
+            structured_data['payments']['deposit_methods'] = found_methods
+        
+        # Extract user experience data
+        if '24/7' in content_lower or 'twenty four' in content_lower:
+            structured_data['user_experience']['customer_support_24_7'] = True
+        if 'mobile app' in content_lower:
+            structured_data['user_experience']['mobile_app_available'] = True
+        
+        # Remove empty categories
+        return {k: v for k, v in structured_data.items() if v}
     
     async def _select_optimal_template(self, inputs: Dict[str, Any]) -> str:
-        """Step 3b: Select the optimal template"""
+        """Step 3b: Select the optimal template based on content type and structured data"""
         resources = inputs.get("resources", {})
         template = resources.get("template_enhancement", "standard_template")
+        enhanced_context = inputs.get("enhanced_context", "")
+        
+        # Check if we have structured casino data
+        has_casino_data = "🎰 Comprehensive Casino Analysis" in enhanced_context
         
         # If we have a custom template from Template System v2.0, use it
         if template != "standard_template":
             return template
+        
+        # ✅ NEW: Use casino-specific template if structured data is available
+        if has_casino_data:
+            return '''You are an expert casino analyst providing comprehensive reviews using structured data.
+
+Based on the comprehensive casino analysis data provided, create a detailed, structured review that leverages all available information.
+
+Enhanced Context with Structured Data: {enhanced_context}
+Query: {question}
+
+## Content Structure Requirements:
+1. **Executive Summary** - Key findings and overall rating
+2. **Licensing & Trustworthiness** - Use license authority data, security certifications
+3. **Games & Software** - Include specific counts, providers, live casino details
+4. **Bonuses & Promotions** - Detail welcome bonuses, wagering requirements
+5. **Payment Methods** - List deposit/withdrawal options and processing times
+6. **User Experience** - Mobile app, customer support, interface quality
+7. **Innovations & Features** - VR gaming, AI features, social elements
+8. **Compliance & Safety** - Responsible gambling, age verification, data protection
+9. **Final Assessment** - Ratings, recommendations, pros/cons
+
+## Writing Guidelines:
+- Use specific data points from the structured analysis
+- Include authority scores and licensing details
+- Mention exact game counts and provider names
+- Provide clear ratings for each category
+- Add compliance notices and responsible gambling information
+- Use engaging headings and bullet points for readability
+- Include actionable recommendations for different player types
+
+## Quality Standards:
+- Factual accuracy using verified data sources
+- Balanced perspective with both strengths and areas for improvement  
+- Mobile-optimized formatting with clear sections
+- SEO-friendly structure with relevant keywords
+- Compliance with gambling content regulations
+
+Response:'''
         
         # Otherwise create a comprehensive template
         return '''You are an expert content creator using advanced RAG capabilities.

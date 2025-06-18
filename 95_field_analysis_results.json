@@ -1,0 +1,114 @@
+{
+  "timestamp": "Unknown",
+  "query": "Betway Casino comprehensive analysis all categories licensing games bonuses payments user experience innovations compliance assessment",
+  "response_length": 10169,
+  "confidence_score": 0.7561875,
+  "total_sources": 17,
+  "comprehensive_sources": 5,
+  "overall_coverage_percentage": 76.86011904761905,
+  "estimated_populated_fields": 73,
+  "grade": "B",
+  "category_coverage": {
+    "trustworthiness": {
+      "coverage": 87.5,
+      "found": 7,
+      "total": 8,
+      "indicators": [
+        "license",
+        "licensed",
+        "authority",
+        "malta",
+        "ukgc",
+        "security",
+        "ssl"
+      ]
+    },
+    "games": {
+      "coverage": 87.5,
+      "found": 7,
+      "total": 8,
+      "indicators": [
+        "slots",
+        "games",
+        "casino",
+        "providers",
+        "netent",
+        "microgaming",
+        "live dealer"
+      ]
+    },
+    "bonuses": {
+      "coverage": 85.71428571428571,
+      "found": 6,
+      "total": 7,
+      "indicators": [
+        "bonus",
+        "welcome",
+        "promotion",
+        "wagering",
+        "free spins",
+        "loyalty"
+      ]
+    },
+    "payments": {
+      "coverage": 87.5,
+      "found": 7,
+      "total": 8,
+      "indicators": [
+        "payment",
+        "deposit",
+        "withdrawal",
+        "visa",
+        "mastercard",
+        "paypal",
+        "skrill"
+      ]
+    },
+    "user_experience": {
+      "coverage": 100.0,
+      "found": 7,
+      "total": 7,
+      "indicators": [
+        "support",
+        "customer",
+        "mobile",
+        "app",
+        "interface",
+        "navigation",
+        "24/7"
+      ]
+    },
+    "innovations": {
+      "coverage": 57.14285714285714,
+      "found": 4,
+      "total": 7,
+      "indicators": [
+        "technology",
+        "innovation",
+        "virtual",
+        "ai"
+      ]
+    },
+    "compliance": {
+      "coverage": 66.66666666666666,
+      "found": 4,
+      "total": 6,
+      "indicators": [
+        "responsible",
+        "gambling",
+        "aml",
+        "regulation"
+      ]
+    },
+    "assessment": {
+      "coverage": 42.857142857142854,
+      "found": 3,
+      "total": 7,
+      "indicators": [
+        "recommendation",
+        "cons",
+        "review"
+      ]
+    }
+  }
+}
