@@ -20,11 +20,12 @@ from .universal_rag_lcel import (
 )
 
 # Integrated RAG Chain with monitoring and configuration
-from .integrated_rag_chain import (
-    IntegratedRAGChain,
-    create_integrated_rag_chain,
-    MonitoredUniversalRAGChain
-)
+# TODO: Fix utils.enhanced_logging import before enabling
+# from .integrated_rag_chain import (
+#     IntegratedRAGChain,
+#     create_integrated_rag_chain,  
+#     MonitoredUniversalRAGChain
+# )
 
 # Enhanced Confidence Scoring System
 from .enhanced_confidence_scoring_system import (
@@ -81,9 +82,9 @@ __all__ = [
     "RAGResponse",
     
     # Integrated RAG Chain with monitoring and configuration
-    "IntegratedRAGChain",
-    "create_integrated_rag_chain",
-    "MonitoredUniversalRAGChain",
+    # "IntegratedRAGChain",
+    # "create_integrated_rag_chain", 
+    # "MonitoredUniversalRAGChain",
     
     # Core models and enums
     "EnhancedRAGResponse",

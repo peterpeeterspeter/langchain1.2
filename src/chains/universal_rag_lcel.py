@@ -29,10 +29,12 @@ import json
 import os
 import uuid
 from enum import Enum
+import traceback
+from collections import defaultdict
 
 from pydantic import BaseModel, Field
-from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel, RunnableSequence
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.documents import Document
@@ -153,6 +155,20 @@ try:
     TAVILY_AVAILABLE = True
 except ImportError:
     TAVILY_AVAILABLE = False
+
+# ✅ NEW: Enhanced Web Research Chain Integration
+try:
+    from .enhanced_web_research_chain import (
+        ComprehensiveWebResearchChain,
+        create_comprehensive_web_research_chain,
+        URLStrategy,
+        ComprehensiveResearchData
+    )
+    WEB_RESEARCH_CHAIN_AVAILABLE = True
+    logging.info("✅ Enhanced Web Research Chain AVAILABLE")
+except ImportError as e:
+    WEB_RESEARCH_CHAIN_AVAILABLE = False
+    logging.warning(f"⚠️ Enhanced Web Research Chain NOT AVAILABLE: {e}")
 
 # Enhanced exception hierarchy
 class RAGException(Exception):
@@ -437,7 +453,8 @@ class UniversalRAGChain:
         enable_fti_processing: bool = True,       # ✅ NEW: FTI content processing
         enable_security: bool = True,             # ✅ NEW: Security features
         enable_profiling: bool = True,            # ✅ NEW: Performance profiling
-        enable_web_search: bool = True,           # ✅ NEW: Web search research
+        enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
+        enable_comprehensive_web_research: bool = False,  # ✅ NEW: Comprehensive WebBaseLoader research
         vector_store = None,
         supabase_client = None,
         **kwargs
@@ -458,6 +475,7 @@ class UniversalRAGChain:
         self.enable_security = enable_security
         self.enable_profiling = enable_profiling
         self.enable_web_search = enable_web_search
+        self.enable_comprehensive_web_research = enable_comprehensive_web_research
         self.enable_response_storage = kwargs.get('enable_response_storage', True)  # ✅ NEW: Store responses
         
         # Core infrastructure  
@@ -605,6 +623,20 @@ class UniversalRAGChain:
                 self.web_search_tool = None
         else:
             self.web_search_tool = None
+            
+        # ✅ NEW: Initialize Comprehensive Web Research (WebBaseLoader)
+        if self.enable_comprehensive_web_research and WEB_RESEARCH_CHAIN_AVAILABLE:
+            try:
+                self.comprehensive_web_research_chain = create_comprehensive_web_research_chain(
+                    casino_domain="casino.org",  # Default domain
+                    categories=['trustworthiness', 'games', 'bonuses']  # Core categories for performance
+                )
+                logging.info("🔍 Comprehensive Web Research (WebBaseLoader) ENABLED")
+            except Exception as e:
+                logging.warning(f"Comprehensive web research initialization failed: {e}")
+                self.comprehensive_web_research_chain = None
+        else:
+            self.comprehensive_web_research_chain = None
         
         # Create the LCEL chain
         self.chain = self._create_lcel_chain()
@@ -631,13 +663,16 @@ class UniversalRAGChain:
         if self.enable_profiling:
             logging.info("  📊 Performance Profiling")
         if self.enable_web_search:
-            logging.info("  🌐 Web Search Research")
+            logging.info("  🌐 Web Search Research (Tavily)")
+        if self.enable_comprehensive_web_research:
+            logging.info("  🔍 Comprehensive Web Research (WebBaseLoader)")
         if self.enable_response_storage:
             logging.info("  📚 Response Storage & Vectorization")
         
         self._last_retrieved_docs: List[Tuple[Document,float]] = []  # Store last docs
         self._last_images: List[Dict[str, Any]] = []  # Store last images
         self._last_web_results: List[Dict[str, Any]] = []  # Store last web search results
+        self._last_comprehensive_web_research: List[Dict[str, Any]] = []  # Store last comprehensive web research
         self._last_metadata: Dict[str, Any] = {}  # Store last metadata
     
     def _auto_initialize_supabase(self):
@@ -744,6 +779,7 @@ class UniversalRAGChain:
                     "contextual_retrieval": RunnableLambda(self._enhanced_contextual_retrieval),
                     "images": RunnableLambda(self._gather_dataforseo_images),
                     "web_search": RunnableLambda(self._gather_web_search_results),
+                    "comprehensive_web_research": RunnableLambda(self._gather_comprehensive_web_research),
                     "fti_processing": RunnableLambda(self._fti_content_processing),
                     "template_enhancement": RunnableLambda(self._get_enhanced_template_v2)
                 })
@@ -1141,6 +1177,62 @@ Answer:
                 queries.append(f"{base_query} latest news")
         
         return queries[:2]  # Limit to 2 queries
+    
+    async def _gather_comprehensive_web_research(self, inputs: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Step 2c: Comprehensive web research using WebBaseLoader for deep site analysis"""
+        if not self.enable_comprehensive_web_research or not self.comprehensive_web_research_chain:
+            return []
+        
+        query = inputs.get("question", "")
+        query_analysis = inputs.get("query_analysis")
+        
+        try:
+            # Extract casino domain from query if present
+            import re
+            casino_domain_pattern = r'(?:https?://)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z]{2,})'
+            domain_match = re.search(casino_domain_pattern, query)
+            
+            if domain_match:
+                casino_domain = domain_match.group(1)
+                logging.info(f"🔍 Comprehensive web research for casino domain: {casino_domain}")
+                
+                # Run comprehensive web research chain
+                research_result = self.comprehensive_web_research_chain.invoke({
+                    'casino_domain': casino_domain,
+                    'categories': ['trustworthiness', 'games', 'bonuses']  # Limit for performance
+                })
+                
+                # Convert to standard format for integration
+                comprehensive_results = []
+                
+                if research_result and research_result.get('category_data'):
+                    for category, data in research_result['category_data'].items():
+                        if data.get('sources'):
+                            for source_url in data['sources']:
+                                comprehensive_results.append({
+                                    "url": source_url,
+                                    "title": f"{category.title()} - {casino_domain}",
+                                    "content": f"Category: {category}. Research data from {source_url}",
+                                    "category": category,
+                                    "casino_domain": casino_domain,
+                                    "source": "comprehensive_web_research",
+                                    "confidence_score": data.get('confidence_score', 0.7),
+                                    "research_grade": research_result.get('overall_quality', {}).get('research_grade', 'C')
+                                })
+                
+                # Store results for source generation
+                self._last_comprehensive_web_research = comprehensive_results
+                
+                logging.info(f"✅ Comprehensive web research found {len(comprehensive_results)} detailed sources")
+                return comprehensive_results
+                
+            else:
+                logging.info("🔍 No casino domain detected - skipping comprehensive web research")
+                return []
+                
+        except Exception as e:
+            logging.warning(f"Comprehensive web research failed: {e}")
+            return []
     
     async def _store_web_search_results(self, web_results: List[Dict[str, Any]], original_query: str):
         """Store and vectorize web search results using native LangChain components"""
@@ -1616,6 +1708,28 @@ Please provide a comprehensive, accurate, and well-structured response."""
                 "source_type": "web_search",
                 "source_id": f"web_{i}"
             })
+            
+        # Add comprehensive web research sources
+        for i, research_result in enumerate(self._last_comprehensive_web_research, 1):
+            source_quality = await self._calculate_source_quality(research_result.get("content", ""))
+            relevance = await self._calculate_query_relevance(research_result.get("content", ""), query)
+            
+            sources.append({
+                "content": research_result.get("content", ""),
+                "metadata": {
+                    "url": research_result.get("url", ""),
+                    "title": research_result.get("title", ""),
+                    "category": research_result.get("category", ""),
+                    "casino_domain": research_result.get("casino_domain", ""),
+                    "research_grade": research_result.get("research_grade", "C"),
+                    "source": "comprehensive_web_research"
+                },
+                "similarity_score": research_result.get("confidence_score", 0.7),
+                "source_quality": source_quality,
+                "relevance_score": relevance,
+                "source_type": "comprehensive_web_research",
+                "source_id": f"research_{i}"
+            })
         
         return sources
     
@@ -1632,6 +1746,7 @@ Please provide a comprehensive, accurate, and well-structured response."""
         if self.enable_security: count += 1
         if self.enable_profiling: count += 1
         if self.enable_web_search: count += 1
+        if self.enable_comprehensive_web_research: count += 1
         if self.enable_response_storage: count += 1
         return count
     
@@ -2417,7 +2532,8 @@ def create_universal_rag_chain(
     enable_fti_processing: bool = True,       # ✅ NEW: FTI content processing
     enable_security: bool = True,             # ✅ NEW: Security features
     enable_profiling: bool = True,            # ✅ NEW: Performance profiling
-    enable_web_search: bool = True,           # ✅ NEW: Web search research
+    enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
+    enable_comprehensive_web_research: bool = False,  # ✅ NEW: Comprehensive WebBaseLoader research
     enable_response_storage: bool = True,     # ✅ NEW: Response storage & vectorization
     vector_store = None,
     supabase_client = None,
@@ -2454,6 +2570,7 @@ def create_universal_rag_chain(
         enable_security=enable_security,
         enable_profiling=enable_profiling,
         enable_web_search=enable_web_search,
+        enable_comprehensive_web_research=enable_comprehensive_web_research,
         enable_response_storage=enable_response_storage,
         vector_store=vector_store,
         supabase_client=supabase_client,
