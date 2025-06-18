@@ -658,21 +658,21 @@ class EnhancedDataForSEOImageSearch:
                     filename = f"{uuid.uuid4()}.{file_extension}"
                     storage_path = f"images/{datetime.now().strftime('%Y/%m/%d')}/{filename}"
                     
-                    # Upload to Supabase storage
-                    upload_result = self.supabase.storage.from_(self.config.storage_bucket).upload(
-                        storage_path,
-                        image_data,
-                        file_options={
-                            "content-type": f"image/{file_extension}",
-                            "cache-control": "3600"
-                        }
-                    )
-                    
-                    # Fix: Handle Supabase upload response properly
-                    if hasattr(upload_result, 'error') and upload_result.error:
-                        raise Exception(f"Upload failed: {upload_result.error}")
-                    elif hasattr(upload_result, 'data') and not upload_result.data:
-                        raise Exception("Upload failed: No data returned")
+                    # Upload to Supabase storage - V1 STYLE (simple and working)
+                    try:
+                        upload_result = self.supabase.storage.from_(self.config.storage_bucket).upload(
+                            storage_path,
+                            image_data,
+                            file_options={
+                                "content-type": f"image/{file_extension}",
+                                "cache-control": "3600"
+                            }
+                        )
+                        # V1 SUCCESS PATTERN: If no exception raised, it worked
+                        logger.info(f"Successfully uploaded image: {storage_path}")
+                        
+                    except Exception as e:
+                        raise Exception(f"Supabase upload failed: {str(e)}")
                     
                     # Store metadata in database
                     media_record = {
