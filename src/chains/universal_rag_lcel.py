@@ -454,7 +454,7 @@ class UniversalRAGChain:
         enable_security: bool = True,             # ✅ NEW: Security features
         enable_profiling: bool = True,            # ✅ NEW: Performance profiling
         enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
-        enable_comprehensive_web_research: bool = False,  # ✅ NEW: Comprehensive WebBaseLoader research
+        enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
         vector_store = None,
         supabase_client = None,
         **kwargs
@@ -2533,7 +2533,7 @@ def create_universal_rag_chain(
     enable_security: bool = True,             # ✅ NEW: Security features
     enable_profiling: bool = True,            # ✅ NEW: Performance profiling
     enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
-    enable_comprehensive_web_research: bool = False,  # ✅ NEW: Comprehensive WebBaseLoader research
+    enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
     enable_response_storage: bool = True,     # ✅ NEW: Response storage & vectorization
     vector_store = None,
     supabase_client = None,
