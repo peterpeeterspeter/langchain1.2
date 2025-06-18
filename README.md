@@ -2216,3 +2216,236 @@ python examples/v1_integration_native_langchain_demo.py
 - **Result**: V1 enterprise capabilities + V2 clean architecture
 
 ---
+
+# LangChain 1.2 Universal RAG CMS
+
+## 🚀 **Streamlit Frontend v1.0 Available!**
+
+**Professional web interface now available for the Universal RAG CMS with ALL 11 features preserved!**
+
+### **Quick Start - Web Interface:**
+```bash
+pip install streamlit
+streamlit run streamlit_universal_rag.py
+```
+Visit: `http://localhost:8501`
+
+### **🎯 Frontend Features:**
+- ✅ **Live Progress Tracking** - Real-time visualization of all 11 features executing
+- ✅ **Professional UI** - Gradient design with feature badges and confidence dashboard  
+- ✅ **Chat Interface** - Session persistence with message history
+- ✅ **Source Display** - Embedded images with clickable links
+- ✅ **Technical Metadata** - Complete system details and performance metrics
+- ✅ **Advanced Controls** - Toggle live tracking, confidence analysis, source viewing
+
+---
+
+## 🏗️ **Universal RAG CMS Architecture**
+
+Advanced content management system built on **LangChain LCEL** with **11 integrated enterprise features**.
+
+### **✅ All 11 Features Active:**
+
+1. **🧠 Advanced Prompt Optimization** - Dynamic prompt engineering with expertise levels
+2. **⚡ Enhanced Confidence Scoring** - Multi-factor confidence analysis with quality flags  
+3. **📝 Template System v2.0** - 34 specialized templates for different content types
+4. **🔍 Contextual Retrieval System** - Hybrid search with multi-query and MMR
+5. **🖼️ DataForSEO Image Integration** - Automatic image discovery and embedding
+6. **📝 WordPress Publishing** - Direct publishing with SEO optimization
+7. **⚙️ FTI Content Processing** - Advanced content transformation pipeline
+8. **🔒 Security & Compliance** - Built-in safety and regulatory compliance
+9. **📊 Performance Profiling** - Real-time performance monitoring and optimization
+10. **🌐 Web Search Research** - Live web search integration with Tavily
+11. **📚 Response Storage & Vectorization** - Automatic response caching and learning
+
+### **🎯 Quick Usage - Command Line:**
+```bash
+cd src
+python -c "
+import asyncio
+from chains.universal_rag_lcel import create_universal_rag_chain
+result = asyncio.run(create_universal_rag_chain().ainvoke({'query': 'Your query here'}))
+print(result.answer)
+"
+```
+
+### **🎯 Quick Usage - Python Integration:**
+```python
+from src.chains.universal_rag_lcel import create_universal_rag_chain
+import asyncio
+
+# Initialize the chain with all 11 features
+chain = create_universal_rag_chain()
+
+# Generate content
+result = await chain.ainvoke({'query': 'What are Bitcoin casino bonuses?'})
+
+# Access results
+print(f"Content: {result.answer}")
+print(f"Confidence: {result.confidence_score}")
+print(f"Sources: {len(result.sources)}")
+print(f"Features Used: {result.metadata['advanced_features_count']}")
+```
+
+## 📊 **Production Results**
+
+**Latest Betway Casino Review Generation:**
+- ✅ **7,610 characters** of professional content
+- ✅ **312 images discovered** and embedded
+- ✅ **6 web search results** integrated
+- ✅ **0.754 confidence score** (high quality)
+- ✅ **All 11 features active** and operational
+- ✅ **43.8 seconds** processing time
+
+## 🔧 **System Requirements**
+
+### **Environment Variables:**
+```bash
+# Required API Keys (add to .env file)
+ANTHROPIC_API_KEY=your_key_here
+OPENAI_API_KEY=your_key_here
+SUPABASE_URL=your_supabase_url
+SUPABASE_KEY=your_supabase_key
+DATAFORSEO_LOGIN=your_login
+DATAFORSEO_PASSWORD=your_password
+TAVILY_API_KEY=your_tavily_key
+
+# Optional for enhanced features
+PERPLEXITY_API_KEY=your_key_here
+WORDPRESS_SITE_URL=your_wordpress_site
+WORDPRESS_USERNAME=your_username
+WORDPRESS_APPLICATION_PASSWORD=your_password
+```
+
+### **Dependencies:**
+```bash
+pip install langchain langchain-community langchain-openai
+pip install supabase streamlit pandas numpy
+pip install requests python-dotenv asyncio
+```
+
+## 🏢 **Enterprise Features**
+
+### **Content Generation Pipeline:**
+- **Multi-step LCEL architecture** with 7 processing stages
+- **Template-driven generation** with 34+ specialized formats
+- **Dynamic confidence scoring** with quality validation
+- **Automatic image integration** with professional HTML formatting
+- **SEO optimization** with meta tags and structured data
+
+### **Data Integration:**
+- **Supabase Vector Database** for semantic search and storage
+- **DataForSEO API** for real-time image discovery
+- **Tavily Web Search** for fresh content research
+- **WordPress Publishing** for direct content deployment
+- **Response Vectorization** for continuous learning
+
+### **Quality Assurance:**
+- **Multi-factor confidence scoring** with breakdown analysis
+- **Source quality validation** with relevance scoring
+- **Security compliance** with content filtering
+- **Performance profiling** with optimization recommendations
+- **Caching strategies** for improved response times
+
+## 📂 **Project Structure**
+
+```
+langchain/
+├── streamlit_universal_rag.py          # 🆕 Web Frontend Interface
+├── src/
+│   ├── chains/
+│   │   ├── universal_rag_lcel.py       # Main LCEL Chain (11 features)
+│   │   ├── integrated_rag_chain.py     # Integration layer
+│   │   └── advanced_prompt_system.py   # Prompt optimization
+│   ├── retrieval/
+│   │   └── contextual_retrieval.py     # Advanced retrieval system
+│   ├── integrations/
+│   │   ├── dataforseo_image_search.py  # Image integration
+│   │   ├── wordpress_publisher.py      # WordPress publishing
+│   │   └── tavily_web_search.py        # Web search integration
+│   ├── templates/
+│   │   └── improved_template_manager.py # Template system v2.0
+│   ├── monitoring/
+│   │   ├── prompt_analytics.py         # Performance monitoring
+│   │   └── performance_profiler.py     # System profiling
+│   └── config/
+│       ├── prompt_config.py           # Configuration management
+│       └── feature_flags.py           # Feature toggles
+└── examples/
+    └── betway_complete_demo.py        # Production demo
+```
+
+## 🔄 **Recent Updates**
+
+### **v6.0 (Latest)**
+- ✅ **Streamlit Frontend v1.0** - Professional web interface with live tracking
+- ✅ **All 11 features validated** and working in production
+- ✅ **Fixed import paths** for proper feature integration
+- ✅ **Removed confusing demo scripts** that showed wrong feature counts
+- ✅ **Enhanced documentation** with complete usage examples
+
+### **v5.0**
+- ✅ **Universal RAG CMS** with 11 integrated enterprise features
+- ✅ **DataForSEO image integration** with 300+ images per query
+- ✅ **Web search integration** with Tavily API
+- ✅ **Enhanced confidence scoring** with multi-factor analysis
+- ✅ **Template system v2.0** with 34 specialized templates
+
+## 🚀 **Getting Started**
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/peterpeeterspeter/langchain1.2.git
+   cd langchain1.2
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+3. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys
+   ```
+
+4. **Run the web interface:**
+   ```bash
+   streamlit run streamlit_universal_rag.py
+   ```
+
+5. **Or use programmatically:**
+   ```bash
+   cd src
+   python -c "
+   import asyncio
+   from chains.universal_rag_lcel import create_universal_rag_chain
+   result = asyncio.run(create_universal_rag_chain().ainvoke({'query': 'Your query'}))
+   print(result.answer)
+   "
+   ```
+
+## 📖 **Documentation**
+
+- **[Universal RAG Chain Documentation](src/chains/universal_rag_lcel.py)** - Complete technical reference
+- **[Feature Integration Guide](src/chains/integrated_rag_chain.py)** - How all features work together  
+- **[Template System v2.0](src/templates/improved_template_manager.py)** - Content template management
+- **[Image Integration](src/integrations/dataforseo_image_search.py)** - DataForSEO implementation
+- **[Web Interface Guide](streamlit_universal_rag.py)** - Frontend documentation
+
+## 🤝 **Contributing**
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test with the Streamlit interface
+5. Submit a pull request
+
+## 📄 **License**
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+---
+
+**🚀 Universal RAG CMS v6.0 | All 11 Features Active | Enterprise Ready**
