@@ -1,0 +1,44 @@
+{
+  "query": "Napoleon casino review 2025",
+  "confidence_score": 0.7386874999999999,
+  "processing_time_seconds": 79.409994,
+  "features_active": 12,
+  "sources_count": 17,
+  "cached": false,
+  "token_usage": {
+    "total_tokens": 2341,
+    "prompt_tokens": 952,
+    "completion_tokens": 1389
+  },
+  "metadata": {
+    "contextual_retrieval_used": true,
+    "template_system_v2_used": true,
+    "dataforseo_images_used": true,
+    "wordpress_published": false,
+    "fti_processing_used": false,
+    "security_checked": false,
+    "performance_profiled": true,
+    "images_embedded": 6,
+    "compliance_notices_added": 0,
+    "advanced_features_count": 12,
+    "confidence_breakdown": {
+      "content_quality": 0.91625,
+      "source_quality": 0.5,
+      "query_matching": 0.72,
+      "technical_factors": 0.7450000000000001,
+      "overall_confidence": 0.7386874999999999
+    },
+    "quality_flags": [
+      "acceptable_quality"
+    ],
+    "improvement_suggestions": [],
+    "calculation_time_ms": 0.0,
+    "query_type": "casino_review",
+    "cache_recommendation": {
+      "should_cache": false,
+      "reason": "below_quality_threshold"
+    }
+  },
+  "timestamp": "2025-06-18T18:26:31.208162",
+  "system": "REAL_UNIVERSAL_RAG_CHAIN"
+}

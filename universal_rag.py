@@ -22,7 +22,7 @@ from src.chains.universal_rag_lcel import create_universal_rag_chain
 # =============================================
 # 🎯 CHANGE THIS KEYWORD TO WHATEVER YOU WANT:
 # =============================================
-KEYWORD = "Betway casino bonuses 2025"
+KEYWORD = "Napoleon casino review 2025"
 # =============================================
 
 async def run_real_production():
@@ -43,8 +43,8 @@ async def run_real_production():
     feature_count = chain._count_active_features()
     print(f"✅ REAL CHAIN LOADED: {feature_count} FEATURES ACTIVE")
     
-    if feature_count != 11:
-        print(f"❌ ERROR: Expected 11 features, got {feature_count}")
+    if feature_count != 12:
+        print(f"❌ ERROR: Expected 12 features, got {feature_count}")
         print("❌ This means some features failed to initialize!")
         return
     
@@ -66,7 +66,7 @@ async def run_real_production():
         f.write(f"# REAL Universal RAG CMS - {KEYWORD}\n")
         f.write(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
         f.write(f"Processing Time: {processing_time:.2f} seconds\n")
-        f.write(f"Features Used: {feature_count}/11\n\n")
+        f.write(f"Features Used: {feature_count}/12\n\n")
         f.write("=" * 80 + "\n\n")
         f.write(result.answer)
     
@@ -95,7 +95,7 @@ async def run_real_production():
     print(f"📊 Confidence Score: {result.confidence_score:.3f}")
     print(f"📚 Sources Found: {len(result.sources)}")
     print(f"⚡ Processing Time: {processing_time:.2f} seconds")
-    print(f"🔥 Features Active: {feature_count}/11")
+    print(f"🔥 Features Active: {feature_count}/12")
     print(f"💾 Cached Result: {result.cached}")
     print(f"🎯 Token Usage: {result.token_usage}")
     print("=" * 80)
@@ -124,7 +124,7 @@ async def run_real_production():
 
 if __name__ == "__main__":
     print("🔥 BULLETPROOF REAL UNIVERSAL RAG CMS")
-    print("🎯 Uses ONLY the REAL chain with ALL 11 features")
+    print("🎯 Uses ONLY the REAL chain with ALL 12 features")
     print("🚫 NO demo scripts, NO confusion!")
     print()
     

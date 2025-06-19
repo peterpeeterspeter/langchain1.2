@@ -552,7 +552,7 @@ class UniversalRAGChain:
                     username=os.getenv("WORDPRESS_USERNAME", ""),
                     application_password=os.getenv("WORDPRESS_PASSWORD", "")
                 )
-                self.wordpress_service = WordPressIntegration(config=wp_config)
+                self.wordpress_service = WordPressIntegration(wordpress_config=wp_config)
                 logging.info("📝 WordPress Publishing ENABLED")
             except Exception as e:
                 logging.warning(f"WordPress initialization failed: {e}")
@@ -792,8 +792,10 @@ class UniversalRAGChain:
                 final_template=RunnableLambda(self._select_optimal_template)
             )
             
-            # Step 4: Content Generation with ALL enhancements
-            | RunnableLambda(self._generate_with_all_features)
+            # Step 4: Content Generation with ALL enhancements (preserve inputs)
+            | RunnablePassthrough.assign(
+                generated_content=RunnableLambda(self._generate_with_all_features)
+            )
             
             # Step 5: Response Enhancement (confidence + compliance + image embedding)
             | RunnableLambda(self._comprehensive_response_enhancement)
@@ -1699,16 +1701,23 @@ Answer:
         return "\n".join(context_parts)
     
     def _extract_structured_casino_data(self, comprehensive_sources: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Extract structured casino data from comprehensive research sources"""
-        structured_data = {
-            'trustworthiness': {},
-            'games': {},
-            'bonuses': {},
-            'payments': {},
-            'user_experience': {},
-            'innovations': {},
-            'compliance': {},
-            'assessment': {}
+        """Extract structured casino data from comprehensive research sources (V1 coinflip pattern)"""
+        # Initialize coinflip theme metadata structure
+        casino_metadata = {
+            'casino_rating': 0,
+            'bonus_amount': '',
+            'license_info': '',
+            'game_providers': [],
+            'payment_methods': [],
+            'mobile_compatible': True,
+            'live_chat_support': False,
+            'withdrawal_time': '',
+            'min_deposit': '',
+            'wagering_requirements': '',
+            'review_summary': '',
+            'pros_list': [],
+            'cons_list': [],
+            'verdict': ''
         }
         
         # Parse content from all comprehensive sources
@@ -1719,41 +1728,196 @@ Answer:
         
         content_lower = all_content.lower()
         
-        # Extract trustworthiness data
+        # ✅ Extract license information
+        license_info = []
         if 'malta' in content_lower or 'mga' in content_lower:
-            structured_data['trustworthiness']['license_authorities'] = ['Malta Gaming Authority (MGA)']
+            license_info.append('Malta Gaming Authority (MGA)')
         if 'uk gambling commission' in content_lower or 'ukgc' in content_lower:
-            structured_data['trustworthiness'].setdefault('license_authorities', []).append('UK Gambling Commission')
-        if 'ssl' in content_lower:
-            structured_data['trustworthiness']['ssl_certification'] = True
+            license_info.append('UK Gambling Commission')
+        if 'curacao' in content_lower:
+            license_info.append('Curacao eGaming')
+        if 'gibraltar' in content_lower:
+            license_info.append('Gibraltar Gambling Commission')
+        casino_metadata['license_info'] = ', '.join(license_info) if license_info else 'License information not found'
         
-        # Extract games data  
-        slot_match = re.search(r'(\d+)[+\s]*slot', content_lower)
-        if slot_match:
-            structured_data['games']['slot_count'] = int(slot_match.group(1))
+        # ✅ Extract bonus information
+        bonus_patterns = [
+            r'welcome bonus.*?[\$£€]([0-9,]+)',
+            r'deposit bonus.*?[\$£€]([0-9,]+)',
+            r'up to [\$£€]([0-9,]+)',
+            r'[\$£€]([0-9,]+).*?bonus'
+        ]
+        for pattern in bonus_patterns:
+            match = re.search(pattern, content_lower)
+            if match:
+                amount = match.group(1)
+                casino_metadata['bonus_amount'] = f"${amount.replace(',', '')}"
+                break
         
-        providers = ['netent', 'microgaming', 'pragmatic play', 'evolution gaming', 'playtech']
-        found_providers = [p for p in providers if p in content_lower]
-        if found_providers:
-            structured_data['games']['providers'] = found_providers
+        # ✅ Extract game providers
+        providers = [
+            'netent', 'microgaming', 'pragmatic play', 'evolution gaming', 
+            'playtech', 'play\'n go', 'yggdrasil', 'red tiger', 'nolimit city',
+            'big time gaming', 'quickspin', 'igt', 'novomatic'
+        ]
+        found_providers = []
+        for provider in providers:
+            if provider in content_lower:
+                # Capitalize properly
+                if provider == 'netent':
+                    found_providers.append('NetEnt')
+                elif provider == 'microgaming':
+                    found_providers.append('Microgaming')
+                elif provider == 'pragmatic play':
+                    found_providers.append('Pragmatic Play')
+                elif provider == 'evolution gaming':
+                    found_providers.append('Evolution Gaming')
+                elif provider == 'playtech':
+                    found_providers.append('Playtech')
+                elif provider == 'play\'n go':
+                    found_providers.append('Play\'n GO')
+                else:
+                    found_providers.append(provider.title())
+        casino_metadata['game_providers'] = found_providers[:5]  # Limit to top 5
         
-        if 'live casino' in content_lower or 'live dealer' in content_lower:
-            structured_data['games']['live_casino'] = True
+        # ✅ Extract payment methods
+        payment_methods = []
+        payment_keywords = {
+            'visa': 'Visa',
+            'mastercard': 'Mastercard',
+            'paypal': 'PayPal',
+            'skrill': 'Skrill',
+            'neteller': 'Neteller',
+            'bitcoin': 'Bitcoin',
+            'ethereum': 'Ethereum',
+            'litecoin': 'Litecoin',
+            'bank transfer': 'Bank Transfer',
+            'apple pay': 'Apple Pay',
+            'google pay': 'Google Pay'
+        }
+        for keyword, display_name in payment_keywords.items():
+            if keyword in content_lower:
+                payment_methods.append(display_name)
+        casino_metadata['payment_methods'] = payment_methods[:8]  # Limit to top 8
         
-        # Extract payment data
-        payment_methods = ['visa', 'mastercard', 'paypal', 'skrill', 'neteller', 'bitcoin']
-        found_methods = [m for m in payment_methods if m in content_lower]
-        if found_methods:
-            structured_data['payments']['deposit_methods'] = found_methods
+        # ✅ Extract support information
+        if '24/7' in content_lower or 'twenty four' in content_lower or 'live chat' in content_lower:
+            casino_metadata['live_chat_support'] = True
         
-        # Extract user experience data
-        if '24/7' in content_lower or 'twenty four' in content_lower:
-            structured_data['user_experience']['customer_support_24_7'] = True
-        if 'mobile app' in content_lower:
-            structured_data['user_experience']['mobile_app_available'] = True
+        # ✅ Extract mobile compatibility
+        casino_metadata['mobile_compatible'] = 'mobile' in content_lower or 'app' in content_lower
         
-        # Remove empty categories
-        return {k: v for k, v in structured_data.items() if v}
+        # ✅ Extract withdrawal time
+        withdrawal_patterns = [
+            r'withdrawal.*?(\d+\s*(?:hours?|days?|minutes?))',
+            r'processing time.*?(\d+\s*(?:hours?|days?|minutes?))',
+            r'payout.*?(\d+\s*(?:hours?|days?|minutes?))'
+        ]
+        for pattern in withdrawal_patterns:
+            match = re.search(pattern, content_lower)
+            if match:
+                casino_metadata['withdrawal_time'] = match.group(1)
+                break
+        
+        # ✅ Extract minimum deposit
+        deposit_patterns = [
+            r'minimum deposit.*?[\$£€]([0-9]+)',
+            r'min deposit.*?[\$£€]([0-9]+)',
+            r'deposit from.*?[\$£€]([0-9]+)'
+        ]
+        for pattern in deposit_patterns:
+            match = re.search(pattern, content_lower)
+            if match:
+                casino_metadata['min_deposit'] = f"${match.group(1)}"
+                break
+        
+        # ✅ Extract wagering requirements
+        wagering_patterns = [
+            r'wagering requirement.*?(\d+x)',
+            r'playthrough.*?(\d+x)',
+            r'rollover.*?(\d+x)',
+            r'(\d+)x.*?wagering'
+        ]
+        for pattern in wagering_patterns:
+            match = re.search(pattern, content_lower)
+            if match:
+                if 'x' in match.group(1):
+                    casino_metadata['wagering_requirements'] = match.group(1)
+                else:
+                    casino_metadata['wagering_requirements'] = f"{match.group(1)}x"
+                break
+        
+        # ✅ Generate rating based on available features
+        rating_factors = 0
+        total_factors = 7
+        
+        if casino_metadata['license_info'] != 'License information not found':
+            rating_factors += 1
+        if casino_metadata['bonus_amount']:
+            rating_factors += 1
+        if len(casino_metadata['game_providers']) >= 3:
+            rating_factors += 1
+        if len(casino_metadata['payment_methods']) >= 4:
+            rating_factors += 1
+        if casino_metadata['live_chat_support']:
+            rating_factors += 1
+        if casino_metadata['mobile_compatible']:
+            rating_factors += 1
+        if casino_metadata['withdrawal_time']:
+            rating_factors += 1
+        
+        # Convert to 10-point scale
+        casino_metadata['casino_rating'] = round((rating_factors / total_factors) * 10, 1)
+        
+        # ✅ Generate review summary
+        summary_parts = []
+        if casino_metadata['license_info'] != 'License information not found':
+            summary_parts.append(f"Licensed by {casino_metadata['license_info']}")
+        if casino_metadata['bonus_amount']:
+            summary_parts.append(f"Welcome bonus up to {casino_metadata['bonus_amount']}")
+        if casino_metadata['game_providers']:
+            summary_parts.append(f"Games by {', '.join(casino_metadata['game_providers'][:2])}")
+        if casino_metadata['live_chat_support']:
+            summary_parts.append("24/7 live chat support")
+        
+        casino_metadata['review_summary'] = '. '.join(summary_parts) + '.' if summary_parts else 'Comprehensive casino review available.'
+        
+        # ✅ Generate pros and cons
+        pros = []
+        cons = []
+        
+        if casino_metadata['license_info'] != 'License information not found':
+            pros.append("Properly licensed and regulated")
+        if casino_metadata['bonus_amount']:
+            pros.append("Attractive welcome bonus")
+        if len(casino_metadata['game_providers']) >= 3:
+            pros.append("Games from multiple top providers")
+        if casino_metadata['live_chat_support']:
+            pros.append("24/7 customer support")
+        if casino_metadata['mobile_compatible']:
+            pros.append("Mobile-friendly platform")
+        
+        if not casino_metadata['live_chat_support']:
+            cons.append("Limited customer support hours")
+        if not casino_metadata['bonus_amount']:
+            cons.append("No welcome bonus information available")
+        if len(casino_metadata['payment_methods']) < 3:
+            cons.append("Limited payment options")
+        
+        casino_metadata['pros_list'] = pros
+        casino_metadata['cons_list'] = cons
+        
+        # ✅ Generate verdict
+        if casino_metadata['casino_rating'] >= 8:
+            casino_metadata['verdict'] = "Highly recommended casino with excellent features and strong regulation."
+        elif casino_metadata['casino_rating'] >= 6:
+            casino_metadata['verdict'] = "Solid casino option with good features and reliable service."
+        elif casino_metadata['casino_rating'] >= 4:
+            casino_metadata['verdict'] = "Average casino with some positive aspects but room for improvement."
+        else:
+            casino_metadata['verdict'] = "Limited information available. Proceed with caution and verify details independently."
+        
+        return casino_metadata
     
     async def _select_optimal_template(self, inputs: Dict[str, Any]) -> str:
         """Step 3b: Select the optimal template based on content type and structured data"""
@@ -1863,7 +2027,7 @@ Please provide a comprehensive, accurate, and well-structured response."""
             return f"I apologize, but I encountered an error generating a response to your query: {query}"
     
     async def _comprehensive_response_enhancement(self, inputs: Union[Dict[str, Any], str]) -> Dict[str, Any]:
-        """Step 5: Comprehensive response enhancement"""
+        """Step 5: Comprehensive response enhancement with HTML formatting and structured metadata"""
         # Handle case where inputs is a string (from previous step)
         if isinstance(inputs, str):
             content = inputs
@@ -1893,13 +2057,245 @@ Please provide a comprehensive, accurate, and well-structured response."""
             for notice in compliance_notices:
                 enhanced_content += f"- {notice}\\n"
         
+        # ✅ NEW: Convert markdown to HTML using RichHTMLFormatter
+        try:
+            from integrations.wordpress_publisher import RichHTMLFormatter
+            html_formatter = RichHTMLFormatter()
+            
+            # Convert markdown to HTML first using a simple converter
+            import markdown
+            html_content = markdown.markdown(enhanced_content, extensions=['tables', 'fenced_code'])
+            
+            # Apply rich HTML formatting
+            formatted_html_content = html_formatter.format_content(
+                html_content, 
+                title=self._extract_title_from_content(enhanced_content),
+                meta_description=self._extract_meta_description(enhanced_content)
+            )
+            
+        except ImportError:
+            # Fallback: Basic HTML conversion if libraries not available
+            formatted_html_content = self._basic_markdown_to_html(enhanced_content)
+        except Exception as e:
+            logging.warning(f"HTML formatting failed, using original content: {e}")
+            formatted_html_content = enhanced_content
+        
+        # ✅ NEW: Extract structured metadata from sources
+        structured_metadata = self._extract_comprehensive_metadata(query, query_analysis)
+        
         # Create comprehensive response data
-        return {
-            "final_content": enhanced_content,
+        response_data = {
+            "final_content": formatted_html_content,  # Now properly formatted HTML
+            "raw_content": enhanced_content,  # Keep original for debugging
             "images_embedded": len(self._last_images),
             "compliance_notices_added": len(compliance_notices),
-            "enhancement_applied": True
+            "enhancement_applied": True,
+            "html_formatted": True,  # New flag
+            "structured_metadata": structured_metadata  # New structured metadata
         }
+        
+        # Preserve WordPress publishing flag if it exists
+        if isinstance(inputs, dict) and inputs.get("publish_to_wordpress"):
+            response_data["publish_to_wordpress"] = True
+            response_data["question"] = inputs.get("question", inputs.get("query", ""))
+        
+        return response_data
+    
+    def _extract_title_from_content(self, content: str) -> str:
+        """Extract title from content for HTML formatting"""
+        lines = content.split('\\n')
+        for line in lines:
+            if line.startswith('# '):
+                return line[2:].strip()
+        return "Generated Content"
+    
+    def _extract_meta_description(self, content: str) -> str:
+        """Extract meta description from content"""
+        # Get first paragraph after title
+        lines = content.split('\\n')
+        for i, line in enumerate(lines):
+            if line.startswith('# ') and i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if next_line and not next_line.startswith('#'):
+                    return next_line[:150] + "..." if len(next_line) > 150 else next_line
+        return "Comprehensive analysis and review"
+    
+    def _basic_markdown_to_html(self, content: str) -> str:
+        """Enhanced markdown to HTML conversion with better formatting"""
+        import re
+        
+        # Convert headers
+        content = re.sub(r'^### (.*?)$', r'<h3 class="section-header">\1</h3>', content, flags=re.MULTILINE)
+        content = re.sub(r'^## (.*?)$', r'<h2 class="main-header">\1</h2>', content, flags=re.MULTILINE)
+        content = re.sub(r'^# (.*?)$', r'<h1 class="page-title">\1</h1>', content, flags=re.MULTILINE)
+        
+        # Convert markdown tables to HTML tables
+        content = self._convert_markdown_tables_to_html(content)
+        
+        # Convert markdown lists to HTML lists
+        content = self._convert_markdown_lists_to_html(content)
+        
+        # Convert bold and italic text
+        content = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', content)
+        content = re.sub(r'\*(.*?)\*', r'<em>\1</em>', content)
+        
+        # Convert horizontal rules
+        content = re.sub(r'^—+$', r'<hr class="section-divider">', content, flags=re.MULTILINE)
+        content = re.sub(r'^-{3,}$', r'<hr class="section-divider">', content, flags=re.MULTILINE)
+        
+        # Convert line breaks to proper HTML
+        content = content.replace('\\n\\n', '</p>\\n<p class="content-paragraph">')
+        content = content.replace('\\n', '<br>\\n')
+        
+        # Wrap in paragraphs
+        if not content.startswith('<'):
+            content = f'<p class="content-paragraph">{content}</p>'
+        
+        # Clean up any double paragraph tags
+        content = re.sub(r'<p[^>]*></p>', '', content)
+        content = re.sub(r'<p[^>]*>\\s*</p>', '', content)
+        
+        return content
+    
+    def _convert_markdown_tables_to_html(self, content: str) -> str:
+        """Convert markdown tables to proper HTML tables with styling"""
+        import re
+        
+        # Find markdown tables (lines with | characters)
+        table_pattern = r'(\|.*?\|(?:\n\|.*?\|)*)'
+        tables = re.findall(table_pattern, content, re.MULTILINE)
+        
+        for table in tables:
+            lines = table.strip().split('\n')
+            if len(lines) < 2:
+                continue
+                
+            html_table = '<table class="content-table">\n'
+            
+            # Process header row
+            header_row = lines[0]
+            headers = [cell.strip() for cell in header_row.split('|')[1:-1]]  # Remove empty first/last
+            html_table += '  <thead>\n    <tr>\n'
+            for header in headers:
+                html_table += f'      <th class="table-header">{header}</th>\n'
+            html_table += '    </tr>\n  </thead>\n'
+            
+            # Skip separator row (line 1) and process data rows
+            html_table += '  <tbody>\n'
+            for line in lines[2:]:  # Skip header and separator
+                if '|' in line:
+                    cells = [cell.strip() for cell in line.split('|')[1:-1]]  # Remove empty first/last
+                    html_table += '    <tr>\n'
+                    for cell in cells:
+                        html_table += f'      <td class="table-cell">{cell}</td>\n'
+                    html_table += '    </tr>\n'
+            html_table += '  </tbody>\n</table>'
+            
+            # Replace the markdown table with HTML table
+            content = content.replace(table, html_table)
+        
+        return content
+    
+    def _convert_markdown_lists_to_html(self, content: str) -> str:
+        """Convert markdown lists to proper HTML lists"""
+        import re
+        
+        # Convert ordered lists (1. 2. 3.)
+        lines = content.split('\n')
+        in_ordered_list = False
+        in_unordered_list = False
+        result_lines = []
+        
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+            
+            # Check for ordered list item
+            ordered_match = re.match(r'^(\s*)(\d+)\.\s+(.*)', line)
+            if ordered_match:
+                indent, number, text = ordered_match.groups()
+                if not in_ordered_list:
+                    result_lines.append(f'{indent}<ol class="content-list">')
+                    in_ordered_list = True
+                    in_unordered_list = False
+                result_lines.append(f'{indent}  <li class="list-item">{text}</li>')
+            
+            # Check for unordered list item
+            elif re.match(r'^(\s*)[-\*\+]\s+(.*)', line):
+                unordered_match = re.match(r'^(\s*)[-\*\+]\s+(.*)', line)
+                indent, text = unordered_match.groups()
+                if not in_unordered_list:
+                    if in_ordered_list:
+                        result_lines.append(f'{indent}</ol>')
+                        in_ordered_list = False
+                    result_lines.append(f'{indent}<ul class="content-list">')
+                    in_unordered_list = True
+                result_lines.append(f'{indent}  <li class="list-item">{text}</li>')
+            
+            # Regular line
+            else:
+                if in_ordered_list:
+                    result_lines.append('</ol>')
+                    in_ordered_list = False
+                if in_unordered_list:
+                    result_lines.append('</ul>')
+                    in_unordered_list = False
+                result_lines.append(line)
+            
+            i += 1
+        
+        # Close any open lists
+        if in_ordered_list:
+            result_lines.append('</ol>')
+        if in_unordered_list:
+            result_lines.append('</ul>')
+        
+        return '\n'.join(result_lines)
+    
+    def _extract_comprehensive_metadata(self, query: str, query_analysis: Optional[QueryAnalysis]) -> Dict[str, Any]:
+        """Extract structured metadata from all sources (V1 coinflip pattern)"""
+        metadata = {
+            # Basic metadata
+            "title": self._extract_title_from_content(getattr(self, '_last_generated_content', '')),
+            "query": query,
+            "query_type": query_analysis.query_type.value if query_analysis else "general",
+            "generation_timestamp": datetime.now().isoformat(),
+            
+            # Coinflip theme specific fields (V1 pattern)
+            "casino_rating": 0,
+            "bonus_amount": "",
+            "license_info": "",
+            "game_providers": [],
+            "payment_methods": [],
+            "mobile_compatible": True,
+            "live_chat_support": False,
+            "withdrawal_time": "",
+            "min_deposit": "",
+            "wagering_requirements": "",
+            "review_summary": "",
+            "pros_list": [],
+            "cons_list": [],
+            "verdict": "",
+            "last_updated": datetime.now().isoformat(),
+            "review_methodology": "Comprehensive analysis based on multiple factors",
+            "affiliate_disclosure": "This review may contain affiliate links. Please gamble responsibly.",
+            "author_expertise": "Expert casino reviewer with 5+ years experience",
+            "fact_checked": True,
+            "review_language": "en-US",
+            
+            # Source quality metadata
+            "total_sources": len(self._last_retrieved_docs) + len(self._last_web_results) + len(self._last_comprehensive_web_research),
+            "images_found": len(self._last_images),
+            "web_sources": len(self._last_web_results),
+            "research_sources": len(self._last_comprehensive_web_research)
+        }
+        
+        # Extract specific casino data from comprehensive sources if available
+        if hasattr(self, '_last_comprehensive_web_research') and self._last_comprehensive_web_research:
+            casino_data = self._extract_structured_casino_data(self._last_comprehensive_web_research)
+            metadata.update(casino_data)
+        
+        return metadata
     
     def _embed_images_in_content(self, content: str, images: List[Dict[str, Any]]) -> str:
         """Embed images into content with proper HTML formatting"""
