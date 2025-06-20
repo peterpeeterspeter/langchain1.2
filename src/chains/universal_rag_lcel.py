@@ -456,6 +456,7 @@ class UniversalRAGChain:
         enable_profiling: bool = True,            # ✅ NEW: Performance profiling
         enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
         enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
+        enable_hyperlink_generation: bool = True, # ✅ NEW: Authoritative hyperlink generation
         vector_store = None,
         supabase_client = None,
         **kwargs
@@ -477,6 +478,7 @@ class UniversalRAGChain:
         self.enable_profiling = enable_profiling
         self.enable_web_search = enable_web_search
         self.enable_comprehensive_web_research = enable_comprehensive_web_research
+        self.enable_hyperlink_generation = enable_hyperlink_generation
         self.enable_response_storage = kwargs.get('enable_response_storage', True)  # ✅ NEW: Store responses
         
         # Core infrastructure  
@@ -638,6 +640,37 @@ class UniversalRAGChain:
                 self.comprehensive_web_research_chain = None
         else:
             self.comprehensive_web_research_chain = None
+            
+        # ✅ NEW: Initialize Authoritative Hyperlink Engine
+        if self.enable_hyperlink_generation:
+            try:
+                from .authoritative_hyperlink_engine import (
+                    AuthoritativeHyperlinkEngine,
+                    LinkGenerationConfig
+                )
+                from .authority_links_config import (
+                    get_authority_links_for_region,
+                    AuthorityLinkPresets
+                )
+                
+                # Configure hyperlink engine
+                hyperlink_config = LinkGenerationConfig(
+                    **AuthorityLinkPresets.seo_optimized()
+                )
+                self.hyperlink_engine = AuthoritativeHyperlinkEngine(hyperlink_config)
+                
+                # Load region-specific links
+                region = kwargs.get('region', 'uk')
+                authority_links = get_authority_links_for_region(region)
+                self.hyperlink_engine.link_db.links = authority_links
+                self.hyperlink_engine.link_db.vector_store = self.hyperlink_engine.link_db._create_vector_store()
+                
+                logging.info("🔗 Authoritative Hyperlink Generation ENABLED")
+            except Exception as e:
+                logging.warning(f"Hyperlink engine initialization failed: {e}")
+                self.hyperlink_engine = None
+        else:
+            self.hyperlink_engine = None
         
         # Create the LCEL chain
         self.chain = self._create_lcel_chain()
@@ -667,6 +700,8 @@ class UniversalRAGChain:
             logging.info("  🌐 Web Search Research (Tavily)")
         if self.enable_comprehensive_web_research:
             logging.info("  🔍 Comprehensive Web Research (WebBaseLoader)")
+        if self.enable_hyperlink_generation:
+            logging.info("  🔗 Authoritative Hyperlink Generation")
         if self.enable_response_storage:
             logging.info("  📚 Response Storage & Vectorization")
         
@@ -2410,6 +2445,24 @@ Response:'''
                     response = await self.llm.ainvoke(prompt)
                 
                 response = response.content if hasattr(response, 'content') else str(response)
+            
+            # ✅ NEW: Add hyperlinks BEFORE post-processing
+            if self.hyperlink_engine and self.enable_hyperlink_generation:
+                try:
+                    hyperlink_result = await self.hyperlink_engine.generate_hyperlinks(
+                        content=response,
+                        structured_data=structured_casino_data,
+                        query=query
+                    )
+                    response = hyperlink_result["enhanced_content"]
+                    
+                    # Log hyperlink statistics
+                    links_added = hyperlink_result.get("links_added", 0)
+                    if links_added > 0:
+                        logging.info(f"🔗 Added {links_added} authoritative hyperlinks to content")
+                    
+                except Exception as e:
+                    logging.warning(f"Hyperlink generation failed: {e}")
             
             # ✅ NEW: Post-process with 95-field data integration
             enhanced_response = await self._post_process_with_casino_intelligence(
@@ -4529,6 +4582,7 @@ def create_universal_rag_chain(
     enable_profiling: bool = True,            # ✅ NEW: Performance profiling
     enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
     enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
+    enable_hyperlink_generation: bool = True, # ✅ NEW: Authoritative hyperlink generation
     enable_response_storage: bool = True,     # ✅ NEW: Response storage & vectorization
     vector_store = None,
     supabase_client = None,
@@ -4566,6 +4620,7 @@ def create_universal_rag_chain(
         enable_profiling=enable_profiling,
         enable_web_search=enable_web_search,
         enable_comprehensive_web_research=enable_comprehensive_web_research,
+        enable_hyperlink_generation=enable_hyperlink_generation,
         enable_response_storage=enable_response_storage,
         vector_store=vector_store,
         supabase_client=supabase_client,
