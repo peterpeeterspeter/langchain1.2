@@ -1229,6 +1229,30 @@ Answer:
                 # Store results for source generation
                 self._last_comprehensive_web_research = comprehensive_results
                 
+                # ✅ NEW: Store structured research data separately for multi-domain reuse
+                if comprehensive_results and len(comprehensive_results) > 0:
+                    # Extract casino name from the first result or query
+                    casino_name = "Unknown Casino"
+                    for result in comprehensive_results:
+                        if result.get('casino_name'):
+                            casino_name = result['casino_name']
+                            break
+                    
+                    # If no casino name found in results, try to extract from query
+                    if casino_name == "Unknown Casino" and "casino" in query.lower():
+                        query_words = query.lower().split()
+                        for word in query_words:
+                            if word.replace('.', '').replace('-', '').isalpha() and len(word) > 3:
+                                if word not in ['casino', 'review', 'bonus', 'game', 'online', 'best', 'top']:
+                                    casino_name = word.title()
+                                    break
+                    
+                    # Store structured data asynchronously (non-blocking)
+                    try:
+                        await self._store_structured_research_data(comprehensive_results, casino_name, query)
+                    except Exception as e:
+                        logging.warning(f"⚠️ Structured research storage failed but continuing: {e}")
+                
                 logging.info(f"✅ Comprehensive web research found {len(comprehensive_results)} detailed sources")
                 return comprehensive_results
                 
@@ -1454,6 +1478,139 @@ Answer:
         except Exception as e:
             logging.warning(f"⚠️ Failed to store web search results: {e}")
             # Don't fail the whole process if storage fails
+    
+    async def _store_structured_research_data(self, research_data: List[Dict[str, Any]], casino_name: str, query: str) -> bool:
+        """Store 95-field comprehensive research data as structured, reusable intelligence"""
+        try:
+            if not self.enable_response_storage or not SUPABASE_AVAILABLE or not self.supabase_client:
+                logging.info("📊 Structured research storage skipped: Storage disabled or Supabase unavailable")
+                return False
+            
+            logging.info(f"🏗️ Storing structured casino research data for: {casino_name}")
+            
+            # Extract and structure the 95-field casino data
+            structured_data = self._extract_structured_casino_data(research_data)
+            
+            if not structured_data or len(structured_data) < 10:  # Ensure we have substantial data
+                logging.warning(f"⚠️ Insufficient structured data for {casino_name}, skipping storage")
+                return False
+            
+            from langchain_core.documents import Document
+            
+            # Create searchable text representation of structured data
+            searchable_content = self._create_searchable_content_from_structured_data(structured_data, casino_name)
+            
+            # Create comprehensive metadata for multi-domain reuse
+            metadata = {
+                "source": "structured_casino_research",
+                "content_type": "casino_intelligence_95_fields",
+                "casino_name": casino_name.strip(),
+                "research_timestamp": datetime.now().isoformat(),
+                "domain_context": "crash_casino",  # For future multi-domain expansion
+                "original_query": query,
+                "data_completeness": self._calculate_data_completeness(structured_data),
+                "field_count": len(structured_data),
+                "source_sites": ["askgamblers", "casino.guru", "trustpilot", "lcb", "casinomeister", "thepogg"],
+                "reuse_ready": True,
+                "intelligence_version": "1.0"
+            }
+            
+            # Store the structured data as JSON in the content field for easy parsing
+            structured_content = f"CASINO: {casino_name}\n\nSEARCHABLE: {searchable_content}\n\nSTRUCTURED_DATA: {json.dumps(structured_data, ensure_ascii=False, indent=2)}"
+            
+            # Create LangChain Document
+            doc = Document(page_content=structured_content, metadata=metadata)
+            
+            # Store using native SupabaseVectorStore
+            vector_store = SupabaseVectorStore(
+                client=self.supabase_client,
+                embedding=self.embeddings,
+                table_name="documents",
+                query_name="match_documents"
+            )
+            
+            try:
+                if hasattr(vector_store, 'aadd_documents'):
+                    await vector_store.aadd_documents([doc])
+                else:
+                    vector_store.add_documents([doc])
+                
+                logging.info(f"✅ Stored structured casino research for {casino_name} with {len(structured_data)} fields")
+                return True
+                
+            except Exception as e:
+                logging.warning(f"⚠️ Failed to store structured research: {e}")
+                return False
+                
+        except Exception as e:
+            logging.warning(f"⚠️ Structured research storage failed: {e}")
+            return False
+    
+    def _create_searchable_content_from_structured_data(self, structured_data: Dict[str, Any], casino_name: str) -> str:
+        """Create searchable text representation of structured casino data"""
+        try:
+            search_parts = [f"Casino: {casino_name}"]
+            
+            # Key searchable fields for multi-domain use
+            key_fields = {
+                "licensing": "Licensed",
+                "game_portfolio": "Games",
+                "payment_methods": "Payment",
+                "mobile_experience": "Mobile",
+                "bonuses": "Bonuses",
+                "customer_support": "Support",
+                "security": "Security",
+                "withdrawal_limits": "Withdrawals",
+                "geographic_restrictions": "Available",
+                "cryptocurrencies": "Crypto"
+            }
+            
+            for field_key, prefix in key_fields.items():
+                if field_key in structured_data:
+                    field_data = structured_data[field_key]
+                    if isinstance(field_data, dict):
+                        # Convert dict to readable string
+                        field_text = ", ".join([f"{k}: {v}" for k, v in field_data.items() if v])
+                    elif isinstance(field_data, list):
+                        field_text = ", ".join(str(item) for item in field_data)
+                    else:
+                        field_text = str(field_data)
+                    
+                    if field_text and field_text.strip():
+                        search_parts.append(f"{prefix}: {field_text[:200]}")
+            
+            return " | ".join(search_parts)
+            
+        except Exception as e:
+            logging.warning(f"Failed to create searchable content: {e}")
+            return f"Casino: {casino_name}"
+    
+    def _calculate_data_completeness(self, structured_data: Dict[str, Any]) -> float:
+        """Calculate completeness score of structured casino data (0.0 to 1.0)"""
+        try:
+            total_possible_fields = 95  # Our target field count
+            filled_fields = 0
+            
+            def count_filled_fields(data, depth=0):
+                nonlocal filled_fields
+                if depth > 3:  # Prevent infinite recursion
+                    return
+                    
+                if isinstance(data, dict):
+                    for value in data.values():
+                        if value is not None and value != "" and value != []:
+                            if isinstance(value, (dict, list)):
+                                count_filled_fields(value, depth + 1)
+                            else:
+                                filled_fields += 1
+                elif isinstance(data, list) and data:
+                    filled_fields += len([item for item in data if item])
+            
+            count_filled_fields(structured_data)
+            return min(1.0, filled_fields / total_possible_fields)
+            
+        except Exception:
+            return 0.5  # Default moderate completeness
     
     async def _store_rag_response(self, query: str, response: str, sources: List[Dict[str, Any]], confidence_score: float):
         """Store successful RAG responses for conversation history using native LangChain"""
@@ -2321,46 +2478,378 @@ Please provide a comprehensive, accurate, and well-structured response."""
         return content
     
     async def _optional_wordpress_publishing(self, inputs: Union[Dict[str, Any], str]) -> Dict[str, Any]:
-        """Step 6: Optional WordPress publishing"""
+        """Step 6: Enhanced WordPress publishing with casino review categories and metadata"""
         if not self.enable_wordpress_publishing or not self.wordpress_service:
             return inputs if isinstance(inputs, dict) else {"final_content": inputs}
         
         # Handle string input from previous step
         if isinstance(inputs, str):
-            # Convert string to dict format
             inputs = {"final_content": inputs}
         
-        # Check if publishing was requested (could be in metadata or kwargs)
+        # Check if publishing was requested
         publish_requested = inputs.get("publish_to_wordpress", False)
         
         if not publish_requested:
-            return inputs  # Don't publish unless explicitly requested
+            return inputs
         
         try:
             final_content = inputs.get("final_content", "")
             query = inputs.get("question", "")
+            query_analysis = inputs.get("query_analysis")
+            structured_metadata = inputs.get("structured_metadata", {})
             
-            # Create WordPress post
+            # ✅ NEW: Determine content type and category
+            content_type, category_ids = await self._determine_wordpress_category(query, query_analysis, structured_metadata)
+            
+            # ✅ NEW: Generate comprehensive custom fields for casino reviews
+            custom_fields = await self._generate_casino_review_metadata(query, structured_metadata, query_analysis)
+            
+            # ✅ NEW: Generate SEO-optimized title and meta description
+            title = await self._generate_seo_title(query, content_type, structured_metadata)
+            meta_description = await self._generate_meta_description(final_content, structured_metadata)
+            
+            # ✅ NEW: Generate relevant tags
+            tags = await self._generate_content_tags(query, content_type, structured_metadata)
+            
+            # ✅ NEW: Find featured image from our DataForSEO results
+            featured_image_url = await self._select_featured_image()
+            
+            # Create enhanced WordPress post data
             post_data = {
-                "title": f"Response to: {query}",
+                "title": title,
                 "content": final_content,
-                "status": "draft"  # Create as draft by default
+                "status": "draft",  # Create as draft for review
+                "categories": category_ids,
+                "tags": tags,
+                "meta_description": meta_description,
+                "custom_fields": custom_fields,
+                "featured_image_url": featured_image_url
             }
             
-            # Publish to WordPress
-            result = await self.wordpress_service.create_post(post_data)
+            # Use the enhanced WordPress publisher
+            async with self.wordpress_service.publisher or WordPressRESTPublisher(self.wordpress_service.config) as publisher:
+                result = await publisher.publish_post(**post_data)
             
-            # Add publishing info to response
-            inputs["wordpress_published"] = True
-            inputs["wordpress_post_id"] = result.get("id")
-            inputs["wordpress_url"] = result.get("url")
+            # Add comprehensive publishing info to response
+            inputs.update({
+                "wordpress_published": True,
+                "wordpress_post_id": result.get("id"),
+                "wordpress_url": result.get("link"),
+                "wordpress_edit_url": f"{self.wordpress_service.config.site_url}/wp-admin/post.php?post={result.get('id')}&action=edit",
+                "wordpress_category": content_type,
+                "wordpress_custom_fields_count": len(custom_fields),
+                "wordpress_tags_count": len(tags)
+            })
+            
+            logging.info(f"✅ Published to WordPress: {title} (ID: {result.get('id')}) with {len(custom_fields)} custom fields")
             
         except Exception as e:
             logging.error(f"WordPress publishing failed: {e}")
-            inputs["wordpress_published"] = False
-            inputs["wordpress_error"] = str(e)
+            inputs.update({
+                "wordpress_published": False,
+                "wordpress_error": str(e)
+            })
         
         return inputs
+    
+    async def _determine_wordpress_category(self, query: str, query_analysis: Optional[QueryAnalysis], structured_metadata: Dict[str, Any]) -> Tuple[str, List[int]]:
+        """Determine WordPress category based on content analysis - CRASH CASINO SITE"""
+        
+        # ✅ CRASH CASINO SITE: Your actual WordPress category mapping
+        # Based on your site structure provided
+        category_mapping = {
+            "crash_casino_review": ["crash-casino-reviews"],      # Crash Casino Reviews
+            "individual_casino_review": ["individual-casino-reviews"],  # Individual Casino Reviews  
+            "crypto_casino_review": ["licensed-crypto-casinos"],   # Licensed Crypto Casinos
+            "mobile_casino": ["mobile-casino"],                   # Mobile Casino
+            "new_casinos": ["new-casinos-2025"],                  # New Casinos 2025
+            "top_crash_casinos": ["top-crash-casinos"],           # Top Crash Casinos
+            "aviator_review": ["aviator"],                        # Aviator (crash game)
+            "jetx_review": ["jetx"],                              # JetX (crash game)
+            "spaceman_review": ["spaceman"],                      # Spaceman (crash game)
+            "best_crash_games": ["best-crash-games-2025"],       # Best Crash Games 2025
+            "crash_game_reviews": ["crash-game-reviews"],        # Crash Game Reviews
+            "general_strategy": ["general-tactics"],             # General Tactics (strategy)
+            "multiplier_strategy": ["multiplier-tactics"],       # Multiplier Tactics (strategy)
+            "crypto_strategy": ["coin-specific"],                # Coin-Specific (BTC, ETH, SOL)
+            "site_specific": ["crashcasino-io"],                 # CrashCasino.io
+            "guides": ["casino-guides"],                         # Guides
+            "general": ["general"],                              # General (default)
+        }
+        
+        # Determine content type for CRASH CASINO SITE
+        content_type = "general"
+        query_lower = query.lower()
+        
+        if query_analysis and query_analysis.query_type:
+            query_type_str = query_analysis.query_type.value if hasattr(query_analysis.query_type, 'value') else str(query_analysis.query_type)
+            
+            if query_type_str in ["casino_review", "CASINO_REVIEW"]:
+                content_type = "crash_casino_review"
+            elif query_type_str in ["game_guide", "GAME_GUIDE"]:
+                content_type = "crash_game_reviews"
+            elif query_type_str in ["promotion_analysis", "PROMOTION_ANALYSIS"]:
+                content_type = "crash_casino_review"  # Promotions go under casino reviews
+            elif query_type_str in ["comparison", "COMPARISON"]:
+                content_type = "top_crash_casinos"
+            elif query_type_str in ["news_update", "NEWS_UPDATE"]:
+                content_type = "guides"
+            elif query_type_str in ["troubleshooting", "TROUBLESHOOTING"]:
+                content_type = "guides"
+            elif query_type_str in ["regulatory", "REGULATORY"]:
+                content_type = "guides"
+        
+        # ✅ CRASH CASINO SPECIFIC: Advanced content type detection
+        # Crash casino reviews
+        if any(term in query_lower for term in ["crash casino", "casino review", "casino analysis", "is safe", "trustworthy"]):
+            content_type = "crash_casino_review"
+        
+        # Individual casino reviews  
+        elif any(term in query_lower for term in ["bc.game", "stake.com", "roobet", "duelbits", "rollbit"]):
+            content_type = "individual_casino_review"
+            
+        # Crypto casino specific
+        elif any(term in query_lower for term in ["crypto casino", "bitcoin casino", "ethereum casino", "licensed crypto"]):
+            content_type = "crypto_casino_review"
+            
+        # Mobile casino
+        elif any(term in query_lower for term in ["mobile casino", "casino app", "mobile app"]):
+            content_type = "mobile_casino"
+            
+        # New casinos
+        elif any(term in query_lower for term in ["new casino", "latest casino", "2025 casino"]):
+            content_type = "new_casinos"
+            
+        # Top/best crash casinos
+        elif any(term in query_lower for term in ["top crash casino", "best crash casino", "top 10", "ranking"]):
+            content_type = "top_crash_casinos"
+            
+        # Specific crash games
+        elif "aviator" in query_lower:
+            content_type = "aviator_review"
+        elif "jetx" in query_lower:
+            content_type = "jetx_review"
+        elif "spaceman" in query_lower:
+            content_type = "spaceman_review"
+            
+        # Best crash games
+        elif any(term in query_lower for term in ["best crash game", "top crash game", "crash game ranking"]):
+            content_type = "best_crash_games"
+            
+        # Crash game reviews in general
+        elif any(term in query_lower for term in ["crash game", "game review", "game guide"]):
+            content_type = "crash_game_reviews"
+            
+        # Strategy content
+        elif any(term in query_lower for term in ["bitcoin strategy", "btc strategy", "ethereum strategy", "crypto strategy"]):
+            content_type = "crypto_strategy"
+        elif any(term in query_lower for term in ["multiplier strategy", "multiplier tactic"]):
+            content_type = "multiplier_strategy"
+        elif any(term in query_lower for term in ["strategy", "tactic", "tips", "how to win"]):
+            content_type = "general_strategy"
+            
+        # CrashCasino.io specific
+        elif "crashcasino.io" in query_lower:
+            content_type = "site_specific"
+            
+        # General guides
+        elif any(term in query_lower for term in ["guide", "tutorial", "how to", "help"]):
+            content_type = "guides"
+        
+        return content_type, category_mapping.get(content_type, category_mapping["general"])
+    
+    async def _generate_casino_review_metadata(self, query: str, structured_metadata: Dict[str, Any], query_analysis: Optional[QueryAnalysis]) -> Dict[str, Any]:
+        """Generate comprehensive custom fields for casino reviews"""
+        
+        # ✅ CUSTOMIZE: Your WordPress custom field names
+        # Update these field names to match your actual custom fields
+        custom_fields = {
+            # Basic review metadata
+            "review_type": structured_metadata.get("content_type", "general"),
+            "review_date": datetime.now().strftime("%Y-%m-%d"),
+            "review_updated": datetime.now().isoformat(),
+            "review_methodology": structured_metadata.get("review_methodology", "AI-powered comprehensive analysis"),
+            
+            # Casino-specific metadata (if available)
+            "casino_rating": structured_metadata.get("casino_rating", 0),
+            "bonus_amount": structured_metadata.get("bonus_amount", ""),
+            "license_info": structured_metadata.get("license_info", ""),
+            "min_deposit": structured_metadata.get("min_deposit", ""),
+            "withdrawal_time": structured_metadata.get("withdrawal_time", ""),
+            "wagering_requirements": structured_metadata.get("wagering_requirements", ""),
+            "mobile_compatible": structured_metadata.get("mobile_compatible", True),
+            "live_chat_support": structured_metadata.get("live_chat_support", False),
+            
+            # Game and software providers
+            "game_providers": ",".join(structured_metadata.get("game_providers", [])),
+            "payment_methods": ",".join(structured_metadata.get("payment_methods", [])),
+            
+            # Review quality indicators
+            "confidence_score": structured_metadata.get("confidence_score", 0.0),
+            "sources_count": structured_metadata.get("total_sources", 0),
+            "images_included": structured_metadata.get("images_found", 0),
+            "fact_checked": structured_metadata.get("fact_checked", True),
+            
+            # SEO and content metadata
+            "review_language": structured_metadata.get("review_language", "en-US"),
+            "author_expertise": structured_metadata.get("author_expertise", "AI Casino Expert"),
+            "affiliate_disclosure": structured_metadata.get("affiliate_disclosure", "This review may contain affiliate links."),
+            
+            # Pros and cons (if available)
+            "pros_list": "|".join(structured_metadata.get("pros_list", [])),
+            "cons_list": "|".join(structured_metadata.get("cons_list", [])),
+            "verdict": structured_metadata.get("verdict", ""),
+            
+            # Technical metadata
+            "ai_generated": True,
+            "rag_enabled": True,
+            "query_analyzed": query_analysis is not None,
+            "original_query": query,
+        }
+        
+        # Add query-specific metadata
+        if query_analysis:
+            custom_fields.update({
+                "query_type": query_analysis.query_type.value if hasattr(query_analysis.query_type, 'value') else str(query_analysis.query_type),
+                "expertise_level": query_analysis.expertise_level.value if hasattr(query_analysis.expertise_level, 'value') else str(query_analysis.expertise_level),
+                "response_format": query_analysis.response_format.value if hasattr(query_analysis.response_format, 'value') else str(query_analysis.response_format) if hasattr(query_analysis, 'response_format') else "comprehensive"
+            })
+        
+        # Clean up empty values
+        return {k: v for k, v in custom_fields.items() if v not in [None, "", [], {}]}
+    
+    async def _generate_seo_title(self, query: str, content_type: str, structured_metadata: Dict[str, Any]) -> str:
+        """Generate SEO-optimized title"""
+        
+        # Extract casino name if available
+        casino_name = ""
+        if "casino" in query.lower():
+            # Try to extract casino name from query
+            import re
+            casino_match = re.search(r'(\w+)\s+casino', query.lower())
+            if casino_match:
+                casino_name = casino_match.group(1).title()
+        
+        # Generate title based on content type
+        if content_type == "casino_review" and casino_name:
+            rating = structured_metadata.get("casino_rating", 0)
+            if rating > 0:
+                return f"{casino_name} Casino Review 2024: {rating}/10 Rating & Detailed Analysis"
+            else:
+                return f"{casino_name} Casino Review 2024: Complete Analysis & Player Guide"
+        elif content_type == "bonus_analysis":
+            bonus_amount = structured_metadata.get("bonus_amount", "")
+            if bonus_amount and casino_name:
+                return f"{casino_name} Casino Bonus Review: {bonus_amount} Welcome Offer Analysis"
+            else:
+                return f"Casino Bonus Analysis: {query}"
+        elif content_type == "comparison":
+            return f"Casino Comparison 2024: {query} - Expert Analysis"
+        elif content_type == "game_guide":
+            return f"Casino Game Guide: {query} - Tips & Strategies 2024"
+        else:
+            return f"{query} - Expert Casino Analysis 2024"
+    
+    async def _generate_meta_description(self, content: str, structured_metadata: Dict[str, Any]) -> str:
+        """Generate SEO meta description"""
+        
+        # Try to extract first meaningful paragraph
+        lines = content.replace('\\n', '\n').split('\n')
+        for line in lines:
+            clean_line = line.strip()
+            if len(clean_line) > 50 and not clean_line.startswith('#') and not clean_line.startswith('*'):
+                # Clean HTML tags and format for meta description
+                import re
+                clean_desc = re.sub(r'<[^>]+>', '', clean_line)
+                if len(clean_desc) > 155:
+                    clean_desc = clean_desc[:152] + "..."
+                return clean_desc
+        
+        # Fallback meta description
+        casino_rating = structured_metadata.get("casino_rating", 0)
+        if casino_rating > 0:
+            return f"Expert casino review with {casino_rating}/10 rating. Comprehensive analysis of games, bonuses, safety, and player experience. Updated 2024."
+        else:
+            return "Expert casino analysis and review. Comprehensive evaluation of safety, games, bonuses, and player experience. Trust our expert insights."
+    
+    async def _generate_content_tags(self, query: str, content_type: str, structured_metadata: Dict[str, Any]) -> List[str]:
+        """Generate relevant content tags"""
+        
+        tags = ["casino review", "online casino", "2024"]
+        
+        # Add content-type specific tags
+        if content_type == "casino_review":
+            tags.extend(["casino analysis", "casino safety", "casino rating"])
+            
+            # Add license-based tags
+            license_info = structured_metadata.get("license_info", "").lower()
+            if "malta" in license_info:
+                tags.append("MGA licensed")
+            if "uk gambling commission" in license_info:
+                tags.append("UKGC licensed")
+            if "curacao" in license_info:
+                tags.append("Curacao licensed")
+                
+        elif content_type == "bonus_analysis":
+            tags.extend(["casino bonus", "welcome bonus", "free spins", "promotion"])
+            
+        elif content_type == "game_guide":
+            tags.extend(["casino games", "game strategy", "how to play"])
+            
+        elif content_type == "comparison":
+            tags.extend(["casino comparison", "vs", "which casino"])
+        
+        # Add game provider tags
+        providers = structured_metadata.get("game_providers", [])
+        for provider in providers[:3]:  # Limit to top 3
+            tags.append(f"{provider} games")
+        
+        # Add payment method tags
+        payment_methods = structured_metadata.get("payment_methods", [])
+        for method in payment_methods[:3]:  # Limit to top 3
+            if method.lower() in ["bitcoin", "ethereum", "litecoin"]:
+                tags.append("crypto casino")
+            elif method.lower() == "paypal":
+                tags.append("PayPal casino")
+        
+        # Extract casino name from query for specific tagging
+        import re
+        casino_match = re.search(r'(\w+)\s+casino', query.lower())
+        if casino_match:
+            casino_name = casino_match.group(1).title()
+            tags.extend([f"{casino_name} casino", f"{casino_name} review"])
+        
+        return list(set(tags))  # Remove duplicates
+    
+    async def _select_featured_image(self) -> Optional[str]:
+        """Select the best featured image from DataForSEO results"""
+        
+        if not self._last_images:
+            return None
+        
+        # Prioritize images with high relevance scores
+        best_image = None
+        best_score = 0
+        
+        for img in self._last_images:
+            score = img.get("relevance_score", 0.5)
+            
+            # Boost score for appropriate dimensions
+            width = img.get("width", 0)
+            height = img.get("height", 0)
+            if width >= 800 and height >= 400:  # Good for featured images
+                score += 0.2
+            
+            # Boost score for casino-related alt text
+            alt_text = img.get("alt_text", "").lower()
+            if any(term in alt_text for term in ["casino", "game", "slot", "poker", "roulette"]):
+                score += 0.1
+            
+            if score > best_score:
+                best_score = score
+                best_image = img
+        
+        return best_image.get("url") if best_image else None
     
     # ============================================================================
     # 🚀 HELPER METHODS FOR COMPREHENSIVE INTEGRATION

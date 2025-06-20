@@ -965,11 +965,97 @@
             "testStrategy": "Verify logs are properly generated during retrieval operations and performance metrics are correctly tracked. Review documentation for completeness and clarity."
           }
         ]
+      },
+      {
+        "id": 17,
+        "title": "Implement 95-Field Structured Casino Intelligence Extraction",
+        "description": "Transform the current 14-field basic extraction system into a comprehensive enterprise-grade 95-field structured intelligence extraction system across 6 categories using LangChain PydanticOutputParser.",
+        "details": "This task involves upgrading the current basic extraction system to a comprehensive structured intelligence extraction system for casino data:\n\n1. Design Pydantic schemas for 6 key categories:\n   - Trustworthiness (licensing, compliance history, ownership transparency)\n   - Games (variety, providers, RTP rates, volatility metrics)\n   - Bonuses (terms, wagering requirements, time limitations, game restrictions)\n   - Payments (methods, processing times, fees, withdrawal limits)\n   - User Experience (mobile compatibility, site performance, customer support)\n   - Innovations (unique features, technological advancements)\n\n2. Implement LangChain PydanticOutputParser for structured extraction:\n   - Configure the parser to handle the 95-field schema\n   - Implement validation rules and type checking\n   - Create fallback mechanisms for missing data\n   - Ensure backward compatibility with existing 14-field system\n\n3. Enhance extraction from high-authority sources:\n   - AskGamblers (focus on user reviews and ratings)\n   - Casino.Guru (technical specifications and game details)\n   - UK Gambling Commission (compliance and regulatory information)\n\n4. Implement tool calling for specialized extraction:\n   - Create custom tools for each category\n   - Implement chain-of-thought reasoning for complex field extraction\n   - Add confidence scoring for extracted information\n\n5. Build reusable components for multi-domain adaptation:\n   - Create abstraction layers for domain-specific terminology\n   - Implement configuration-driven schema adaptation\n   - Document extension points for new domains\n\n6. Optimize extraction performance:\n   - Implement batched processing for efficiency\n   - Add caching for frequently accessed fields\n   - Create monitoring for extraction quality\n\n7. Ensure backward compatibility:\n   - Map new fields to legacy fields\n   - Implement versioned API endpoints\n   - Create migration utilities for existing data",
+        "testStrategy": "1. Field Coverage Testing:\n   - Verify all 95 fields are correctly extracted from test sources\n   - Compare extraction results against manually annotated ground truth data\n   - Achieve >90% field coverage across all categories\n\n2. Accuracy Validation:\n   - Measure precision and recall for each field category\n   - Target >85% accuracy for factual fields\n   - Implement automated validation for numerical fields (ranges, formats)\n\n3. Source Integration Testing:\n   - Test extraction from each authority source independently\n   - Verify correct source attribution in metadata\n   - Validate handling of conflicting information from different sources\n\n4. Backward Compatibility Testing:\n   - Ensure all 14 original fields maintain consistent values\n   - Test API endpoints with legacy clients\n   - Verify data migration utilities preserve information integrity\n\n5. Performance Benchmarking:\n   - Measure extraction time (target <5s per casino)\n   - Test batch processing efficiency (50+ casinos)\n   - Validate memory usage remains within acceptable limits\n\n6. Multi-Domain Adaptation Testing:\n   - Test schema adaptation with a sample alternative domain\n   - Verify configuration-driven customization works correctly\n   - Ensure core extraction logic remains domain-agnostic\n\n7. Integration Testing:\n   - Verify integration with existing retrieval system\n   - Test end-to-end workflows using the enhanced extraction\n   - Validate correct handling of extraction errors",
+        "status": "pending",
+        "dependencies": [
+          3,
+          4,
+          10,
+          "1",
+          "2"
+        ],
+        "priority": "high",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design Comprehensive Pydantic Schemas for 95 Fields",
+            "description": "Create detailed Pydantic schemas for all 95 fields across the 6 key categories: Trustworthiness, Games, Bonuses, Payments, User Experience, and Innovations.",
+            "dependencies": [],
+            "details": "Define class structures with appropriate field types, validators, and descriptions for each category. Include required/optional status for each field. Create hierarchical relationships between schemas. Document each field with examples and validation rules. Ensure backward compatibility with existing 14-field system by mapping legacy fields to new schema.",
+            "status": "pending",
+            "testStrategy": "Validate schema definitions against sample data. Test field validation rules with edge cases. Verify backward compatibility with existing data structures."
+          },
+          {
+            "id": 2,
+            "title": "Implement LangChain PydanticOutputParser Integration",
+            "description": "Configure and implement LangChain PydanticOutputParser to handle the 95-field schema with validation rules, type checking, and fallback mechanisms.",
+            "dependencies": [
+              1
+            ],
+            "details": "Integrate PydanticOutputParser with the defined schemas. Implement custom parsing logic for complex fields. Create fallback mechanisms for missing or invalid data. Configure error handling and validation reporting. Implement type coercion for data normalization. Create parser factory for different extraction contexts.",
+            "status": "pending",
+            "testStrategy": "Test parser with various input formats. Verify error handling with malformed inputs. Benchmark parsing performance with large datasets."
+          },
+          {
+            "id": 3,
+            "title": "Develop Enhanced Extraction Logic for High-Authority Sources",
+            "description": "Build specialized extraction mechanisms for high-authority sources including AskGamblers, Casino.Guru, and UK Gambling Commission with source-specific parsing logic.",
+            "dependencies": [
+              2
+            ],
+            "details": "Create source-specific extractors for each authority. Implement chain-of-thought reasoning for complex field extraction. Add confidence scoring for extracted information. Develop specialized tools for each category. Create extraction pipelines with fallback strategies. Implement source credibility weighting system.",
+            "status": "pending",
+            "testStrategy": "Test extraction accuracy against manually labeled data. Verify source-specific extraction logic with real-world examples. Evaluate confidence scoring against human judgments."
+          },
+          {
+            "id": 4,
+            "title": "Upgrade Storage Architecture for Structured Intelligence",
+            "description": "Design and implement a storage architecture that efficiently handles the expanded 95-field schema while maintaining backward compatibility.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create database schema for storing the 95-field structured data. Implement versioning system for schema evolution. Develop migration utilities for existing data. Design query interfaces for efficient data retrieval. Implement caching mechanisms for frequently accessed fields. Create indexing strategy for performance optimization.",
+            "status": "pending",
+            "testStrategy": "Test data persistence with various field combinations. Verify query performance with large datasets. Validate migration process with legacy data."
+          },
+          {
+            "id": 5,
+            "title": "Build Testing and Validation Framework",
+            "description": "Develop comprehensive testing and validation framework to ensure extraction accuracy, data integrity, and system reliability.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Create test suites for each extraction category. Implement validation metrics for extraction quality. Develop automated testing pipelines. Create benchmarking system for extraction performance. Implement continuous validation against known-good datasets. Design manual review interfaces for ambiguous cases.",
+            "status": "pending",
+            "testStrategy": "Run end-to-end tests with diverse casino data. Validate extraction accuracy against human-annotated ground truth. Measure system reliability under various load conditions."
+          },
+          {
+            "id": 6,
+            "title": "Optimize Extraction Performance and Implement Monitoring",
+            "description": "Enhance system performance through batched processing, caching, and monitoring to ensure efficient extraction at scale.",
+            "dependencies": [
+              3,
+              4,
+              5
+            ],
+            "details": "Implement batched processing for efficiency. Add caching for frequently accessed fields. Create monitoring dashboards for extraction quality and performance. Develop alerting system for extraction failures. Implement adaptive extraction strategies based on performance metrics. Create documentation for system maintenance and optimization.",
+            "status": "pending",
+            "testStrategy": "Benchmark performance improvements against baseline. Test system under high load conditions. Verify monitoring accuracy with simulated failure scenarios."
+          }
+        ]
       }
     ],
     "metadata": {
       "created": "2025-06-16T20:43:05.251Z",
-      "updated": "2025-06-17T17:58:29.572Z",
+      "updated": "2025-06-20T06:36:20.005Z",
       "description": "Tasks for master context"
     }
   }
