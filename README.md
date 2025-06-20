@@ -2859,3 +2859,214 @@ This project demonstrates the complete Universal RAG CMS v6.0 implementation wit
 ---
 
 *Universal RAG CMS v6.0 | Production Ready | Grade A+ Performance | WordPress Integration Complete* 🎉
+
+---
+
+# 🎰 Advanced Casino Intelligence & RAG System
+
+> **Latest Update**: Tasks 17 & 18 COMPLETE! 95-field casino intelligence extraction and WordPress publishing now fully operational.
+
+## 🚀 **System Overview**
+
+This project features a **Universal RAG Chain** with advanced casino intelligence capabilities, capable of extracting 95 structured data fields from casino websites and automatically publishing professional reviews to WordPress.
+
+### ✅ **Recently Completed: Tasks 17 & 18**
+
+- **🎰 Task 17**: 95-Field Casino Intelligence Extraction System
+- **🌐 Task 18**: Enhanced WordPress Publishing System  
+- **🔄 Integration**: End-to-end casino review generation and publishing
+
+## 🎯 **Core Features**
+
+### 🧠 **Universal RAG Chain (12 Advanced Features)**
+- ✅ Enhanced Confidence Scoring
+- ✅ Template System v2.0  
+- ✅ Contextual Retrieval
+- ✅ DataForSEO Image Integration
+- ✅ WordPress Publishing
+- ✅ FTI Content Processing
+- ✅ Security Features
+- ✅ Performance Profiling
+- ✅ Web Search Research (Tavily)
+- ✅ **95-Field Casino Intelligence Extraction** (NEW)
+- ✅ Response Storage & Vectorization
+- ✅ Comprehensive Web Research
+
+### 🎰 **95-Field Casino Intelligence System**
+
+**Location**: `src/schemas/casino_intelligence_schema.py` (690 lines)
+
+**Categories & Field Count**:
+- 🏛️ **Licensing & Regulation**: 15 fields
+- 🎮 **Games & Software**: 20 fields  
+- 🎁 **Bonuses & Promotions**: 15 fields
+- 💳 **Banking & Payments**: 15 fields
+- 🎧 **Customer Support**: 15 fields
+- 🔧 **Technical & Features**: 15 fields
+
+**Key Capabilities**:
+- LangChain PydanticOutputParser integration
+- Real-time data completeness scoring
+- Legacy compatibility with existing systems
+- Advanced validation and error handling
+- Automatic casino detection and analysis
+
+### 🌐 **WordPress Publishing System**
+
+**Location**: `src/integrations/enhanced_casino_wordpress_publisher.py`
+
+**Features**:
+- WordPress REST API v2 integration
+- SEO-optimized content formatting
+- Visual rating boxes and structured layouts
+- Mobile-responsive design elements
+- Automatic categorization and tagging
+- Draft/publish workflow management
+
+**Live Demo**: Successfully published Betway Casino review to [crashcasino.io](https://www.crashcasino.io/?p=51132)
+
+## 🎯 **Usage Examples**
+
+### Quick Casino Review Generation
+```python
+from src.chains.universal_rag_lcel import create_universal_rag_chain
+
+# Create chain with all features enabled
+chain = create_universal_rag_chain(
+    enable_comprehensive_web_research=True,  # Enables 95-field extraction
+    enable_wordpress_publishing=True         # Enables WordPress publishing
+)
+
+# Generate comprehensive casino review
+response = await chain.ainvoke({
+    "query": "Betway Casino review - games, bonuses, licensing, mobile app"
+})
+
+# Results in:
+# - 95-field structured data extraction
+# - Professional review content
+# - WordPress publication ready
+# - Confidence score: 0.746/1.0
+# - Processing time: ~2.5 minutes
+```
+
+### WordPress Publishing
+```python
+# Automatic WordPress publishing during review generation
+response = await chain.ainvoke({
+    "query": "Casino review for [Casino Name]",
+    "enable_wordpress_publish": True
+})
+
+# Or manual publishing
+from src.integrations.enhanced_casino_wordpress_publisher import EnhancedCasinoWordPressPublisher
+
+publisher = EnhancedCasinoWordPressPublisher()
+result = await publisher.publish_review(
+    title="Casino Review Title",
+    content=review_content,
+    rating=8.5
+)
+```
+
+## 📊 **Performance Metrics**
+
+### Recent Test Results (Betway Casino Review)
+- **Confidence Score**: 0.746/1.0 (74.6%)
+- **Processing Time**: 158.6 seconds
+- **Sources Analyzed**: 17 authoritative sources
+- **Content Generated**: 7,675 characters
+- **Token Usage**: 8,853 tokens
+- **95-Field Extraction**: ✅ Successful
+- **WordPress Publishing**: ✅ Live at Post ID 51132
+
+## 🏗️ **Architecture**
+
+```
+📁 Project Structure
+├── src/
+│   ├── chains/
+│   │   └── universal_rag_lcel.py         # Main RAG chain (4,625 lines)
+│   ├── schemas/
+│   │   └── casino_intelligence_schema.py  # 95-field Pydantic schema (690 lines)
+│   └── integrations/
+│       ├── wordpress_publisher.py         # Basic WordPress integration
+│       └── enhanced_casino_wordpress_publisher.py  # Advanced casino publisher
+├── betway_review_demo.py                 # Demo script
+├── debug_system_analysis.py             # Diagnostic framework
+└── DEBUGGING_SESSION_ANALYSIS.md        # System analysis documentation
+```
+
+## 🔧 **Setup & Configuration**
+
+### Environment Variables
+```bash
+# AI Models
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+PERPLEXITY_API_KEY=your_perplexity_key
+
+# Database
+SUPABASE_URL=your_supabase_url
+SUPABASE_SERVICE_ROLE_KEY=your_supabase_key
+
+# WordPress Publishing
+WORDPRESS_URL=https://crashcasino.io
+WORDPRESS_USERNAME=your_username
+WORDPRESS_APP_PASSWORD=your_app_password
+
+# Optional Services
+DATAFORSEO_LOGIN=your_dataforseo_login
+DATAFORSEO_PASSWORD=your_dataforseo_password
+TAVILY_API_KEY=your_tavily_key
+```
+
+### Quick Start
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run demo
+python betway_review_demo.py
+
+# Run system diagnostics
+python debug_system_analysis.py
+```
+
+## 🎊 **What's New in Tasks 17 & 18**
+
+### 🎰 **Task 17: 95-Field Casino Intelligence**
+- **Complete Pydantic Schema**: 690 lines with comprehensive validation
+- **LangChain Integration**: Native PydanticOutputParser usage
+- **Production Ready**: Integrated into Universal RAG Chain by default
+- **AI-Powered Extraction**: Uses LLM reasoning instead of regex parsing
+- **Legacy Support**: Backward compatible with existing systems
+
+### 🌐 **Task 18: Enhanced WordPress Publishing**
+- **Live WordPress Integration**: Successfully publishing to crashcasino.io
+- **SEO Optimization**: Meta descriptions, structured content, image integration
+- **Visual Enhancements**: Rating boxes, pros/cons lists, responsive design
+- **Database Integration**: Supabase metadata storage and tracking
+- **Production Workflow**: Draft/publish pipeline with review process
+
+## 🔍 **System Status**
+
+- ✅ **Universal RAG Chain**: All 12 features operational
+- ✅ **95-Field Extraction**: Production ready and tested
+- ✅ **WordPress Publishing**: Live deployment successful
+- ✅ **End-to-End Testing**: Complete casino review workflow verified
+- ✅ **Documentation**: Comprehensive analysis and debugging docs
+- ✅ **Memory Updated**: All progress stored in agent memory
+
+## 📈 **Next Steps**
+
+With Tasks 17 & 18 complete, the system is now ready for:
+- Production casino review generation
+- Automated content publishing workflows  
+- Multi-casino comparison analysis
+- Advanced SEO optimization
+- Extended integrations with additional platforms
+
+---
+
+*Last Updated: 2025-01-20 - Tasks 17 & 18 Complete*

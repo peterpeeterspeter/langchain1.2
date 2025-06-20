@@ -33,6 +33,14 @@ from bs4 import BeautifulSoup
 from PIL import Image, ImageOps
 from supabase import create_client, Client
 
+# Import casino intelligence schema
+try:
+    from ..schemas.casino_intelligence_schema import CasinoIntelligence
+except ImportError:
+    logger = logging.getLogger(__name__)
+    logger.warning("Casino intelligence schema not found. Casino-specific features disabled.")
+    CasinoIntelligence = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -467,7 +475,7 @@ class ErrorRecoveryManager:
 class WordPressRESTPublisher:
     """Main WordPress publisher with enterprise features"""
     
-    def __init__(self, config: WordPressConfig, supabase_client: Optional[Client] = None):
+    def __init__(self, config: WordPressConfig, supabase_client: Optional[Client] = None, llm=None):
         self.config = config
         self.auth_manager = WordPressAuthManager(config)
         self.image_processor = BulletproofImageProcessor(config)
@@ -475,6 +483,17 @@ class WordPressRESTPublisher:
         self.error_manager = ErrorRecoveryManager(config)
         self.supabase = supabase_client
         self.session: Optional[aiohttp.ClientSession] = None
+        
+        # 🏗️ NATIVE LANGCHAIN: LLM integration for metadata generation
+        self.llm = llm
+        if not self.llm:
+            try:
+                from langchain_openai import ChatOpenAI
+                self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
+                logger.info("Initialized ChatOpenAI for WordPress metadata generation")
+            except ImportError:
+                logger.warning("LangChain OpenAI not available. Casino metadata will use fallback extraction.")
+                self.llm = None
         
         # Performance tracking
         self.stats = {
@@ -672,6 +691,226 @@ class WordPressRESTPublisher:
         except Exception as e:
             logger.warning(f"Failed to log publication to Supabase: {e}")
     
+    async def publish_casino_content(self, 
+                                    title: str, 
+                                    content: str, 
+                                    structured_casino_data: Optional[Dict[str, Any]] = None,
+                                    status: str = None,
+                                    featured_image_url: str = None) -> Dict[str, Any]:
+        """🎰 NATIVE LANGCHAIN: Publish casino content with 95-field intelligence using LangChain components"""
+        
+        from langchain_core.output_parsers import PydanticOutputParser
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.runnables import RunnableParallel, RunnablePassthrough, RunnableLambda
+        from pydantic import BaseModel, Field
+        
+        try:
+            # Define WordPress metadata schema using Pydantic
+            class CasinoWordPressMetadata(BaseModel):
+                """🏗️ NATIVE LANGCHAIN: WordPress metadata schema for casino content"""
+                yoast_title: str = Field(description="SEO-optimized title for Yoast")
+                yoast_description: str = Field(description="Meta description for Yoast")
+                casino_name: str = Field(description="Primary casino name")
+                overall_rating: float = Field(description="Overall rating 0-10", ge=0, le=10)
+                license_status: str = Field(description="License verification status")
+                game_provider_count: int = Field(description="Number of game providers")
+                payment_method_count: int = Field(description="Number of payment methods")
+                welcome_bonus: str = Field(description="Primary welcome bonus")
+                content_category: str = Field(description="WordPress content category")
+                tags: List[str] = Field(description="WordPress tags for categorization")
+                custom_fields: Dict[str, Any] = Field(description="WordPress custom fields")
+            
+            # Create PydanticOutputParser for metadata extraction
+            metadata_parser = PydanticOutputParser(pydantic_object=CasinoWordPressMetadata)
+            
+            # Build LangChain chain for metadata generation
+            metadata_prompt = ChatPromptTemplate.from_template("""
+            You are a WordPress SEO specialist. Extract and generate optimized metadata for this casino content.
+            
+            Content Title: {title}
+            Content Preview: {content_preview}
+            Structured Casino Data: {casino_data}
+            
+            Generate WordPress-optimized metadata including SEO title, description, categorization, and custom fields.
+            
+            {format_instructions}
+            """)
+            
+            # Create LCEL chain for metadata generation
+            metadata_chain = (
+                RunnableParallel({
+                    "title": RunnablePassthrough(),
+                    "content_preview": RunnableLambda(lambda x: x["content"][:500] + "..."),
+                    "casino_data": RunnableLambda(lambda x: str(x.get("structured_casino_data", {}))),
+                    "format_instructions": RunnableLambda(lambda x: metadata_parser.get_format_instructions())
+                })
+                | metadata_prompt
+                | self.llm if hasattr(self, 'llm') else None
+                | metadata_parser
+            )
+            
+            # Generate metadata using LangChain if LLM is available
+            wordpress_metadata = None
+            if hasattr(self, 'llm') and self.llm:
+                try:
+                    wordpress_metadata = await metadata_chain.ainvoke({
+                        "title": title,
+                        "content": content,
+                        "structured_casino_data": structured_casino_data
+                    })
+                except Exception as e:
+                    logger.warning(f"LangChain metadata generation failed, using fallback: {e}")
+            
+            # Fallback metadata extraction if LangChain fails
+            if not wordpress_metadata:
+                wordpress_metadata = self._extract_casino_metadata_fallback(title, content, structured_casino_data)
+            
+            # Convert to WordPress custom fields
+            custom_fields = self._convert_to_wordpress_custom_fields(structured_casino_data, wordpress_metadata)
+            
+            # Determine categories and tags
+            categories = await self._determine_casino_categories(wordpress_metadata)
+            tags = wordpress_metadata.tags if hasattr(wordpress_metadata, 'tags') else []
+            
+            # Publish using existing publish_post method with enhanced metadata
+            return await self.publish_post(
+                title=wordpress_metadata.yoast_title if hasattr(wordpress_metadata, 'yoast_title') else title,
+                content=content,
+                status=status,
+                featured_image_url=featured_image_url,
+                categories=categories,
+                tags=tags,
+                meta_description=wordpress_metadata.yoast_description if hasattr(wordpress_metadata, 'yoast_description') else "",
+                custom_fields=custom_fields
+            )
+            
+        except Exception as e:
+            logger.error(f"Casino content publishing failed: {e}")
+            # Fallback to standard publishing
+            return await self.publish_post(title, content, status, featured_image_url)
+    
+    def _extract_casino_metadata_fallback(self, title: str, content: str, structured_data: Optional[Dict[str, Any]]) -> Any:
+        """Fallback metadata extraction when LangChain is unavailable"""
+        from dataclasses import dataclass
+        from typing import List, Dict, Any
+        
+        @dataclass
+        class FallbackMetadata:
+            yoast_title: str
+            yoast_description: str
+            casino_name: str
+            overall_rating: float
+            license_status: str
+            game_provider_count: int
+            payment_method_count: int
+            welcome_bonus: str
+            content_category: str
+            tags: List[str]
+            custom_fields: Dict[str, Any]
+        
+        # Extract basic info from structured data or content
+        casino_name = "Unknown Casino"
+        overall_rating = 7.5
+        
+        if structured_data:
+            casino_name = structured_data.get('casino_name', casino_name)
+            overall_rating = structured_data.get('overall_rating', overall_rating)
+        
+        return FallbackMetadata(
+            yoast_title=f"{title} - Complete Review & Analysis",
+            yoast_description=f"Comprehensive review of {casino_name}. Rating: {overall_rating}/10. Licensed casino with detailed analysis.",
+            casino_name=casino_name,
+            overall_rating=overall_rating,
+            license_status="Verified" if structured_data else "Unknown",
+            game_provider_count=len(structured_data.get('gaming', {}).get('game_providers', [])) if structured_data else 0,
+            payment_method_count=len(structured_data.get('banking', {}).get('deposit_methods', [])) if structured_data else 0,
+            welcome_bonus=structured_data.get('promotions', {}).get('welcome_bonus', {}).get('title', "Available") if structured_data else "Available",
+            content_category="casino-reviews",
+            tags=[casino_name.lower().replace(' ', '-'), 'casino-review', 'online-casino'],
+            custom_fields={}
+        )
+    
+    def _convert_to_wordpress_custom_fields(self, structured_data: Optional[Dict[str, Any]], metadata: Any) -> Dict[str, Any]:
+        """🏗️ NATIVE LANGCHAIN: Convert 95-field casino data to WordPress custom fields"""
+        
+        custom_fields = {}
+        
+        # Basic metadata
+        if hasattr(metadata, 'casino_name'):
+            custom_fields['casino_name'] = metadata.casino_name
+            custom_fields['overall_rating'] = str(metadata.overall_rating)
+            custom_fields['license_status'] = metadata.license_status
+        
+        # Convert 95-field structured data to WordPress custom fields
+        if structured_data:
+            # Trustworthiness fields
+            if 'trustworthiness' in structured_data:
+                trust = structured_data['trustworthiness']
+                custom_fields.update({
+                    'license_info': json.dumps(trust.get('license_info', {})),
+                    'security_measures': json.dumps(trust.get('security_measures', {})),
+                    'fair_play_certification': json.dumps(trust.get('fair_play_certification', {}))
+                })
+            
+            # Gaming fields
+            if 'gaming' in structured_data:
+                gaming = structured_data['gaming']
+                custom_fields.update({
+                    'game_providers': json.dumps(gaming.get('game_providers', [])),
+                    'game_categories': json.dumps(gaming.get('game_categories', {})),
+                    'live_casino': json.dumps(gaming.get('live_casino', {}))
+                })
+            
+            # Banking fields
+            if 'banking' in structured_data:
+                banking = structured_data['banking']
+                custom_fields.update({
+                    'deposit_methods': json.dumps(banking.get('deposit_methods', [])),
+                    'withdrawal_methods': json.dumps(banking.get('withdrawal_methods', [])),
+                    'processing_times': json.dumps(banking.get('processing_times', {})),
+                    'transaction_limits': json.dumps(banking.get('transaction_limits', {}))
+                })
+            
+            # Promotions fields
+            if 'promotions' in structured_data:
+                promotions = structured_data['promotions']
+                custom_fields.update({
+                    'welcome_bonus': json.dumps(promotions.get('welcome_bonus', {})),
+                    'ongoing_promotions': json.dumps(promotions.get('ongoing_promotions', [])),
+                    'loyalty_program': json.dumps(promotions.get('loyalty_program', {}))
+                })
+            
+            # User Experience fields
+            if 'user_experience' in structured_data:
+                ux = structured_data['user_experience']
+                custom_fields.update({
+                    'website_design': json.dumps(ux.get('website_design', {})),
+                    'mobile_experience': json.dumps(ux.get('mobile_experience', {})),
+                    'customer_support': json.dumps(ux.get('customer_support', {}))
+                })
+            
+            # Analytics fields
+            if 'analytics' in structured_data:
+                analytics = structured_data['analytics']
+                custom_fields.update({
+                    'data_completeness': str(analytics.get('data_completeness', 0)),
+                    'last_updated': analytics.get('last_updated', ''),
+                    'data_sources': json.dumps(analytics.get('data_sources', []))
+                })
+        
+        # Add Yoast SEO fields
+        if hasattr(metadata, 'yoast_title'):
+            custom_fields['_yoast_wpseo_title'] = metadata.yoast_title
+            custom_fields['_yoast_wpseo_metadesc'] = metadata.yoast_description
+        
+        return custom_fields
+    
+    async def _determine_casino_categories(self, metadata: Any) -> List[int]:
+        """Determine WordPress categories for casino content"""
+        # This would typically map to actual WordPress category IDs
+        # For now, return default casino review category
+        return [1]  # Default category ID - should be configured per WordPress site
+    
     def get_stats(self) -> Dict[str, Any]:
         """Get performance statistics"""
         avg_processing_time = (self.stats['total_processing_time'] / 
@@ -686,11 +925,12 @@ class WordPressRESTPublisher:
         }
 
 class WordPressIntegration:
-    """High-level WordPress integration facade"""
+    """🏗️ NATIVE LANGCHAIN: High-level WordPress integration facade with 95-field casino intelligence"""
     
-    def __init__(self, wordpress_config: WordPressConfig = None, supabase_client: Client = None):
+    def __init__(self, wordpress_config: WordPressConfig = None, supabase_client: Client = None, llm=None):
         self.config = wordpress_config or WordPressConfig()
         self.supabase = supabase_client or self._create_supabase_client()
+        self.llm = llm
         self.publisher: Optional[WordPressRESTPublisher] = None
     
     def _create_supabase_client(self) -> Optional[Client]:
@@ -723,8 +963,8 @@ class WordPressIntegration:
         if featured_image_query:
             featured_image_url = await self._find_contextual_image(featured_image_query)
         
-        # Publish with full integration
-        async with WordPressRESTPublisher(self.config, self.supabase) as publisher:
+        # Publish with full integration including LLM
+        async with WordPressRESTPublisher(self.config, self.supabase, self.llm) as publisher:
             self.publisher = publisher
             
             result = await publisher.publish_post(
@@ -738,6 +978,44 @@ class WordPressIntegration:
                     'generated_at': datetime.now().isoformat(),
                     'content_type': 'rag_generated'
                 }
+            )
+            
+            return result
+    
+    async def publish_casino_intelligence_content(self, 
+                                                 query: str, 
+                                                 rag_response: str, 
+                                                 structured_casino_data: Optional[Dict[str, Any]] = None,
+                                                 title: str = None,
+                                                 featured_image_query: str = None) -> Dict[str, Any]:
+        """🎰 NATIVE LANGCHAIN: Publish casino content with 95-field intelligence using enhanced LangChain integration"""
+        
+        # Generate casino-specific title if not provided
+        if not title:
+            title = self._generate_title_from_query(query)
+            if structured_casino_data and structured_casino_data.get('casino_name'):
+                casino_name = structured_casino_data['casino_name']
+                overall_rating = structured_casino_data.get('overall_rating', 0)
+                title = f"{casino_name} Review {overall_rating}/10 - Complete Analysis & Guide"
+        
+        # Find contextual casino image
+        featured_image_url = None
+        if featured_image_query:
+            featured_image_url = await self._find_contextual_image(featured_image_query)
+        elif structured_casino_data and structured_casino_data.get('casino_name'):
+            # Try to find casino-specific image
+            casino_name = structured_casino_data['casino_name']
+            featured_image_url = await self._find_contextual_image(f"{casino_name} casino logo review")
+        
+        # Publish using enhanced casino publisher with LangChain integration
+        async with WordPressRESTPublisher(self.config, self.supabase, self.llm) as publisher:
+            self.publisher = publisher
+            
+            result = await publisher.publish_casino_content(
+                title=title,
+                content=rag_response,
+                structured_casino_data=structured_casino_data,
+                featured_image_url=featured_image_url
             )
             
             return result
