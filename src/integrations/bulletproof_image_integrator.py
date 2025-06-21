@@ -204,12 +204,12 @@ class SmartImageEmbedder:
             score = 0
             
             # Quality score bonus
-            if img.get('quality_score', 0) > 0.7:
+            if (img.get('quality_score', 0) or 0) > 0.7:
                 score += 3
             
             # Landscape orientation bonus
-            width = img.get('width', 0)
-            height = img.get('height', 0)
+            width = img.get('width', 0) or 0
+            height = img.get('height', 0) or 0
             if width > height and width >= 800:
                 score += 2
             

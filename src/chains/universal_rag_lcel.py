@@ -2215,29 +2215,37 @@ STRUCTURED CASINO INTELLIGENCE:""",
             return self._create_empty_casino_intelligence_dict()
     
     def _calculate_overall_rating(self, data: Dict[str, Any]) -> float:
-        """Calculate overall rating from structured data"""
+        """Calculate overall rating from structured data - WITH NULL SAFETY"""
         factors = []
         
-        # Trustworthiness factor
-        if data.get('trustworthiness', {}).get('license_authorities'):
+        # Trustworthiness factor - Handle None values
+        trustworthiness = data.get('trustworthiness', {}) or {}
+        license_authorities = trustworthiness.get('license_authorities', []) or []
+        if license_authorities:
             factors.append(8.0)  # Licensed casinos get high rating
         else:
             factors.append(4.0)
         
-        # Games factor
-        if data.get('games', {}).get('live_casino_available'):
+        # Games factor - Handle None values
+        games = data.get('games', {}) or {}
+        live_casino_available = games.get('live_casino_available', False) or False
+        if live_casino_available:
             factors.append(7.5)
         else:
             factors.append(6.0)
         
-        # Payments factor
-        if data.get('payments', {}).get('crypto_support'):
+        # Payments factor - Handle None values
+        payments = data.get('payments', {}) or {}
+        crypto_support = payments.get('crypto_support', False) or False
+        if crypto_support:
             factors.append(7.0)
         else:
             factors.append(6.5)
         
-        # User experience factor
-        if data.get('user_experience', {}).get('mobile_app_available'):
+        # User experience factor - Handle None values
+        user_experience = data.get('user_experience', {}) or {}
+        mobile_app_available = user_experience.get('mobile_app_available', False) or False
+        if mobile_app_available:
             factors.append(7.5)
         else:
             factors.append(6.0)
@@ -2245,75 +2253,87 @@ STRUCTURED CASINO INTELLIGENCE:""",
         return sum(factors) / len(factors) if factors else 5.0
     
     def _calculate_safety_score(self, data: Dict[str, Any]) -> float:
-        """Calculate safety score from structured data"""
+        """Calculate safety score from structured data - WITH NULL SAFETY"""
         score = 5.0  # Base score
         
-        trustworthiness = data.get('trustworthiness', {})
+        trustworthiness = data.get('trustworthiness', {}) or {}
         
-        # License bonus
-        if trustworthiness.get('license_authorities'):
+        # License bonus - Handle None values
+        license_authorities = trustworthiness.get('license_authorities', []) or []
+        if license_authorities:
             score += 2.0
         
-        # SSL bonus
-        if trustworthiness.get('ssl_certification'):
+        # SSL bonus - Handle None values
+        ssl_certification = trustworthiness.get('ssl_certification', False) or False
+        if ssl_certification:
             score += 1.0
         
-        # Responsible gambling bonus
-        if trustworthiness.get('responsible_gambling_tools'):
+        # Responsible gambling bonus - Handle None values
+        responsible_gambling_tools = trustworthiness.get('responsible_gambling_tools', []) or []
+        if responsible_gambling_tools:
             score += 1.0
         
-        # Age verification bonus
-        if trustworthiness.get('age_verification'):
+        # Age verification bonus - Handle None values
+        age_verification = trustworthiness.get('age_verification', False) or False
+        if age_verification:
             score += 1.0
         
         return min(10.0, score)
     
     def _calculate_player_experience_score(self, data: Dict[str, Any]) -> float:
-        """Calculate player experience score from structured data"""
+        """Calculate player experience score from structured data - WITH NULL SAFETY"""
         score = 5.0  # Base score
         
-        ux = data.get('user_experience', {})
-        games = data.get('games', {})
+        ux = data.get('user_experience', {}) or {}
+        games = data.get('games', {}) or {}
         
-        # Mobile app bonus
-        if ux.get('mobile_app_available'):
+        # Mobile app bonus - Handle None values
+        mobile_app_available = ux.get('mobile_app_available', False) or False
+        if mobile_app_available:
             score += 1.5
         
-        # Live chat bonus
-        if ux.get('live_chat_available'):
+        # Live chat bonus - Handle None values
+        live_chat_available = ux.get('live_chat_available', False) or False
+        if live_chat_available:
             score += 1.0
         
-        # Game variety bonus
-        if games.get('slot_count', 0) > 100:
+        # Game variety bonus - Handle None values
+        slot_count = games.get('slot_count', 0) or 0
+        if slot_count > 100:
             score += 1.0
         
-        # Live casino bonus
-        if games.get('live_casino_available'):
+        # Live casino bonus - Handle None values
+        live_casino_available = games.get('live_casino_available', False) or False
+        if live_casino_available:
             score += 1.5
         
         return min(10.0, score)
     
     def _calculate_value_score(self, data: Dict[str, Any]) -> float:
-        """Calculate value score from structured data"""
+        """Calculate value score from structured data - WITH NULL SAFETY"""
         score = 5.0  # Base score
         
-        bonuses = data.get('bonuses', {})
-        payments = data.get('payments', {})
+        bonuses = data.get('bonuses', {}) or {}
+        payments = data.get('payments', {}) or {}
         
-        # Welcome bonus bonus
-        if bonuses.get('welcome_bonus_amount'):
+        # Welcome bonus bonus - Handle None values
+        welcome_bonus_amount = bonuses.get('welcome_bonus_amount', '') or ''
+        if welcome_bonus_amount:
             score += 2.0
         
-        # Free spins bonus
-        if bonuses.get('free_spins_included'):
+        # Free spins bonus - Handle None values
+        free_spins_included = bonuses.get('free_spins_included', False) or False
+        if free_spins_included:
             score += 1.0
         
-        # Low fees bonus
-        if not payments.get('withdrawal_fees'):
+        # Low fees bonus - Handle None values
+        withdrawal_fees = payments.get('withdrawal_fees', False) or False
+        if not withdrawal_fees:
             score += 1.0
         
-        # Crypto support bonus
-        if payments.get('crypto_support'):
+        # Crypto support bonus - Handle None values
+        crypto_support = payments.get('crypto_support', False) or False
+        if crypto_support:
             score += 1.0
         
         return min(10.0, score)
@@ -2931,7 +2951,7 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         insights = []
         
         # Safety insights
-        safety_score = structured_data.get('safety_score', 0)
+        safety_score = structured_data.get('safety_score', 0) or 0
         if safety_score >= 8:
             insights.append("🛡️ **High Safety Rating**: This casino scores exceptionally well on safety and trustworthiness metrics.")
         elif safety_score >= 6:
@@ -2940,28 +2960,28 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
             insights.append("⚠️ **Safety Concerns**: Consider the safety rating when making your decision.")
         
         # Game variety insights
-        games = structured_data.get('games', {})
-        slot_count = games.get('slot_count', 0)
+        games = structured_data.get('games', {}) or {}
+        slot_count = games.get('slot_count', 0) or 0
         if slot_count >= 2000:
             insights.append("🎮 **Extensive Game Library**: With 2000+ slots, this casino offers exceptional game variety.")
         elif slot_count >= 1000:
             insights.append("🎮 **Large Game Selection**: Good variety with 1000+ slot games available.")
         
         # Payment insights
-        payments = structured_data.get('payments', {})
-        crypto_support = payments.get('crypto_support', False)
+        payments = structured_data.get('payments', {}) or {}
+        crypto_support = payments.get('crypto_support', False) or False
         if crypto_support:
             insights.append("₿ **Crypto-Friendly**: Supports cryptocurrency payments for modern players.")
         
         # Innovation insights
-        innovations = structured_data.get('innovations', {})
-        vr_gaming = innovations.get('vr_gaming', False)
-        ai_features = innovations.get('ai_personalization', False)
+        innovations = structured_data.get('innovations', {}) or {}
+        vr_gaming = innovations.get('vr_gaming', False) or False
+        ai_features = innovations.get('ai_personalization', False) or False
         if vr_gaming or ai_features:
             insights.append("🚀 **Technology Leader**: Features cutting-edge technology like VR gaming or AI personalization.")
         
         # Value insights
-        value_score = structured_data.get('value_score', 0)
+        value_score = structured_data.get('value_score', 0) or 0
         if value_score >= 8:
             insights.append("💰 **Excellent Value**: Offers outstanding value for money with generous bonuses and fair terms.")
         
@@ -2973,18 +2993,18 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         notices = []
         
         # Age verification
-        trustworthiness = structured_data.get('trustworthiness', {})
-        age_verification = trustworthiness.get('age_verification', False)
+        trustworthiness = structured_data.get('trustworthiness', {}) or {}
+        age_verification = trustworthiness.get('age_verification', False) or False
         if age_verification:
             notices.append("🔞 **Age Verification Required**: Must be 18+ to play (21+ in some jurisdictions).")
         
         # Licensing information
-        license_authorities = trustworthiness.get('license_authorities', [])
+        license_authorities = trustworthiness.get('license_authorities', []) or []
         if license_authorities:
             notices.append(f"📋 **Licensed Operation**: Regulated by {', '.join(license_authorities[:2])}.")
         
         # Responsible gambling
-        responsible_tools = trustworthiness.get('responsible_gambling_tools', [])
+        responsible_tools = trustworthiness.get('responsible_gambling_tools', []) or []
         if responsible_tools:
             notices.append("🛡️ **Responsible Gambling**: Tools available for deposit limits, time limits, and self-exclusion.")
         
@@ -2996,9 +3016,9 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
     def _generate_data_quality_indicator(self, structured_data: Dict[str, Any]) -> str:
         """Generate data quality and freshness indicator"""
         
-        extraction_timestamp = structured_data.get('extraction_timestamp', '')
-        confidence_score = structured_data.get('confidence_score', 0)
-        data_sources = structured_data.get('data_sources', [])
+        extraction_timestamp = structured_data.get('extraction_timestamp', '') or ''
+        confidence_score = structured_data.get('confidence_score', 0) or 0
+        data_sources = structured_data.get('data_sources', []) or []
         
         quality_parts = []
         
@@ -3047,8 +3067,67 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         # Start with the generated content
         enhanced_content = content
         
-        # Add images if available
-        if self._last_images:
+        # ✅ V1 PATTERN: Upload images to WordPress first, then embed WordPress URLs
+        if self._last_images and self.enable_wordpress_publishing:
+            try:
+                from integrations.bulletproof_image_uploader_v1 import create_bulletproof_uploader
+                
+                # Create V1 bulletproof uploader
+                uploader = create_bulletproof_uploader()
+                
+                if uploader:
+                    # Extract image URLs from DataForSEO results
+                    image_urls = []
+                    for img in self._last_images:
+                        if isinstance(img, dict) and img.get('url'):
+                            image_urls.append(img['url'])
+                        elif isinstance(img, str):
+                            image_urls.append(img)
+                    
+                    if image_urls:
+                        print(f"🔫 V1 Pattern: Uploading {len(image_urls)} images to WordPress...")
+                        
+                        # Upload images to WordPress media library
+                        upload_results = uploader.process_images_batch(image_urls, "casino_review")
+                        
+                        # Create WordPress-hosted image list for embedding
+                        wordpress_images = []
+                        for result in upload_results:
+                            if result.get('success'):
+                                wordpress_images.append({
+                                    'url': result['source_url'],
+                                    'id': result['id'],
+                                    'title': result.get('title', ''),
+                                    'alt_text': result.get('alt_text', '')
+                                })
+                        
+                        if wordpress_images:
+                            # Embed WordPress-hosted images in content
+                            enhanced_content = self._embed_wordpress_images_in_content(enhanced_content, wordpress_images)
+                            
+                            logging.info(f"🔫 V1 SUCCESS: Uploaded {len(wordpress_images)} images to WordPress and embedded in content")
+                            print(f"🔫 V1 SUCCESS: {len(wordpress_images)}/{len(image_urls)} images uploaded to WordPress")
+                            
+                            # Update stats
+                            stats = uploader.get_stats()
+                            print(f"📊 Upload Stats: {stats['upload_success_rate']} success rate")
+                        else:
+                            logging.warning("V1 Pattern: No images successfully uploaded to WordPress")
+                            # Fallback to basic embedding with external URLs
+                            enhanced_content = self._embed_images_in_content(enhanced_content, self._last_images)
+                    else:
+                        logging.warning("V1 Pattern: No valid image URLs found")
+                else:
+                    logging.warning("V1 Pattern: Could not create WordPress uploader (missing credentials)")
+                    # Fallback to basic embedding
+                    enhanced_content = self._embed_images_in_content(enhanced_content, self._last_images)
+                    
+            except Exception as e:
+                logging.warning(f"V1 Pattern failed: {e}")
+                # Fallback to basic embedding
+                enhanced_content = self._embed_images_in_content(enhanced_content, self._last_images)
+        elif self._last_images:
+            # WordPress publishing disabled, use basic embedding
             enhanced_content = self._embed_images_in_content(enhanced_content, self._last_images)
         
         # Add compliance notices if needed
@@ -3318,6 +3397,61 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
 </figure>
 '''
             content += img_html
+        
+        return content
+    
+    def _embed_wordpress_images_in_content(self, content: str, wordpress_images: List[Dict[str, Any]]) -> str:
+        """Embed WordPress-hosted images into content with proper HTML formatting"""
+        if not wordpress_images:
+            return content
+        
+        # Find a good place to insert the first image (after title or first paragraph)
+        lines = content.split('\\n')
+        insert_position = 0
+        
+        # Look for title (# heading) and insert after it
+        for i, line in enumerate(lines):
+            if line.startswith('# ') and i + 2 < len(lines):
+                insert_position = i + 2  # After title and one empty line
+                break
+            elif line.strip() and not line.startswith('#') and i + 1 < len(lines):
+                insert_position = i + 1  # After first paragraph
+                break
+        
+        # Insert hero image (first image) prominently
+        if wordpress_images:
+            hero_img = wordpress_images[0]
+            hero_html = f'''
+<figure class="wp-block-image size-large hero-image">
+    <img src="{hero_img.get('url', '')}" 
+         alt="{hero_img.get('alt_text', 'Casino Review Image')}" 
+         title="{hero_img.get('title', '')}"
+         class="wp-image-{hero_img.get('id', '')}"
+         loading="eager">
+    <figcaption class="wp-element-caption">{hero_img.get('alt_text', 'Casino Review Image')}</figcaption>
+</figure>
+'''
+            lines.insert(insert_position, hero_html)
+        
+        # Add remaining images as a gallery at the end
+        if len(wordpress_images) > 1:
+            content = '\\n'.join(lines)
+            content += "\\n\\n## Image Gallery\\n"
+            
+            for i, img in enumerate(wordpress_images[1:], 2):  # Skip first image
+                img_html = f'''
+<figure class="wp-block-image size-medium gallery-image">
+    <img src="{img.get('url', '')}" 
+         alt="{img.get('alt_text', f'Casino Image {i}')}" 
+         title="{img.get('title', '')}"
+         class="wp-image-{img.get('id', '')}"
+         loading="lazy">
+    <figcaption class="wp-element-caption">{img.get('alt_text', f'Casino Image {i}')}</figcaption>
+</figure>
+'''
+                content += img_html
+        else:
+            content = '\\n'.join(lines)
         
         return content
     

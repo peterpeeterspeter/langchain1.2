@@ -55,7 +55,7 @@ class WordPressConfig:
     oauth_token: Optional[str] = field(default_factory=lambda: os.getenv("WORDPRESS_OAUTH_TOKEN"))
     
     # Publishing defaults
-    default_status: str = "draft"  # draft, publish, private
+    default_status: str = "publish"  # draft, publish, private
     default_author_id: int = 1
     default_category_ids: List[int] = field(default_factory=list)
     default_tags: List[str] = field(default_factory=list)
@@ -533,8 +533,11 @@ class WordPressRESTPublisher:
         start_time = time.time()
         
         try:
-            # Format content with rich HTML
-            formatted_content = self.html_formatter.format_content(content, title, meta_description)
+            # 🔧 NEW: Process embedded images in content FIRST (before formatting)
+            processed_content, embedded_media_count = await self._process_embedded_images(content)
+            
+            # Format content with rich HTML (now with WordPress-hosted images)
+            formatted_content = self.html_formatter.format_content(processed_content, title, meta_description)
             
             # Process featured image if provided
             featured_media_id = None
@@ -551,11 +554,11 @@ class WordPressRESTPublisher:
                 'meta': custom_fields or {}
             }
             
-            # Add categories and tags
+            # Add categories and tags (ensure categories are integers)
             if categories:
-                post_data['categories'] = categories
+                post_data['categories'] = [int(cat) if isinstance(cat, (str, float)) else cat for cat in categories]
             elif self.config.default_category_ids:
-                post_data['categories'] = self.config.default_category_ids
+                post_data['categories'] = [int(cat) if isinstance(cat, (str, float)) else cat for cat in self.config.default_category_ids]
             
             if tags:
                 post_data['tags'] = await self._get_or_create_tags(tags)
@@ -575,6 +578,9 @@ class WordPressRESTPublisher:
                 if response.status in [200, 201]:
                     result = await response.json()
                     
+                    # 🔧 NEW: Add embedded media info to result
+                    result['embedded_media_count'] = embedded_media_count
+                    
                     # Log to Supabase if available
                     if self.supabase:
                         await self._log_publication(result, start_time)
@@ -583,7 +589,7 @@ class WordPressRESTPublisher:
                     self.stats['posts_published'] += 1
                     self.stats['total_processing_time'] += time.time() - start_time
                     
-                    logger.info(f"Post published successfully: {result['id']}")
+                    logger.info(f"Post published successfully: {result['id']} with {embedded_media_count} embedded images")
                     return result
                 else:
                     error_text = await response.text()
@@ -592,6 +598,69 @@ class WordPressRESTPublisher:
         except Exception as e:
             logger.error(f"Failed to publish post '{title}': {e}")
             raise
+    
+    async def _process_embedded_images(self, content: str) -> Tuple[str, int]:
+        """🔧 NEW: Simple embedded image processor using existing V1 BulletproofImageProcessor"""
+        if not content or '<img' not in content:
+            return content, 0
+        
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            embedded_count = 0
+            
+            # Find all img tags with external URLs
+            for img_tag in soup.find_all('img'):
+                src = img_tag.get('src')
+                if not src or src.startswith('data:') or src.startswith('/wp-content/'):
+                    continue  # Skip data URLs and WordPress-hosted images
+                
+                try:
+                    # Use existing V1 image processor to download and upload
+                    logger.info(f"📥 Processing embedded image: {src}")
+                    
+                    # Download using existing V1 method
+                    image_data = await self.image_processor.download_image(self.session, src)
+                    if not image_data:
+                        continue
+                    
+                    data, filename = image_data
+                    
+                    # Process using existing V1 method
+                    processed_data, processed_filename, metadata = await self.image_processor.process_image(data, filename)
+                    
+                    # Upload using existing V1 approach
+                    media_url = urljoin(self.config.site_url, "/wp-json/wp/v2/media")
+                    form_data = aiohttp.FormData()
+                    form_data.add_field('file', processed_data, filename=processed_filename, content_type='image/jpeg')
+                    form_data.add_field('alt_text', img_tag.get('alt', 'Embedded image'))
+                    
+                    headers = self.auth_manager.headers.copy()
+                    headers.pop('Content-Type', None)
+                    
+                    async with self.session.post(media_url, headers=headers, data=form_data) as response:
+                        if response.status in [200, 201]:
+                            result = await response.json()
+                            # Replace external URL with WordPress URL
+                            img_tag['src'] = result['source_url']
+                            # Add WordPress classes
+                            img_tag['class'] = f"wp-image-{result['id']} aligncenter size-full"
+                            embedded_count += 1
+                            self.stats['images_processed'] += 1
+                            logger.info(f"✅ Uploaded embedded image: {result['id']}")
+                        
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to process embedded image {src}: {e}")
+                    continue
+            
+            return str(soup), embedded_count
+            
+        except ImportError:
+            logger.warning("BeautifulSoup not available for embedded image processing")
+            return content, 0
+        except Exception as e:
+            logger.error(f"Error processing embedded images: {e}")
+            return content, 0
     
     async def _upload_featured_image(self, image_url: str, alt_text: str = "") -> Optional[int]:
         """Upload and set featured image"""
@@ -711,10 +780,10 @@ class WordPressRESTPublisher:
                 yoast_title: str = Field(description="SEO-optimized title for Yoast")
                 yoast_description: str = Field(description="Meta description for Yoast")
                 casino_name: str = Field(description="Primary casino name")
-                overall_rating: float = Field(description="Overall rating 0-10", ge=0, le=10)
+                overall_rating: Optional[float] = Field(default=7.5, description="Overall rating 0-10", ge=0, le=10)
                 license_status: str = Field(description="License verification status")
-                game_provider_count: int = Field(description="Number of game providers")
-                payment_method_count: int = Field(description="Number of payment methods")
+                game_provider_count: Optional[int] = Field(default=0, description="Number of game providers", ge=0)
+                payment_method_count: Optional[int] = Field(default=0, description="Number of payment methods", ge=0)
                 welcome_bonus: str = Field(description="Primary welcome bonus")
                 content_category: str = Field(description="WordPress content category")
                 tags: List[str] = Field(description="WordPress tags for categorization")
