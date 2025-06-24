@@ -1,0 +1,81 @@
+{
+  "demo_info": {
+    "timestamp": "2025-06-23T12:34:46.200498",
+    "total_time": 485.90400981903076,
+    "successful_posts": 0,
+    "total_test_cases": 3
+  },
+  "content_generation": {
+    "time": 481.1274302005768,
+    "content_length": 26075,
+    "confidence_score": 0.7382850609756098,
+    "images_found": 0,
+    "casino_intelligence_available": false
+  },
+  "publishing_results": [
+    {
+      "test_case": 1,
+      "title": "Bitcasino Review 2025 - Complete Casino Analysis",
+      "description": "Main casino review (should detect as mt_listing)",
+      "result": {
+        "success": false,
+        "main_post": {
+          "success": false,
+          "error": "'CoinflipMTCasinoPublisher' object has no attribute '_make_wp_request'"
+        },
+        "errors": [],
+        "processing_time": 0.000815,
+        "mt_casino_features_used": [
+          "Fallback with MT Casino styling"
+        ]
+      },
+      "publish_time": 0.0008902549743652344
+    },
+    {
+      "test_case": 2,
+      "title": "Bitcasino Welcome Bonus - Up to 1 BTC + 100 Free Spins",
+      "description": "Bonus-focused content (should detect as mt_bonus)",
+      "result": {
+        "success": false,
+        "main_post": {
+          "success": false,
+          "error": "'CoinflipMTCasinoPublisher' object has no attribute '_make_wp_request'"
+        },
+        "errors": [],
+        "processing_time": 0.000678,
+        "mt_casino_features_used": [
+          "Fallback with MT Casino styling"
+        ]
+      },
+      "publish_time": 0.0007030963897705078
+    },
+    {
+      "test_case": 3,
+      "title": "Bitcasino Slot Games - 2000+ Slots from Top Providers",
+      "description": "Slot-focused content (should detect as mt_slots)",
+      "result": {
+        "success": false,
+        "main_post": {
+          "success": false,
+          "error": "'CoinflipMTCasinoPublisher' object has no attribute '_make_wp_request'"
+        },
+        "errors": [],
+        "processing_time": 0.000553,
+        "mt_casino_features_used": [
+          "Fallback with MT Casino styling"
+        ]
+      },
+      "publish_time": 0.0005729198455810547
+    }
+  ],
+  "mt_casino_integration": {
+    "enhanced_publisher_used": true,
+    "post_types_tested": [
+      "mt_listing",
+      "mt_bonus",
+      "mt_slots"
+    ],
+    "fallback_mechanism_available": true,
+    "custom_field_mapping": true
+  }
+}

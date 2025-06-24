@@ -1,264 +1,293 @@
 #!/usr/bin/env python3
 """
-🚀 BETWAY CASINO REVIEW - WORDPRESS PUBLISHER
-==============================================
-
-Publishes the generated Betway Casino review from Supabase to WordPress
-using the Enhanced Casino WordPress Publisher from Task 18.
-
-Author: AI Assistant
-Date: 2025-01-20
+🎰 BETWAY CASINO REVIEW - LIVE WORDPRESS PUBLISHING
+Publishes comprehensive Betway casino review with all 13 Universal RAG CMS features to crashcasino.io
 """
 
-import sys
-import os
 import asyncio
+import os
+import sys
 from datetime import datetime
+from pathlib import Path
 
-# Add src to path for imports
-sys.path.append(os.path.join(os.path.dirname(__file__), 'src'))
+# Add the src directory to Python path
+sys.path.insert(0, str(Path(__file__).parent / 'src'))
 
-# Core imports
-from supabase import create_client
-import requests
-import json
-from typing import Dict, Any, List, Optional
+# Import the Universal RAG Chain and WordPress integration
+from chains.universal_rag_lcel import create_universal_rag_chain
+from integrations.wordpress_publisher import WordPressConfig, WordPressIntegration
 
-class WordPressPublisher:
-    """Enhanced WordPress publisher for casino reviews"""
+async def publish_betway_to_crashcasino():
+    """
+    Generate and publish a comprehensive Betway casino review to crashcasino.io
+    """
+    print("🎰 BETWAY CASINO REVIEW - LIVE WORDPRESS PUBLISHING")
+    print("🌐 Target: crashcasino.io")
+    print("=" * 60)
     
-    def __init__(self):
-        self.wp_url = os.getenv('WORDPRESS_URL', 'https://your-wordpress-site.com')
-        self.wp_username = os.getenv('WORDPRESS_USERNAME')
-        self.wp_password = os.getenv('WORDPRESS_APP_PASSWORD')
-        
-    async def publish_casino_review(self, casino_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Publish casino review to WordPress"""
-        try:
-            # Prepare WordPress post data
-            post_data = {
-                'title': f"{casino_data['name']} Review: Comprehensive Analysis 2025",
-                'content': self._format_review_for_wordpress(casino_data),
-                'status': 'publish',
-                'categories': [1],  # Casino Reviews category
-                'tags': ['casino review', 'online casino', casino_data['name'].lower()],
-                'meta': {
-                    'casino_rating': casino_data.get('rating', 0),
-                    'review_date': datetime.now().isoformat(),
-                    'casino_name': casino_data['name']
-                }
-            }
-            
-            # WordPress REST API endpoint
-            api_endpoint = f"{self.wp_url}/wp-json/wp/v2/posts"
-            
-            # Prepare authentication
-            auth = (self.wp_username, self.wp_password)
-            
-            # Make the request
-            response = requests.post(
-                api_endpoint,
-                json=post_data,
-                auth=auth,
-                headers={'Content-Type': 'application/json'}
-            )
-            
-            if response.status_code == 201:
-                result = response.json()
-                return {
-                    'success': True,
-                    'post_id': result['id'],
-                    'url': result['link'],
-                    'title': result['title']['rendered']
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"WordPress API error: {response.status_code} - {response.text}"
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f"Publishing error: {str(e)}"
-            }
+    # WordPress credentials for crashcasino.io (from memory)
+    wordpress_config = WordPressConfig(
+        site_url="https://www.crashcasino.io",
+        username="nmlwh",
+        application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c",
+        default_status="publish",  # Publish immediately
+        default_author_id=1,
+        default_category_ids=[1],  # Default category
+        max_concurrent_uploads=3,
+        request_timeout=60  # Longer timeout for large content
+    )
     
-    def _format_review_for_wordpress(self, casino_data: Dict[str, Any]) -> str:
-        """Format casino review content for WordPress"""
-        content = casino_data['review_content']
-        
-        # Add rating box at the top
-        rating_box = f"""
-<div class="casino-rating-box" style="background: #f8f9fa; border: 2px solid #007cba; padding: 20px; margin: 20px 0; border-radius: 8px;">
-    <h3 style="margin-top: 0; color: #007cba;">⭐ Overall Rating: {casino_data.get('rating', 'N/A')}/10</h3>
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
-        <div>
-            <h4 style="color: #28a745; margin-bottom: 10px;">✅ Pros:</h4>
-            <ul>
-                {''.join([f'<li>{pro}</li>' for pro in casino_data.get('pros', [])])}
-            </ul>
-        </div>
-        <div>
-            <h4 style="color: #dc3545; margin-bottom: 10px;">❌ Cons:</h4>
-            <ul>
-                {''.join([f'<li>{con}</li>' for con in casino_data.get('cons', [])])}
-            </ul>
-        </div>
-    </div>
-</div>
-"""
-        
-        # Add bonus information
-        bonuses = casino_data.get('bonuses', {})
-        if bonuses:
-            bonus_section = f"""
-<div class="bonus-highlight" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; margin: 20px 0; border-radius: 5px;">
-    <h3 style="margin-top: 0;">🎁 Welcome Bonus</h3>
-    <p><strong>{bonuses.get('welcome_bonus', 'Contact casino for details')}</strong></p>
-    <p><small>Wagering Requirements: {bonuses.get('wagering_requirements', 'Check T&C')}</small></p>
-</div>
-"""
-            content = rating_box + bonus_section + content
-        else:
-            content = rating_box + content
-        
-        # Add licensing information
-        licensing = casino_data.get('licensing', [])
-        if licensing:
-            license_section = f"""
-<div class="licensing-info" style="background: #e8f5e8; border: 1px solid #c3e6c3; padding: 15px; margin: 20px 0; border-radius: 5px;">
-    <h3 style="margin-top: 0;">🏛️ Licensed & Regulated By:</h3>
-    <ul>
-        {''.join([f'<li>{license}</li>' for license in licensing])}
-    </ul>
-</div>
-"""
-            content = content + license_section
-        
-        # Add disclaimer
-        disclaimer = """
-<div class="disclaimer" style="background: #f8f9fa; border-left: 4px solid #007cba; padding: 15px; margin: 30px 0; font-size: 14px;">
-    <p><strong>Disclaimer:</strong> This review is for informational purposes only. Gambling can be addictive. Please play responsibly and only gamble what you can afford to lose. This content may contain affiliate links.</p>
-</div>
-"""
-        
-        return content + disclaimer
+    print(f"📝 WordPress Site: {wordpress_config.site_url}")
+    print(f"👤 Publishing User: {wordpress_config.username}")
+    print(f"🔐 Authentication: Application Password")
+    print(f"📊 Status: {wordpress_config.default_status}")
+    
+    # Create WordPress integration
+    try:
+        wp_integration = WordPressIntegration(
+            wordpress_config=wordpress_config,
+            supabase_client=None  # Will auto-initialize if needed
+        )
+        print("✅ WordPress integration initialized")
+    except Exception as e:
+        print(f"❌ WordPress integration failed: {e}")
+        return None
+    
+    # Create Universal RAG Chain with ALL features enabled
+    print("\n🚀 Initializing Universal RAG Chain...")
+    print("📋 Features: ALL 13 advanced features enabled")
+    
+    chain = create_universal_rag_chain(
+        enable_hyperlink_generation=True,      # ✅ Authoritative hyperlinks
+        enable_wordpress_publishing=False,     # ✅ We'll handle manually for better control
+        enable_comprehensive_web_research=True, # ✅ 95-field casino analysis
+        enable_dataforseo_images=True,         # ✅ Professional images
+        enable_template_system_v2=True,       # ✅ Advanced templates
+        enable_enhanced_confidence=True,      # ✅ Enhanced confidence scoring
+        enable_prompt_optimization=True,      # ✅ Optimized prompts
+        enable_contextual_retrieval=True,     # ✅ Smart retrieval
+        enable_fti_processing=True,           # ✅ Content processing
+        enable_security=True,                 # ✅ Security features
+        enable_profiling=True,                # ✅ Performance monitoring
+        enable_web_search=True,               # ✅ Tavily web search
+        enable_response_storage=True,         # ✅ Response storage
+        enable_caching=True,                  # ✅ Smart caching
+        model_name="gpt-4o-mini",
+        temperature=0.1
+    )
+    
+    print("✅ Universal RAG Chain initialized with all 13 features")
+    
+    # Comprehensive casino review query
+    betway_query = """Create a comprehensive, professional Betway casino review for 2025 that covers:
 
-async def main():
-    """Main publishing function"""
-    print("🚀 Starting Betway Casino Review WordPress Publishing...")
+    LICENSING & REGULATION:
+    - Malta Gaming Authority and UK Gambling Commission licenses
+    - Regulatory compliance and player protection measures
+    - Legal status in different jurisdictions
+    
+    GAME SELECTION & SOFTWARE:
+    - Detailed game portfolio analysis (slots, table games, live casino)
+    - Software provider partnerships (NetEnt, Evolution Gaming, Microgaming, etc.)
+    - Game quality, RTP rates, and unique offerings
+    - Mobile compatibility and performance
+    
+    BONUSES & PROMOTIONS:
+    - Welcome bonus package with exact terms and conditions
+    - Ongoing promotions and VIP program details
+    - Wagering requirements and bonus abuse prevention
+    - Cashback and loyalty rewards
+    
+    BANKING & PAYMENTS:
+    - Complete payment method analysis (cards, e-wallets, crypto)
+    - Deposit and withdrawal limits, processing times
+    - Transaction fees and currency support
+    - Security measures for financial transactions
+    
+    SECURITY & FAIRNESS:
+    - SSL encryption and data protection protocols
+    - Game fairness and RNG certification
+    - Responsible gambling tools and self-exclusion options
+    - Problem gambling support resources
+    
+    USER EXPERIENCE:
+    - Website design, navigation, and functionality
+    - Mobile app performance and features
+    - Customer support quality and availability
+    - Account verification process
+    
+    PROS & CONS:
+    - Balanced assessment of strengths and weaknesses
+    - Comparison with competitor casinos
+    - Value proposition for different player types
+    
+    FINAL VERDICT:
+    - Overall rating out of 10 with detailed justification
+    - Target audience recommendations
+    - Key takeaways and actionable insights
+    
+    Include FAQ section addressing common player concerns. Make it comprehensive, accurate, and engaging for both novice and experienced players."""
+    
+    print(f"\n📝 Generating comprehensive Betway casino review...")
+    print(f"🔍 Query Length: {len(betway_query):,} characters")
+    print("⚡ Processing with all advanced features...")
+    
+    start_time = datetime.now()
     
     try:
-        # Initialize Supabase client
-        supabase_url = 'https://ambjsovdhizjxwhhnbtd.supabase.co'
-        supabase_key = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
+        # Generate the comprehensive review
+        response = await chain.ainvoke({'query': betway_query})
         
-        if not supabase_key:
-            print("❌ SUPABASE_SERVICE_ROLE_KEY environment variable not set")
-            return
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
         
-        supabase = create_client(supabase_url, supabase_key)
-        print("✅ Connected to Supabase")
+        print(f"\n✅ CONTENT GENERATION COMPLETE!")
+        print(f"📄 Content Length: {len(response.answer):,} characters")
+        print(f"🎯 Confidence Score: {response.confidence_score:.3f}")
+        print(f"⏱️ Processing Time: {processing_time:.2f} seconds")
+        print(f"📚 Sources Used: {len(response.sources)}")
         
-        # Retrieve the complete Betway review from Supabase
-        print("📖 Retrieving Betway review from database...")
-        response = supabase.table('documents').select('content').eq('metadata->>article_id', '117').execute()
+        # Check for hyperlinks
+        hyperlink_count = response.answer.count('<a href="http')
+        print(f"🔗 Authoritative Hyperlinks: {hyperlink_count}")
         
-        if not response.data:
-            print('❌ No Betway review found in database')
-            return
+        # Show sample hyperlinks
+        if hyperlink_count > 0:
+            print("\n🔗 EMBEDDED HYPERLINKS:")
+            import re
+            links = re.findall(r'<a href="(https?://[^"]+)"[^>]*>([^<]+)</a>', response.answer)
+            for i, (url, text) in enumerate(links[:7], 1):
+                print(f"  {i}. [{text}]({url})")
         
-        # Combine all content sections
-        review_sections = [item['content'] for item in response.data]
-        full_review = '\n\n'.join(review_sections)
+        # Extract title from content
+        title_match = re.search(r'#\s*([^#\n]+)', response.answer)
+        if title_match:
+            article_title = title_match.group(1).strip()
+        else:
+            article_title = "Betway Casino Review 2025: Complete Analysis & Rating"
         
-        print(f'✅ Retrieved review: {len(full_review)} characters')
-        print(f"📝 Content preview: {full_review[:200]}...")
+        print(f"\n📰 Article Title: {article_title}")
         
-        # Initialize WordPress publisher
-        publisher = WordPressPublisher()
+        # Save locally first
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        local_filename = f"betway_wordpress_{timestamp}.md"
         
-        # Prepare casino data for WordPress
-        casino_data = {
-            'name': 'Betway Casino',
-            'review_content': full_review,
-            'rating': 8.5,  # Based on review analysis
-            'pros': [
-                'Strong licensing from UKGC and other authorities',
-                'Over 450 games including slots, table games, live casino',
-                'Mobile-optimized platform and dedicated app',
-                'Quick payouts, especially with e-wallets',
-                'Responsible gambling tools and player safety'
-            ],
-            'cons': [
-                'High wagering requirements (up to 50x)',
-                'Limited ongoing promotions beyond welcome bonus',
-                'Smaller table game selection compared to competitors'
-            ],
-            'bonuses': {
-                'welcome_bonus': '100% deposit match up to $1,000',
-                'wagering_requirements': '50x deposit + bonus'
-            },
-            'licensing': [
-                'UK Gambling Commission (UKGC)',
-                'Alderney Gambling Control Commission', 
-                'New Jersey Division of Gaming Enforcement',
-                'Pennsylvania Gaming Control Board'
-            ]
-        }
+        with open(local_filename, 'w', encoding='utf-8') as f:
+            f.write(response.answer)
         
-        print("🚀 Publishing to WordPress...")
+        print(f"💾 Article saved locally: {local_filename}")
         
-        # Check if WordPress credentials are available
-        if not all([os.getenv('WORDPRESS_URL'), os.getenv('WORDPRESS_USERNAME'), os.getenv('WORDPRESS_APP_PASSWORD')]):
-            print("⚠️  WordPress credentials not configured. Simulating publication...")
-            print("📝 Review ready for WordPress publishing:")
-            print(f"   Title: {casino_data['name']} Review: Comprehensive Analysis 2025")
-            print(f"   Content Length: {len(casino_data['review_content'])} characters")
-            print(f"   Rating: {casino_data['rating']}/10")
-            print(f"   Pros: {len(casino_data['pros'])} items")
-            print(f"   Cons: {len(casino_data['cons'])} items")
-            print("✅ Review formatted and ready for WordPress!")
-            
-            # Update Supabase to mark as ready for publishing
-            update_result = supabase.table('casino_reviews').update({
-                'title': f"{casino_data['name']} Review: Comprehensive Analysis 2025",
-                'full_review': full_review,
-                'rating': casino_data['rating'],
-                'published': False,  # Set to True when actually published
-                'review_text': full_review[:1000] + '...' if len(full_review) > 1000 else full_review
-            }).eq('casino_name', 'Betway Casino Review Casino').execute()
-            
-            print("✅ Updated Supabase with review metadata")
-            return
+        # Extract meta description (first paragraph)
+        meta_description = ""
+        paragraphs = re.findall(r'<p>([^<]+)</p>', response.answer)
+        if paragraphs:
+            meta_description = paragraphs[0][:155] + "..." if len(paragraphs[0]) > 155 else paragraphs[0]
+        else:
+            # Fallback: get first sentence after title
+            content_without_title = re.sub(r'^#[^#\n]+\n+', '', response.answer, flags=re.MULTILINE)
+            first_sentence = content_without_title.split('.')[0]
+            meta_description = (first_sentence[:155] + "...") if len(first_sentence) > 155 else first_sentence
+        
+        print(f"📝 Meta Description: {meta_description}")
         
         # Publish to WordPress
-        result = await publisher.publish_casino_review(casino_data)
+        print(f"\n🚀 PUBLISHING TO WORDPRESS...")
+        print(f"🌐 Publishing to: {wordpress_config.site_url}")
         
-        if result.get('success'):
-            print(f'🎉 SUCCESS: Published to WordPress!')
-            print(f'📝 Post ID: {result.get("post_id")}')
-            print(f'🔗 URL: {result.get("url")}')
-            print(f'📄 Title: {result.get("title")}')
+        wp_start_time = datetime.now()
+        
+        try:
+            # Use casino intelligence publishing for better categorization
+            publish_result = await wp_integration.publish_casino_intelligence_content(
+                query=betway_query,
+                rag_response=response.answer,
+                structured_casino_data=response.metadata.get('structured_casino_data'),
+                title=article_title,
+                featured_image_query="Betway casino review 2025 professional"
+            )
             
-            # Update Supabase with WordPress info
-            update_result = supabase.table('casino_reviews').update({
-                'wordpress_post_id': result.get('post_id'),
-                'wordpress_url': result.get('url'),
-                'published': True,
-                'title': result.get('title'),
-                'full_review': full_review,
-                'rating': casino_data['rating']
-            }).eq('casino_name', 'Betway Casino Review Casino').execute()
+            wp_end_time = datetime.now()
+            wp_processing_time = (wp_end_time - wp_start_time).total_seconds()
             
-            print('✅ Updated Supabase with WordPress publishing info')
-        else:
-            print(f'❌ Publishing failed: {result.get("error")}')
+            if publish_result.get('success'):
+                wordpress_url = publish_result.get('post_url', '')
+                post_id = publish_result.get('post_id', '')
+                
+                print(f"\n🎉 WORDPRESS PUBLISHING SUCCESS!")
+                print(f"📝 Article URL: {wordpress_url}")
+                print(f"🆔 Post ID: {post_id}")
+                print(f"📊 Publishing Time: {wp_processing_time:.2f} seconds")
+                print(f"🏷️ Categories: {publish_result.get('categories', [])}")
+                print(f"🔖 Tags: {publish_result.get('tags', [])}")
+                
+                if publish_result.get('featured_image_id'):
+                    print(f"🖼️ Featured Image ID: {publish_result.get('featured_image_id')}")
+                
+                # Final summary
+                print(f"\n" + "="*70)
+                print(f"🎯 BETWAY CASINO REVIEW - PUBLICATION COMPLETE")
+                print(f"="*70)
+                print(f"✅ Content Generated: {len(response.answer):,} characters")
+                print(f"✅ Hyperlinks Embedded: {hyperlink_count}")
+                print(f"✅ Generation Time: {processing_time:.2f}s")
+                print(f"✅ Publishing Time: {wp_processing_time:.2f}s")
+                print(f"✅ Total Time: {(processing_time + wp_processing_time):.2f}s")
+                print(f"✅ Confidence Score: {response.confidence_score:.3f}")
+                print(f"✅ WordPress Published: YES")
+                print(f"✅ Live URL: {wordpress_url}")
+                print(f"📁 Local Backup: {local_filename}")
+                
+                return {
+                    'success': True,
+                    'wordpress_url': wordpress_url,
+                    'post_id': post_id,
+                    'local_file': local_filename,
+                    'content_length': len(response.answer),
+                    'hyperlinks': hyperlink_count,
+                    'confidence_score': response.confidence_score,
+                    'processing_time': processing_time,
+                    'publishing_time': wp_processing_time
+                }
+                
+            else:
+                error_msg = publish_result.get('error', 'Unknown publication error')
+                print(f"\n❌ WORDPRESS PUBLISHING FAILED")
+                print(f"💥 Error: {error_msg}")
+                print(f"📄 Content generated successfully but not published")
+                print(f"💾 Local file available: {local_filename}")
+                
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'local_file': local_filename,
+                    'content_length': len(response.answer),
+                    'hyperlinks': hyperlink_count,
+                    'confidence_score': response.confidence_score
+                }
+        
+        except Exception as wp_error:
+            print(f"\n❌ WORDPRESS PUBLISHING ERROR: {wp_error}")
+            print(f"📄 Content generated successfully but publishing failed")
+            print(f"💾 Local file available: {local_filename}")
             
+            return {
+                'success': False,
+                'error': str(wp_error),
+                'local_file': local_filename,
+                'content_length': len(response.answer),
+                'hyperlinks': hyperlink_count,
+                'confidence_score': response.confidence_score
+            }
+    
     except Exception as e:
-        print(f"❌ Error during publishing: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        print(f"\n❌ CONTENT GENERATION ERROR: {e}")
+        return {'success': False, 'error': str(e)}
 
 if __name__ == "__main__":
-    asyncio.run(main()) 
+    print("🚀 Starting Betway Casino Review Publication...")
+    result = asyncio.run(publish_betway_to_crashcasino())
+    
+    if result and result.get('success'):
+        print(f"\n🎉 SUCCESS! Article published at: {result.get('wordpress_url')}")
+    else:
+        print(f"\n💥 FAILED! Error: {result.get('error') if result else 'Unknown error'}") 

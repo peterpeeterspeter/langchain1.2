@@ -1,0 +1,9 @@
+{
+  "timestamp": "2025-06-22T14:39:47.008315",
+  "publishing_result": {
+    "success": false,
+    "error": "HTTP 404: {\"code\":\"rest_no_route\",\"message\":\"No route was found matching the URL and request method.\",\"data\":{\"status\":404}}",
+    "solution": "Install MT Casino REST API enabler script"
+  },
+  "source_file": "bitcasino_complete_chain_results_20250622_095347.json"
+}

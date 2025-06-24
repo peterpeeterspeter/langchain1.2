@@ -3611,26 +3611,76 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
                     }
                 }
                 
-                # Add featured image if available
+                # ✅ FIXED: Upload featured image first to get integer ID for MT Casino
+                featured_media_id = None
                 if featured_image_url:
-                    mt_casino_post_data["featured_media"] = featured_image_url
+                    try:
+                        # Upload image to WordPress media library first to get integer ID
+                        async with WordPressRESTPublisher(wp_config) as media_uploader:
+                            # Use the existing _upload_featured_image method
+                            featured_media_id = await media_uploader._upload_featured_image(featured_image_url, title)
+                            if featured_media_id:
+                                logging.info(f"🖼️ Uploaded featured image for MT Casino: WordPress Media ID {featured_media_id}")
+                            else:
+                                logging.warning("⚠️ Featured image upload returned no ID")
+                                    
+                    except Exception as img_error:
+                        logging.warning(f"⚠️ Featured image upload failed for MT Casino: {img_error}")
+                
+                # Only set featured_media if we have a valid integer ID
+                if featured_media_id:
+                    mt_casino_post_data["featured_media"] = featured_media_id
+                    logging.info(f"🎰 MT Casino post data includes featured_media ID: {featured_media_id}")
+                else:
+                    logging.info("🎰 MT Casino post will be created without featured image")
                 
                 try:
                     # Use WordPress REST API directly for MT Casino post type
                     async with WordPressRESTPublisher(wp_config) as publisher:
+                        logging.info("🎰 Attempting MT Casino (mt_listing) custom post type...")
+                        logging.info(f"🎰 MT Casino post data: {mt_casino_post_data}")
+                        
                         # Try MT Casino endpoint first
                         result = await publisher._make_wp_request('POST', '/wp-json/wp/v2/mt_listing', json=mt_casino_post_data)
                         
                         if result and result.get('id'):
-                            logging.info(f"✅ Successfully published to MT Casino (mt_listing): Post ID {result['id']}")
+                            logging.info(f"✅ SUCCESS: Published to MT Casino custom post type (mt_listing): Post ID {result['id']}")
+                            logging.info(f"✅ MT Casino URL: {result.get('link', 'URL not provided')}")
                         else:
-                            # Fallback to regular post if MT Casino fails
-                            logging.warning("⚠️ MT Casino post type failed, using regular post with MT Casino metadata...")
+                            # Check if it's a permission/endpoint issue
+                            logging.warning("⚠️ MT Casino endpoint returned empty result")
+                            logging.warning("⚠️ This may indicate:")
+                            logging.warning("   • MT Casino theme not installed")
+                            logging.warning("   • Custom post types not REST API enabled")
+                            logging.warning("   • Missing PHP REST API enablement code")
+                            logging.warning("⚠️ Falling back to regular post with MT Casino metadata...")
+                            
+                            # Add MT Casino metadata to regular post
+                            clean_post_data.update({
+                                "meta": mt_casino_post_data.get("meta", {}),
+                                "custom_fields": mt_casino_post_data.get("meta", {})
+                            })
                             result = await publisher.publish_post(**clean_post_data)
                             
                 except Exception as mt_error:
-                    logging.warning(f"⚠️ MT Casino publishing failed ({mt_error}), falling back to regular post...")
+                    error_msg = str(mt_error)
+                    logging.warning(f"⚠️ MT Casino publishing failed: {error_msg}")
+                    
+                    # Provide specific guidance based on error type
+                    if "404" in error_msg or "not found" in error_msg.lower():
+                        logging.warning("💡 404 Error suggests mt_listing endpoint not available")
+                        logging.warning("💡 Please ensure MT Casino theme is installed and REST API is enabled")
+                    elif "400" in error_msg or "bad request" in error_msg.lower():
+                        logging.warning("💡 400 Error suggests data validation issue")
+                        logging.warning("💡 This should be fixed with featured_media integer ID")
+                    
+                    logging.warning("⚠️ Falling back to regular WordPress post...")
                     async with WordPressRESTPublisher(wp_config) as publisher:
+                        # Add MT Casino metadata to regular post
+                        clean_post_data.update({
+                            "meta": mt_casino_post_data.get("meta", {}),
+                            "custom_fields": mt_casino_post_data.get("meta", {})
+                        })
                         result = await publisher.publish_post(**clean_post_data)
                 
             else:

@@ -1,0 +1,90 @@
+{
+  "demo_info": {
+    "timestamp": "2025-06-23T13:21:00.362801",
+    "total_time": 2645.5917389392853,
+    "successful_posts": 3,
+    "total_test_cases": 3
+  },
+  "content_generation": {
+    "time": 131.8051118850708,
+    "content_length": 27255,
+    "confidence_score": 0.7362972560975609,
+    "images_found": 0,
+    "casino_intelligence_available": false
+  },
+  "publishing_results": [
+    {
+      "test_case": 1,
+      "title": "Bitcasino Review 2025 - Complete Casino Analysis",
+      "description": "Main casino review (should detect as mt_listing)",
+      "result": {
+        "success": true,
+        "main_post": {
+          "success": true,
+          "post_id": 51218,
+          "post_type": "mt_reviews",
+          "url": "https://www.crashcasino.io/?post_type=mt_reviews&p=51218",
+          "method": "mt_casino_native"
+        },
+        "errors": [],
+        "processing_time": 2.689546,
+        "mt_casino_features_used": [
+          "MT Casino: mt_reviews"
+        ]
+      },
+      "publish_time": 5.721163034439087
+    },
+    {
+      "test_case": 2,
+      "title": "Bitcasino Welcome Bonus - Up to 1 BTC + 100 Free Spins",
+      "description": "Bonus-focused content (should detect as mt_bonus)",
+      "result": {
+        "success": true,
+        "main_post": {
+          "success": true,
+          "post_id": 51219,
+          "post_type": "mt_reviews",
+          "url": "https://www.crashcasino.io/?post_type=mt_reviews&p=51219",
+          "method": "mt_casino_native"
+        },
+        "errors": [],
+        "processing_time": 1.472201,
+        "mt_casino_features_used": [
+          "MT Casino: mt_reviews"
+        ]
+      },
+      "publish_time": 2.304198980331421
+    },
+    {
+      "test_case": 3,
+      "title": "Bitcasino Slot Games - 2000+ Slots from Top Providers",
+      "description": "Slot-focused content (should detect as mt_slots)",
+      "result": {
+        "success": true,
+        "main_post": {
+          "success": true,
+          "post_id": 51220,
+          "post_type": "mt_reviews",
+          "url": "https://www.crashcasino.io/?post_type=mt_reviews&p=51220",
+          "method": "mt_casino_native"
+        },
+        "errors": [],
+        "processing_time": 1.795266,
+        "mt_casino_features_used": [
+          "MT Casino: mt_reviews"
+        ]
+      },
+      "publish_time": 2.677780866622925
+    }
+  ],
+  "mt_casino_integration": {
+    "enhanced_publisher_used": true,
+    "post_types_tested": [
+      "mt_listing",
+      "mt_bonus",
+      "mt_slots"
+    ],
+    "fallback_mechanism_available": true,
+    "custom_field_mapping": true
+  }
+}

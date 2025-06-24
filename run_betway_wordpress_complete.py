@@ -12,17 +12,23 @@ FINAL INTEGRATION:
 ✅ WordPress publishing to crashcasino.io (LIVE)
 """
 
-import asyncio
 import os
+import asyncio
 import sys
 import time
 import json
 from datetime import datetime
 
-# Configure WordPress environment variables from memory (WORKING CREDENTIALS)
-os.environ["WORDPRESS_SITE_URL"] = "https://www.crashcasino.io"
-os.environ["WORDPRESS_USERNAME"] = "admin"
-os.environ["WORDPRESS_APP_PASSWORD"] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+# ✅ CRITICAL: Set WordPress environment variables BEFORE importing the chain
+# This ensures they're available during UniversalRAGChain initialization
+os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
+os.environ["WORDPRESS_USERNAME"] = "nmlwh"  # ✅ FIXED: Changed from "admin" to "nmlwh"
+os.environ["WORDPRESS_PASSWORD"] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+
+print("🔧 WordPress environment variables set:")
+print(f"   WORDPRESS_URL: {os.environ.get('WORDPRESS_URL')}")
+print(f"   WORDPRESS_USERNAME: {os.environ.get('WORDPRESS_USERNAME')}")
+print(f"   WORDPRESS_PASSWORD: {'*' * len(os.environ.get('WORDPRESS_PASSWORD', ''))}")
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
@@ -49,6 +55,14 @@ async def run_complete_betway_wordpress():
         enable_performance_tracking=True
     )
     
+    # Configure WordPress publishing for this specific query
+    wordpress_config = {
+        "publish_to_wordpress": True,
+        "wordpress_site_url": "https://www.crashcasino.io",
+        "wordpress_username": "nmlwh", 
+        "wordpress_app_password": "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+    }
+    
     # Single comprehensive Betway casino query
     betway_query = "Write a comprehensive professional Betway Casino review covering licensing, games portfolio, welcome bonuses, payment methods, mobile app experience, customer support, and overall user experience with detailed analysis"
     
@@ -61,13 +75,20 @@ async def run_complete_betway_wordpress():
     try:
         # Execute RAG chain with WordPress publishing
         print("⚡ Executing complete chain with WordPress publishing...")
-        response = await rag_chain.ainvoke({"question": betway_query})
+        
+        # Combine query with WordPress config
+        query_input = {
+            "question": betway_query,
+            "publish_to_wordpress": True
+        }
+        
+        response = await rag_chain.ainvoke(query_input)
         
         processing_time = time.time() - start_time
         
         # Display comprehensive results
         print(f"\\n⏱️ Processing Time: {processing_time:.2f} seconds")
-        print(f"📊 Response Length: {len(response.content)} characters")
+        print(f"📊 Response Length: {len(response.answer)} characters")
         print(f"🎯 Confidence Score: {response.confidence_score:.3f}")
         print(f"📚 Sources: {len(response.sources)} sources")
         print(f"🖼️ Images: {response.metadata.get('images_found', 0)} found")
@@ -85,19 +106,19 @@ async def run_complete_betway_wordpress():
         # Show content preview
         print("\\n📄 GENERATED CONTENT PREVIEW:")
         print("=" * 50)
-        content_preview = response.content[:800] + "..." if len(response.content) > 800 else response.content
+        content_preview = response.answer[:800] + "..." if len(response.answer) > 800 else response.answer
         print(content_preview)
         
         # Save complete results to file
         results = {
             "query": betway_query,
             "processing_time": processing_time,
-            "content_length": len(response.content),
+            "content_length": len(response.answer),
             "confidence_score": response.confidence_score,
             "sources_count": len(response.sources),
             "images_found": response.metadata.get('images_found', 0),
             "wordpress_result": getattr(response, 'wordpress_result', None),
-            "full_content": response.content,
+            "full_content": response.answer,
             "timestamp": datetime.now().isoformat()
         }
         

@@ -1,0 +1,94 @@
+{
+  "extraction_summary": {
+    "populated_fields": 8,
+    "quality_score": 29.629629629629626,
+    "timestamp": "2025-06-20T20:22:14.875981"
+  },
+  "comprehensive_data": {
+    "trustworthiness": {
+      "license_authorities": [
+        "Malta Gaming Authority (MGA)",
+        "UK Gambling Commission (UKGC)"
+      ],
+      "license_numbers": [],
+      "parent_company": "Betway Group",
+      "years_in_operation": 15,
+      "trustpilot_score": null,
+      "review_count_total": null,
+      "ssl_certification": true,
+      "auditing_agency": [],
+      "data_breach_history": [],
+      "legal_issues": [],
+      "industry_awards": [],
+      "forum_complaints": [],
+      "reddit_mentions": null,
+      "ownership_disclosed": null,
+      "affiliated_brands": []
+    },
+    "games": {
+      "slot_count": 500,
+      "table_game_count": null,
+      "live_casino": true,
+      "sports_betting": null,
+      "providers": [
+        "NetEnt",
+        "Microgaming",
+        "Pragmatic Play",
+        "Evolution Gaming",
+        "Red Tiger"
+      ],
+      "exclusive_games": [],
+      "third_party_audits": null,
+      "average_rtp": null,
+      "progressive_jackpots": null,
+      "mobile_compatibility": true,
+      "demo_play_available": null,
+      "game_categories": []
+    },
+    "bonuses": {
+      "welcome_bonus_amount": null,
+      "welcome_bonus_percentage": null,
+      "wagering_requirements": null,
+      "max_bonus_amount": null,
+      "bonus_expiry_days": null,
+      "free_spins_count": null,
+      "no_deposit_bonus": null,
+      "loyalty_program": null,
+      "reload_bonuses": null,
+      "cashback_offered": null,
+      "tournament_participation": null,
+      "bonus_terms_clarity": null
+    },
+    "payments": {
+      "deposit_methods": [],
+      "withdrawal_methods": [],
+      "min_deposit_amount": null,
+      "max_withdrawal_amount": null,
+      "withdrawal_processing_time": null,
+      "deposit_fees": null,
+      "withdrawal_fees": null,
+      "currency_options": [],
+      "cryptocurrency_support": null,
+      "fast_withdrawal": null,
+      "verification_required": null,
+      "withdrawal_limits": null,
+      "payment_security": null,
+      "regional_restrictions": [],
+      "bank_transfer_support": null
+    },
+    "user_experience": {
+      "website_speed": null,
+      "mobile_app_available": null,
+      "customer_support_24_7": null,
+      "live_chat_available": null,
+      "support_languages": [],
+      "website_languages": [],
+      "user_interface_rating": null,
+      "navigation_ease": null,
+      "search_functionality": null,
+      "responsible_gambling_tools": [],
+      "account_verification_speed": null,
+      "user_reviews_sentiment": null
+    }
+  }
+}
