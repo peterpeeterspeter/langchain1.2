@@ -520,6 +520,74 @@ class WordPressRESTPublisher:
         if self.session:
             await self.session.close()
     
+    async def _make_wp_request(self, method: str, endpoint: str, json: Dict[str, Any] = None, **kwargs) -> Optional[Dict[str, Any]]:
+        """
+        ✅ FIXED: Generic WordPress REST API request method for MT Casino custom post types
+        This method was missing and causing the MT Casino publishing to fail
+        """
+        try:
+            # Ensure endpoint starts with proper base URL
+            if endpoint.startswith('/wp-json/'):
+                url = f"{self.config.site_url.rstrip('/')}{endpoint}"
+            else:
+                url = f"{self.config.site_url.rstrip('/')}/wp-json/wp/v2/{endpoint.lstrip('/')}"
+            
+            # Prepare request parameters
+            request_kwargs = {
+                'headers': self.auth_manager.headers,
+                'timeout': aiohttp.ClientTimeout(total=self.config.request_timeout)
+            }
+            
+            # Add JSON data if provided
+            if json:
+                request_kwargs['json'] = json
+            
+            # Add any additional kwargs
+            request_kwargs.update(kwargs)
+            
+            logger.info(f"🔧 Making {method} request to: {url}")
+            
+            # Make the request based on method
+            if method.upper() == 'POST':
+                async with self.session.post(url, **request_kwargs) as response:
+                    if response.status in [200, 201]:
+                        result = await response.json()
+                        logger.info(f"✅ {method} request successful: {response.status}")
+                        return result
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"❌ {method} request failed: {response.status} - {error_text}")
+                        return None
+                        
+            elif method.upper() == 'GET':
+                async with self.session.get(url, **request_kwargs) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        logger.info(f"✅ {method} request successful: {response.status}")
+                        return result
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"❌ {method} request failed: {response.status} - {error_text}")
+                        return None
+                        
+            elif method.upper() in ['PUT', 'PATCH']:
+                async with self.session.request(method, url, **request_kwargs) as response:
+                    if response.status in [200, 201]:
+                        result = await response.json()
+                        logger.info(f"✅ {method} request successful: {response.status}")
+                        return result
+                    else:
+                        error_text = await response.text()
+                        logger.error(f"❌ {method} request failed: {response.status} - {error_text}")
+                        return None
+            else:
+                logger.error(f"❌ Unsupported HTTP method: {method}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ WordPress API request failed: {e}")
+            return None
+    
     async def publish_post(self, 
                           title: str, 
                           content: str, 
