@@ -1061,6 +1061,329 @@ class WordPressRESTPublisher:
                            max(self.stats['posts_published'] + self.stats['errors_recovered'], 1))
         }
 
+    async def upload_screenshot_to_wordpress(
+        self, 
+        screenshot_data: bytes, 
+        screenshot_metadata: Dict[str, Any],
+        alt_text: str = None,
+        caption: str = None,
+        post_id: Optional[int] = None
+    ) -> Optional[int]:
+        """
+        Upload screenshot to WordPress using V1 bulletproof patterns
+        
+        Args:
+            screenshot_data: Raw screenshot binary data
+            screenshot_metadata: Metadata from screenshot capture (URL, timestamp, etc.)
+            alt_text: Custom alt text (auto-generated if None)
+            caption: Custom caption (auto-generated if None)  
+            post_id: WordPress post ID to associate with (optional)
+            
+        Returns:
+            WordPress media ID if successful, None if failed
+        """
+        try:
+            # Generate filename from metadata
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            url = screenshot_metadata.get('url', 'unknown')
+            domain = url.split('/')[2] if '//' in url else 'screenshot'
+            domain = domain.replace('.', '_')
+            capture_type = screenshot_metadata.get('capture_type', 'fullpage')
+            filename = f"screenshot_{domain}_{capture_type}_{timestamp}.jpg"
+            
+            # Process screenshot using existing V1 bulletproof image processor
+            processed_data, processed_filename, processing_metadata = await self.image_processor.process_image(
+                screenshot_data, 
+                filename
+            )
+            
+            # Generate alt text if not provided
+            if not alt_text:
+                alt_text = self._generate_screenshot_alt_text(screenshot_metadata)
+            
+            # Generate caption if not provided
+            if not caption:
+                caption = self._generate_screenshot_caption(screenshot_metadata)
+            
+            # Upload to WordPress media library using existing patterns
+            media_url = urljoin(self.config.site_url, "/wp-json/wp/v2/media")
+            
+            # Prepare multipart data
+            form_data = aiohttp.FormData()
+            form_data.add_field('file', processed_data, filename=processed_filename, content_type='image/jpeg')
+            form_data.add_field('alt_text', alt_text)
+            form_data.add_field('caption', caption)
+            
+            # Add post association if provided
+            if post_id:
+                form_data.add_field('post', str(post_id))
+            
+            # Upload with existing retry and error handling
+            headers = self.auth_manager.headers.copy()
+            headers.pop('Content-Type', None)  # Let aiohttp set this for multipart
+            
+            async with self.session.post(media_url, headers=headers, data=form_data) as response:
+                if response.status in [200, 201]:
+                    result = await response.json()
+                    
+                    # Update stats
+                    self.stats['images_processed'] += 1
+                    
+                    # Log to Supabase if available
+                    if self.supabase:
+                        await self._log_screenshot_upload(result, screenshot_metadata)
+                    
+                    logger.info(f"✅ Screenshot uploaded successfully: Media ID {result['id']}")
+                    return result['id']
+                else:
+                    error_text = await response.text()
+                    logger.error(f"❌ Screenshot upload failed: {error_text}")
+                    return None
+                    
+        except Exception as e:
+            logger.error(f"❌ Failed to upload screenshot: {e}")
+            return None
+
+    def _generate_screenshot_alt_text(self, screenshot_metadata: Dict[str, Any]) -> str:
+        """Generate accessibility-compliant alt text from screenshot metadata"""
+        url = screenshot_metadata.get('url', 'website')
+        capture_type = screenshot_metadata.get('capture_type', 'screenshot')
+        timestamp = screenshot_metadata.get('timestamp')
+        
+        # Extract domain name for readability
+        domain = 'website'
+        if url and '//' in url:
+            try:
+                domain = url.split('/')[2].replace('www.', '')
+            except:
+                domain = 'website'
+        
+        # Generate descriptive alt text
+        if capture_type == 'full_page':
+            alt_text = f"Full page screenshot of {domain} website"
+        elif capture_type == 'viewport':
+            alt_text = f"Viewport screenshot of {domain} website"
+        elif capture_type == 'element':
+            element_info = screenshot_metadata.get('element_info', {})
+            selector = element_info.get('selector', 'page element')
+            alt_text = f"Screenshot of {selector} on {domain} website"
+        else:
+            alt_text = f"Screenshot of {domain} website"
+        
+        # Add timestamp context if available
+        if timestamp:
+            try:
+                from datetime import datetime
+                dt = datetime.fromtimestamp(timestamp)
+                date_str = dt.strftime("%B %Y")
+                alt_text += f" captured in {date_str}"
+            except:
+                pass
+        
+        return alt_text
+
+    def _generate_screenshot_caption(self, screenshot_metadata: Dict[str, Any]) -> str:
+        """Generate descriptive caption from screenshot metadata"""
+        url = screenshot_metadata.get('url', '')
+        capture_type = screenshot_metadata.get('capture_type', 'screenshot')
+        viewport_size = screenshot_metadata.get('viewport_size', {})
+        file_size = screenshot_metadata.get('file_size', 0)
+        
+        # Start with basic caption
+        caption_parts = []
+        
+        # Add capture type
+        if capture_type == 'full_page':
+            caption_parts.append("Full page screenshot")
+        elif capture_type == 'viewport':
+            caption_parts.append("Viewport screenshot")
+        elif capture_type == 'element':
+            caption_parts.append("Element screenshot")
+        else:
+            caption_parts.append("Screenshot")
+        
+        # Add viewport info if available
+        if viewport_size and viewport_size.get('width') and viewport_size.get('height'):
+            width = viewport_size['width']
+            height = viewport_size['height']
+            caption_parts.append(f"captured at {width}x{height} resolution")
+        
+        # Add source URL (truncated for readability)
+        if url:
+            display_url = url
+            if len(url) > 50:
+                display_url = url[:47] + "..."
+            caption_parts.append(f"from {display_url}")
+        
+        # Add file size if significant
+        if file_size > 0:
+            size_mb = file_size / (1024 * 1024)
+            if size_mb >= 0.1:
+                caption_parts.append(f"({size_mb:.1f}MB)")
+        
+        return " ".join(caption_parts)
+
+    async def _log_screenshot_upload(self, upload_result: Dict[str, Any], screenshot_metadata: Dict[str, Any]):
+        """Log screenshot upload to Supabase for tracking and analytics"""
+        try:
+            if not self.supabase:
+                return
+            
+            log_data = {
+                'content_type': 'screenshot_upload',
+                'wordpress_media_id': upload_result['id'],
+                'media_url': upload_result.get('source_url', ''),
+                'original_url': screenshot_metadata.get('url', ''),
+                'capture_type': screenshot_metadata.get('capture_type', 'unknown'),
+                'file_size': screenshot_metadata.get('file_size', 0),
+                'viewport_size': screenshot_metadata.get('viewport_size', {}),
+                'processing_metadata': {
+                    'alt_text': upload_result.get('alt_text', ''),
+                    'caption': upload_result.get('caption', ''),
+                    'mime_type': upload_result.get('mime_type', ''),
+                    'upload_timestamp': datetime.now().isoformat()
+                }
+            }
+            
+            # Insert into Supabase (assuming cms_audit_log table exists)
+            await self.supabase.table('cms_audit_log').insert(log_data).execute()
+            logger.info(f"📊 Screenshot upload logged to Supabase")
+            
+        except Exception as e:
+            logger.warning(f"⚠️ Failed to log screenshot upload: {e}")
+
+    async def embed_screenshots_in_content(
+        self, 
+        content: str, 
+        screenshot_media_ids: List[int],
+        embed_style: str = "inline"
+    ) -> str:
+        """
+        Embed uploaded screenshots in content using existing HTML formatter patterns
+        
+        Args:
+            content: Original content HTML
+            screenshot_media_ids: List of WordPress media IDs for screenshots
+            embed_style: Embedding style ("inline", "gallery", "figure")
+            
+        Returns:
+            Content with embedded screenshots
+        """
+        if not screenshot_media_ids:
+            return content
+        
+        try:
+            # Get media details from WordPress
+            media_details = []
+            for media_id in screenshot_media_ids:
+                try:
+                    media_url = urljoin(self.config.site_url, f"/wp-json/wp/v2/media/{media_id}")
+                    async with self.session.get(media_url, headers=self.auth_manager.headers) as response:
+                        if response.status == 200:
+                            media_data = await response.json()
+                            media_details.append(media_data)
+                except Exception as e:
+                    logger.warning(f"⚠️ Failed to fetch media details for ID {media_id}: {e}")
+                    continue
+            
+            if not media_details:
+                logger.warning("⚠️ No valid media details found for screenshot embedding")
+                return content
+            
+            # Parse content and add screenshots
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(content, 'html.parser')
+            
+            if embed_style == "inline":
+                # Add screenshots inline after first paragraph
+                first_p = soup.find('p')
+                if first_p:
+                    for media in media_details:
+                        screenshot_html = self._create_screenshot_embed_html(media, "inline")
+                        screenshot_soup = BeautifulSoup(screenshot_html, 'html.parser')
+                        first_p.insert_after(screenshot_soup)
+                        first_p = screenshot_soup  # Insert next one after this one
+            
+            elif embed_style == "gallery":
+                # Create a screenshot gallery
+                gallery_html = self._create_screenshot_gallery_html(media_details)
+                gallery_soup = BeautifulSoup(gallery_html, 'html.parser')
+                
+                # Insert gallery after the first heading or at the beginning
+                first_heading = soup.find(['h1', 'h2', 'h3'])
+                if first_heading:
+                    first_heading.insert_after(gallery_soup)
+                else:
+                    soup.insert(0, gallery_soup)
+            
+            elif embed_style == "figure":
+                # Add each screenshot as a figure with caption
+                for media in media_details:
+                    figure_html = self._create_screenshot_embed_html(media, "figure")
+                    figure_soup = BeautifulSoup(figure_html, 'html.parser')
+                    soup.append(figure_soup)
+            
+            return str(soup)
+            
+        except ImportError:
+            logger.warning("⚠️ BeautifulSoup not available for screenshot embedding")
+            return content
+        except Exception as e:
+            logger.error(f"❌ Failed to embed screenshots: {e}")
+            return content
+
+    def _create_screenshot_embed_html(self, media_data: Dict[str, Any], style: str = "inline") -> str:
+        """Create HTML for embedding a single screenshot"""
+        media_id = media_data['id']
+        source_url = media_data['source_url']
+        alt_text = media_data.get('alt_text', 'Screenshot')
+        caption = media_data.get('caption', {}).get('rendered', '')
+        
+        if style == "inline":
+            return f'''
+            <div class="screenshot-embed wp-block-image aligncenter">
+                <img src="{source_url}" alt="{alt_text}" class="wp-image-{media_id} screenshot-evidence" loading="lazy" />
+                {f'<p class="screenshot-caption">{caption}</p>' if caption else ''}
+            </div>
+            '''
+        
+        elif style == "figure":
+            return f'''
+            <figure class="wp-block-image aligncenter size-large screenshot-figure">
+                <img src="{source_url}" alt="{alt_text}" class="wp-image-{media_id}" loading="lazy" />
+                <figcaption class="wp-element-caption">{caption or alt_text}</figcaption>
+            </figure>
+            '''
+        
+        else:  # default inline
+            return f'<img src="{source_url}" alt="{alt_text}" class="wp-image-{media_id} screenshot-inline" loading="lazy" />'
+
+    def _create_screenshot_gallery_html(self, media_list: List[Dict[str, Any]]) -> str:
+        """Create HTML for a screenshot gallery"""
+        gallery_items = []
+        
+        for media in media_list:
+            media_id = media['id']
+            source_url = media['source_url']
+            alt_text = media.get('alt_text', 'Screenshot')
+            
+            gallery_items.append(f'''
+                <div class="screenshot-gallery-item">
+                    <img src="{source_url}" alt="{alt_text}" class="wp-image-{media_id}" loading="lazy" />
+                </div>
+            ''')
+        
+        gallery_html = f'''
+        <div class="screenshot-gallery wp-block-gallery">
+            <h3 class="screenshot-gallery-title">Visual Evidence</h3>
+            <div class="screenshot-gallery-grid">
+                {"".join(gallery_items)}
+            </div>
+        </div>
+        '''
+        
+        return gallery_html
+
 class WordPressIntegration:
     """🏗️ NATIVE LANGCHAIN: High-level WordPress integration facade with 95-field casino intelligence"""
     
@@ -1210,6 +1533,128 @@ class WordPressIntegration:
             }
         }
 
+    async def publish_content_with_screenshots(
+        self,
+        title: str,
+        content: str,
+        screenshot_urls: List[str] = None,
+        screenshot_types: List[str] = None,
+        embed_style: str = "inline",
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        🖼️ Publish content with integrated screenshot capture and embedding
+        
+        Args:
+            title: Post title
+            content: Post content
+            screenshot_urls: List of URLs to capture screenshots from
+            screenshot_types: List of screenshot types ("full_page", "viewport", "element")
+            embed_style: How to embed screenshots ("inline", "gallery", "figure")
+            **kwargs: Additional arguments passed to publish_post
+            
+        Returns:
+            Publishing result with screenshot information
+        """
+        screenshot_media_ids = []
+        
+        try:
+            # Capture screenshots if URLs provided
+            if screenshot_urls:
+                from .playwright_screenshot_engine import ScreenshotService, ScreenshotConfig
+                from .browser_pool_manager import BrowserPoolManager
+                
+                # Initialize screenshot components
+                browser_pool = BrowserPoolManager()
+                screenshot_config = ScreenshotConfig(
+                    format='png',
+                    quality=85,
+                    full_page=True,
+                    timeout_ms=30000
+                )
+                screenshot_service = ScreenshotService(browser_pool, screenshot_config)
+                
+                logger.info(f"📷 Capturing {len(screenshot_urls)} screenshots for WordPress publishing")
+                
+                # Capture each screenshot
+                for i, url in enumerate(screenshot_urls):
+                    try:
+                        # Determine screenshot type
+                        capture_type = screenshot_types[i] if screenshot_types and i < len(screenshot_types) else "full_page"
+                        
+                        # Capture screenshot
+                        if capture_type == "full_page":
+                            result = await screenshot_service.capture_full_page_screenshot(url)
+                        elif capture_type == "viewport":
+                            result = await screenshot_service.capture_viewport_screenshot(url)
+                        else:  # Default to full page
+                            result = await screenshot_service.capture_full_page_screenshot(url)
+                        
+                        if result.success and result.screenshot_data:
+                            # Prepare metadata for WordPress upload
+                            screenshot_metadata = {
+                                'url': url,
+                                'capture_type': capture_type,
+                                'timestamp': result.timestamp,
+                                'file_size': result.file_size,
+                                'viewport_size': result.viewport_size,
+                                'element_info': result.element_info
+                            }
+                            
+                            # Upload to WordPress using our new method
+                            async with WordPressRESTPublisher(self.config, self.supabase, self.llm) as publisher:
+                                media_id = await publisher.upload_screenshot_to_wordpress(
+                                    result.screenshot_data,
+                                    screenshot_metadata
+                                )
+                                
+                                if media_id:
+                                    screenshot_media_ids.append(media_id)
+                                    logger.info(f"✅ Screenshot {i+1}/{len(screenshot_urls)} uploaded: Media ID {media_id}")
+                                else:
+                                    logger.warning(f"⚠️ Failed to upload screenshot {i+1} from {url}")
+                        else:
+                            logger.warning(f"⚠️ Failed to capture screenshot from {url}: {result.error_message}")
+                            
+                    except Exception as e:
+                        logger.error(f"❌ Error processing screenshot {i+1} from {url}: {e}")
+                        continue
+                
+                # Cleanup browser pool
+                await browser_pool.cleanup()
+                
+            # Embed screenshots in content if any were uploaded
+            if screenshot_media_ids:
+                async with WordPressRESTPublisher(self.config, self.supabase, self.llm) as publisher:
+                    content = await publisher.embed_screenshots_in_content(
+                        content, 
+                        screenshot_media_ids, 
+                        embed_style
+                    )
+                    logger.info(f"📝 Embedded {len(screenshot_media_ids)} screenshots in content")
+            
+            # Publish content with embedded screenshots
+            result = await self.publish_rag_content(
+                query=kwargs.get('query', title),
+                rag_response=content,
+                title=title,
+                featured_image_query=kwargs.get('featured_image_query')
+            )
+            
+            # Add screenshot information to result
+            result['screenshot_info'] = {
+                'screenshots_captured': len(screenshot_media_ids),
+                'screenshot_media_ids': screenshot_media_ids,
+                'embed_style': embed_style,
+                'source_urls': screenshot_urls or []
+            }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to publish content with screenshots: {e}")
+            raise
+
 # Factory function for easy initialization
 def create_wordpress_integration(
     site_url: str = None,
@@ -1230,13 +1675,12 @@ def create_wordpress_integration(
 
 # Example usage and testing
 async def example_usage():
-    """Example usage of WordPress integration"""
+    """Example usage of WordPress integration with screenshot capture"""
     
     # Create integration
     wp = create_wordpress_integration()
     
-    # Publish RAG content
-    sample_query = "What are the best online casino bonuses for new players?"
+    # Sample content for testing
     sample_content = """
     <h2>Best Online Casino Bonuses for New Players</h2>
     
@@ -1256,24 +1700,118 @@ async def example_usage():
     """
     
     try:
-        result = await wp.publish_rag_content(
-            query=sample_query,
+        # Example 1: Regular content publishing (without screenshots)
+        print("📝 Example 1: Regular content publishing...")
+        result1 = await wp.publish_rag_content(
+            query="What are the best online casino bonuses for new players?",
             rag_response=sample_content,
             title="Best Online Casino Bonuses for New Players 2024",
             featured_image_query="casino bonus welcome offer"
         )
+        print(f"✅ Regular post published: ID {result1['id']}")
         
-        print(f"✅ Post published successfully!")
-        print(f"📝 Post ID: {result['id']}")
-        print(f"🔗 URL: {result['link']}")
+        # Example 2: Content publishing with screenshot capture
+        print("\n📷 Example 2: Content with screenshot capture...")
+        result2 = await wp.publish_content_with_screenshots(
+            title="Casino Screenshot Review - Visual Evidence",
+            content=sample_content,
+            screenshot_urls=[
+                "https://www.betmgm.com/",
+                "https://www.draftkings.com/casino"
+            ],
+            screenshot_types=["full_page", "viewport"],
+            embed_style="gallery",
+            query="Casino review with visual evidence",
+            featured_image_query="casino interface screenshot"
+        )
         
-        # Get performance stats
+        print(f"✅ Post with screenshots published!")
+        print(f"📝 Post ID: {result2['id']}")
+        print(f"🔗 URL: {result2['link']}")
+        print(f"📷 Screenshots captured: {result2['screenshot_info']['screenshots_captured']}")
+        print(f"🖼️ Media IDs: {result2['screenshot_info']['screenshot_media_ids']}")
+        
+        # Example 3: Casino intelligence content with screenshots
+        print("\n🎰 Example 3: Casino intelligence with screenshots...")
+        casino_data = {
+            'casino_name': 'BetMGM Casino',
+            'overall_rating': 8.5,
+            'license_status': 'Licensed and Regulated',
+            'game_provider_count': 15,
+            'payment_method_count': 8,
+            'welcome_bonus': '100% up to $1000 + 200 Free Spins'
+        }
+        
+        result3 = await wp.publish_casino_intelligence_content(
+            query="BetMGM Casino review with visual evidence",
+            rag_response=sample_content,
+            structured_casino_data=casino_data,
+            title="BetMGM Casino Review 8.5/10 - Complete Visual Analysis",
+            featured_image_query="BetMGM casino logo"
+        )
+        
+        print(f"✅ Casino intelligence post published: ID {result3['id']}")
+        
+        # Get comprehensive performance stats
         stats = wp.get_performance_stats()
-        print(f"📊 Performance: {stats}")
+        print(f"\n📊 Performance Statistics:")
+        print(f"   Posts published: {stats.get('posts_published', 0)}")
+        print(f"   Images processed: {stats.get('images_processed', 0)}")
+        print(f"   WordPress configured: {stats['integration_status']['wordpress_configured']}")
+        print(f"   Supabase connected: {stats['integration_status']['supabase_connected']}")
         
     except Exception as e:
         print(f"❌ Publishing failed: {e}")
+        import traceback
+        traceback.print_exc()
+
+# Example of standalone screenshot upload
+async def example_screenshot_upload():
+    """Example of uploading a screenshot independently"""
+    
+    try:
+        from .playwright_screenshot_engine import ScreenshotService, ScreenshotConfig
+        from .browser_pool_manager import BrowserPoolManager
+        
+        # Initialize components
+        browser_pool = BrowserPoolManager()
+        screenshot_config = ScreenshotConfig(format='png', quality=85)
+        screenshot_service = ScreenshotService(browser_pool, screenshot_config)
+        
+        # Capture screenshot
+        result = await screenshot_service.capture_full_page_screenshot("https://www.example.com")
+        
+        if result.success:
+            # Upload to WordPress
+            wp_config = WordPressConfig()
+            async with WordPressRESTPublisher(wp_config) as publisher:
+                media_id = await publisher.upload_screenshot_to_wordpress(
+                    result.screenshot_data,
+                    {
+                        'url': 'https://www.example.com',
+                        'capture_type': 'full_page',
+                        'timestamp': result.timestamp,
+                        'file_size': result.file_size,
+                        'viewport_size': result.viewport_size
+                    }
+                )
+                
+                if media_id:
+                    print(f"✅ Screenshot uploaded independently: Media ID {media_id}")
+                else:
+                    print("❌ Failed to upload screenshot")
+        
+        await browser_pool.cleanup()
+        
+    except Exception as e:
+        print(f"❌ Standalone screenshot upload failed: {e}")
 
 if __name__ == "__main__":
-    # Run example
-    asyncio.run(example_usage()) 
+    # Run examples
+    import asyncio
+    print("🚀 Testing WordPress Screenshot Publishing Integration")
+    print("=" * 60)
+    asyncio.run(example_usage())
+    print("\n" + "=" * 60)
+    print("🔧 Testing standalone screenshot upload")
+    asyncio.run(example_screenshot_upload()) 
