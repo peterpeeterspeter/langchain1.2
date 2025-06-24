@@ -187,6 +187,32 @@ except ImportError as e:
     WEB_RESEARCH_CHAIN_AVAILABLE = False
     logging.warning(f"⚠️ Enhanced Web Research Chain NOT AVAILABLE: {e}")
 
+# ✅ NEW: Screenshot Integration
+try:
+    from ..integrations.screenshot_web_research_integration import (
+        URLTargetIdentifier,
+        ScreenshotRequestQueue,
+        ScreenshotTarget,
+        ScreenshotTargetType,
+        create_url_target_identifier,
+        create_screenshot_request_queue
+    )
+    from ..integrations.playwright_screenshot_engine import (
+        ScreenshotService,
+        ScreenshotConfig,
+        ScreenshotPriority,
+        BrowserPoolManager,
+        get_global_browser_pool,
+        SupabaseScreenshotStorage,
+        SupabaseConfig,
+        IntegratedScreenshotService
+    )
+    SCREENSHOT_INTEGRATION_AVAILABLE = True
+    logging.info("✅ Screenshot Integration AVAILABLE")
+except ImportError as e:
+    SCREENSHOT_INTEGRATION_AVAILABLE = False
+    logging.warning(f"⚠️ Screenshot Integration NOT AVAILABLE: {e}")
+
 # Enhanced exception hierarchy
 class RAGException(Exception):
     """Base exception for RAG operations"""
@@ -472,6 +498,7 @@ class UniversalRAGChain:
         enable_profiling: bool = True,            # ✅ NEW: Performance profiling
         enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
         enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
+        enable_screenshot_evidence: bool = True,  # ✅ NEW: Screenshot evidence capture during web research
         enable_hyperlink_generation: bool = True, # ✅ NEW: Authoritative hyperlink generation
         vector_store = None,
         supabase_client = None,
@@ -494,6 +521,7 @@ class UniversalRAGChain:
         self.enable_profiling = enable_profiling
         self.enable_web_search = enable_web_search
         self.enable_comprehensive_web_research = enable_comprehensive_web_research
+        self.enable_screenshot_evidence = enable_screenshot_evidence
         self.enable_hyperlink_generation = enable_hyperlink_generation
         self.enable_response_storage = kwargs.get('enable_response_storage', True)  # ✅ NEW: Store responses
         
@@ -657,6 +685,54 @@ class UniversalRAGChain:
         else:
             self.comprehensive_web_research_chain = None
             
+        # ✅ NEW: Initialize Screenshot Integration Components
+        if self.enable_screenshot_evidence and SCREENSHOT_INTEGRATION_AVAILABLE:
+            try:
+                # Initialize URL target identifier
+                self.url_target_identifier = create_url_target_identifier()
+                
+                # Initialize screenshot request queue
+                self.screenshot_request_queue = create_screenshot_request_queue()
+                
+                # Initialize screenshot service if Supabase is available
+                if self.supabase_client:
+                    supabase_config = SupabaseConfig(
+                        url=self.supabase_client.supabase_url,
+                        key=self.supabase_client.supabase_key,
+                        storage_bucket="screenshots",
+                        table_captures="screenshot_captures",
+                        table_elements="screenshot_elements", 
+                        table_media_assets="media_assets"
+                    )
+                    
+                    storage_service = SupabaseScreenshotStorage(supabase_config)
+                    
+                    # Initialize screenshot service with lazy browser pool initialization
+                    self.screenshot_service = IntegratedScreenshotService(
+                        browser_pool=None,  # Will be initialized lazily when first used
+                        supabase_storage=storage_service,
+                        screenshot_config=ScreenshotConfig()
+                    )
+                    
+                    logging.info("📸 Screenshot Integration ENABLED with Supabase storage")
+                else:
+                    # Initialize without storage for local testing
+                    self.screenshot_service = ScreenshotService(
+                        browser_pool=None,  # Will be initialized lazily when first used
+                        config=ScreenshotConfig()
+                    )
+                    logging.info("📸 Screenshot Integration ENABLED (local only - no storage)")
+                    
+            except Exception as e:
+                logging.warning(f"Screenshot integration initialization failed: {e}")
+                self.url_target_identifier = None
+                self.screenshot_request_queue = None
+                self.screenshot_service = None
+        else:
+            self.url_target_identifier = None
+            self.screenshot_request_queue = None
+            self.screenshot_service = None
+            
         # ✅ NEW: Initialize Authoritative Hyperlink Engine
         if self.enable_hyperlink_generation:
             try:
@@ -716,6 +792,8 @@ class UniversalRAGChain:
             logging.info("  🌐 Web Search Research (Tavily)")
         if self.enable_comprehensive_web_research:
             logging.info("  🔍 Comprehensive Web Research (WebBaseLoader)")
+        if self.enable_screenshot_evidence:
+            logging.info("  📸 Screenshot Evidence Capture")
         if self.enable_hyperlink_generation:
             logging.info("  🔗 Authoritative Hyperlink Generation")
         if self.enable_response_storage:
@@ -1280,6 +1358,10 @@ Answer:
                 # Store results for source generation
                 self._last_comprehensive_web_research = comprehensive_results
                 
+                # ✅ NEW: Screenshot Evidence Capture Integration
+                if self.enable_screenshot_evidence and comprehensive_results:
+                    await self._capture_screenshot_evidence(comprehensive_results, query, query_analysis)
+                
                 # ✅ NEW: Store structured research data separately for multi-domain reuse
                 if comprehensive_results and len(comprehensive_results) > 0:
                     # Extract casino name from the first result or query
@@ -1463,6 +1545,122 @@ Answer:
         except Exception as e:
             logging.warning(f"Direct casino site research failed for {casino_domain}: {e}")
             return []
+    
+    async def _capture_screenshot_evidence(self, research_results: List[Dict[str, Any]], query: str, query_analysis: Optional[QueryAnalysis]):
+        """Capture screenshot evidence for web research results"""
+        if not self.enable_screenshot_evidence or not self.url_target_identifier or not self.screenshot_service:
+            return
+        
+        try:
+            # Lazy initialize browser pool if needed
+            if hasattr(self.screenshot_service, 'browser_pool') and not self.screenshot_service.browser_pool:
+                self.screenshot_service.browser_pool = await get_global_browser_pool()
+                await self.screenshot_service.browser_pool.initialize()
+                
+            logging.info(f"📸 Starting screenshot evidence capture for {len(research_results)} research results")
+            
+            # Extract URLs from research results
+            urls_to_process = []
+            for result in research_results:
+                url = result.get('url')
+                if url:
+                    urls_to_process.append(url)
+            
+            if not urls_to_process:
+                logging.info("📸 No URLs found in research results for screenshot capture")
+                return
+            
+            # Identify screenshot targets using URL Target Identifier
+            screenshot_targets = self.url_target_identifier.identify_screenshot_targets(
+                web_results=research_results,
+                original_query=query
+            )
+            
+            if not screenshot_targets:
+                logging.info("📸 No high-priority screenshot targets identified")
+                return
+            
+            # Add targets to screenshot queue
+            screenshot_requests = []
+            for target in screenshot_targets:
+                request_id = self.screenshot_request_queue.add_request(target)
+                screenshot_requests.append(request_id)
+                logging.info(f"📸 Queued screenshot request {request_id} for {target.url} (priority: {target.priority_score:.2f})")
+            
+            # Process screenshot requests with configurable options
+            screenshot_config = ScreenshotConfig(
+                timeout=30000,  # 30 seconds timeout for casino sites
+                wait_for_load_state="networkidle",  # Wait for network to be idle
+                enable_full_page=True,  # Capture full page
+                capture_mobile_view=False,  # Desktop view only for comprehensive research
+                enable_console_logs=True,  # Capture console logs for debugging
+                enable_network_logs=False,  # Skip network logs to reduce overhead
+                priority=ScreenshotPriority.HIGH  # High priority for research evidence
+            )
+            
+            # Capture screenshots with retry logic and timeout handling
+            successful_captures = 0
+            failed_captures = 0
+            
+            for request_id in screenshot_requests:
+                try:
+                    # Get the target from queue
+                    target = self.screenshot_request_queue.get_request(request_id)
+                    if not target:
+                        continue
+                    
+                    logging.info(f"📸 Capturing screenshot for {target.url}")
+                    
+                    # Capture screenshot using the screenshot service
+                    screenshot_result = await self.screenshot_service.capture_screenshot(
+                        url=target.url,
+                        config=screenshot_config,
+                        metadata={
+                            'query': query,
+                            'target_type': target.target_type.value,
+                            'priority_score': target.priority_score,
+                            'confidence': target.confidence,
+                            'research_context': target.research_context,
+                            'source': 'comprehensive_web_research',
+                            'timestamp': time.time()
+                        }
+                    )
+                    
+                    if screenshot_result and screenshot_result.success:
+                        successful_captures += 1
+                        
+                        # Update research results with screenshot metadata
+                        for result in research_results:
+                            if result.get('url') == target.url:
+                                result['screenshot_evidence'] = {
+                                    'screenshot_id': screenshot_result.screenshot_id,
+                                    'file_path': screenshot_result.file_path,
+                                    'storage_url': screenshot_result.storage_url,
+                                    'capture_timestamp': screenshot_result.timestamp,
+                                    'metadata': screenshot_result.metadata
+                                }
+                                break
+                        
+                        logging.info(f"✅ Screenshot captured successfully: {screenshot_result.screenshot_id}")
+                    else:
+                        failed_captures += 1
+                        error_msg = screenshot_result.error_message if screenshot_result else "Unknown error"
+                        logging.warning(f"❌ Screenshot capture failed for {target.url}: {error_msg}")
+                    
+                    # Mark request as completed
+                    self.screenshot_request_queue.complete_request(request_id)
+                    
+                except Exception as e:
+                    failed_captures += 1
+                    logging.warning(f"❌ Screenshot capture exception for {target.url}: {e}")
+                    # Mark request as failed
+                    self.screenshot_request_queue.complete_request(request_id)
+            
+            logging.info(f"📸 Screenshot evidence capture completed: {successful_captures} successful, {failed_captures} failed")
+            
+        except Exception as e:
+            logging.warning(f"Screenshot evidence capture failed: {e}")
+            return
     
     async def _store_web_search_results(self, web_results: List[Dict[str, Any]], original_query: str):
         """Store and vectorize web search results using native LangChain components"""
@@ -1886,6 +2084,23 @@ Answer:
                         context_parts.append(f"- **Mobile:** App available")
                     if ux_data.get('customer_support_24_7'):
                         context_parts.append(f"- **Support:** 24/7 customer service")
+            
+            # ✅ NEW: Add Screenshot Evidence Context
+            if self.enable_screenshot_evidence:
+                screenshot_evidence = []
+                for source in comprehensive_web_research:
+                    if source.get('screenshot_evidence'):
+                        screenshot_evidence.append(source)
+                
+                if screenshot_evidence:
+                    context_parts.append("\n### 📸 Screenshot Evidence:")
+                    for i, source in enumerate(screenshot_evidence, 1):
+                        evidence = source['screenshot_evidence']
+                        context_parts.append(f"**{i}.** {source.get('title', 'Source')} - Visual Evidence Captured")
+                        context_parts.append(f"   Screenshot ID: {evidence.get('screenshot_id', 'N/A')}")
+                        context_parts.append(f"   Captured: {evidence.get('capture_timestamp', 'N/A')}")
+                        if evidence.get('storage_url'):
+                            context_parts.append(f"   [View Screenshot]({evidence['storage_url']})")
         
         # Add web search context
         if web_search:
@@ -4923,6 +5138,7 @@ def create_universal_rag_chain(
     enable_profiling: bool = True,            # ✅ NEW: Performance profiling
     enable_web_search: bool = True,           # ✅ NEW: Web search research (Tavily)
     enable_comprehensive_web_research: bool = True,   # ✅ ENABLED: Comprehensive WebBaseLoader research with 95-field casino analysis
+    enable_screenshot_evidence: bool = True,  # ✅ NEW: Screenshot evidence capture during web research
     enable_hyperlink_generation: bool = True, # ✅ NEW: Authoritative hyperlink generation
     enable_response_storage: bool = True,     # ✅ NEW: Response storage & vectorization
     vector_store = None,
@@ -4961,6 +5177,7 @@ def create_universal_rag_chain(
         enable_profiling=enable_profiling,
         enable_web_search=enable_web_search,
         enable_comprehensive_web_research=enable_comprehensive_web_research,
+        enable_screenshot_evidence=enable_screenshot_evidence,
         enable_hyperlink_generation=enable_hyperlink_generation,
         enable_response_storage=enable_response_storage,
         vector_store=vector_store,
