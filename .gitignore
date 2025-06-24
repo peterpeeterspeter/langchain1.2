@@ -198,6 +198,9 @@ yarn-error.log*
 dev-debug.log
 # Dependency directories
 node_modules/
+
+# Embedded git repositories
+mem0-mcp/
 # Environment variables
 # Editor directories and files
 .idea

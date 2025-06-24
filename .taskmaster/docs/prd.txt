@@ -1,0 +1,179 @@
+# Playwright Screenshot Integration for Universal RAG CMS
+## Product Requirements Document
+
+### 1. Executive Summary
+
+Enhance the Universal RAG CMS with native Playwright screenshot capability to capture visual evidence during web research. This feature will provide visual context for casino reviews and research content, integrate with existing WordPress publishing infrastructure, and improve content credibility through verifiable visual evidence.
+
+### 2. Background and Problem Statement
+
+The current Universal RAG CMS performs comprehensive web research but lacks visual evidence capture. Casino review content would benefit from:
+- Visual proof of casino interfaces and promotional offers
+- Screenshots of actual game selections and user interfaces  
+- Mobile responsiveness verification through mobile screenshots
+- Homepage and key section visual documentation
+
+### 3. Goals and Objectives
+
+**Primary Goals:**
+- Integrate native Playwright screenshot capture into the research pipeline
+- Enhance content quality with visual evidence
+- Leverage existing V1 Bulletproof Image upload patterns for WordPress publishing
+- Maintain zero external API dependencies
+
+**Success Metrics:**
+- Screenshots successfully captured during 95% of research sessions
+- Visual evidence properly embedded in WordPress published content
+- No significant performance degradation (<200ms added latency)
+- Zero browser resource leaks or memory issues
+
+### 4. Target Users
+
+- Content researchers using Universal RAG CMS for casino reviews
+- WordPress publishers requiring visual evidence in content
+- SEO specialists wanting enhanced content with visual proof
+
+### 5. Core Features and Requirements
+
+#### 5.1 Screenshot Capture Engine
+- **Requirement ID: SCE-001**
+- Native Playwright browser automation for screenshot capture
+- Support for full page, viewport, and element-specific screenshots
+- Mobile viewport screenshot capability
+- Configurable image quality and format options
+- Buffer-based processing without file I/O requirements
+
+#### 5.2 Research Pipeline Integration  
+- **Requirement ID: RPI-002**
+- Integration with existing _gather_comprehensive_web_research() method
+- Smart URL target identification from research results
+- Screenshot evidence added to context integration
+- Fallback handling for failed screenshot captures
+
+#### 5.3 WordPress Publishing Integration
+- **Requirement ID: WPI-003**
+- Leverage existing V1 Bulletproof Image uploader patterns
+- Automatic screenshot upload to WordPress media library
+- Alt text and caption generation for accessibility
+- Proper image embedding in published content
+
+#### 5.4 Performance and Reliability
+- **Requirement ID: PAR-004**
+- Browser resource management with proper cleanup
+- Rate limiting for screenshot operations (max 5 per research session)
+- Error handling with graceful degradation
+- Async implementation to prevent blocking
+
+#### 5.5 Configuration and Control
+- **Requirement ID: CAC-005**
+- Feature flag to enable/disable screenshot capture
+- Quality settings configuration
+- Screenshot type selection per use case
+- Integration with existing configuration management
+
+### 6. Technical Specifications
+
+#### 6.1 Architecture Integration
+- Extend UniversalRAGChain class with screenshot capability
+- Follow existing integration patterns (similar to DataForSEO images)
+- Leverage async/await patterns throughout
+- Integrate with existing error handling and logging systems
+
+#### 6.2 Core Methods Implementation
+- `_gather_screenshot_evidence()` - Primary screenshot capture method
+- `_extract_screenshot_targets_from_research()` - URL target identification
+- `_process_screenshot_buffer()` - Screenshot processing and metadata
+- `_upload_screenshot_to_wordpress()` - WordPress integration
+- `_create_screenshot_context()` - Textual context generation
+
+#### 6.3 Dependencies and Requirements
+- Playwright Python package integration
+- Graceful fallback for missing dependencies
+- Compatible with existing V1 Bulletproof Image patterns
+- No breaking changes to existing functionality
+
+### 7. User Stories
+
+**Story 1: Casino Review Research**
+As a content researcher, I want screenshots captured during casino research so that I have visual proof of promotions and interface quality for my reviews.
+
+**Story 2: WordPress Publishing**  
+As a content publisher, I want screenshots automatically uploaded and embedded in WordPress posts so that my content includes verifiable visual evidence.
+
+**Story 3: Mobile Analysis**
+As an SEO specialist, I want mobile screenshots captured so that I can verify and document mobile responsiveness in my content.
+
+**Story 4: Performance Monitoring**
+As a system administrator, I want screenshot capture to not impact overall system performance so that research quality improvements don't compromise speed.
+
+### 8. Implementation Phases
+
+#### Phase 1: Core Screenshot Engine (Priority: High)
+- Playwright integration and browser management
+- Basic screenshot capture methods
+- Error handling and resource cleanup
+- Unit testing for core functionality
+
+#### Phase 2: Research Pipeline Integration (Priority: High)  
+- Integration with existing research methods
+- URL target identification logic
+- Context integration for screenshot evidence
+- End-to-end testing with research pipeline
+
+#### Phase 3: WordPress Publishing (Priority: Medium)
+- V1 Bulletproof Image pattern integration
+- WordPress media library upload
+- Content embedding and metadata handling
+- Publishing workflow testing
+
+#### Phase 4: Advanced Features (Priority: Low)
+- Configuration management integration
+- Performance optimization
+- Advanced screenshot targeting
+- Analytics and monitoring
+
+### 9. Constraints and Limitations
+
+- Maximum 5 screenshots per research session (performance)
+- 30-second timeout per screenshot capture
+- Graceful degradation when Playwright unavailable
+- Browser resource limits (single browser instance)
+- No external API dependencies (cost constraint)
+
+### 10. Testing Requirements
+
+#### 10.1 Unit Testing
+- Screenshot capture method testing
+- Browser resource management verification
+- Error handling validation
+- WordPress integration testing
+
+#### 10.2 Integration Testing  
+- End-to-end research pipeline with screenshots
+- WordPress publishing with visual evidence
+- Performance impact measurement
+- Error recovery testing
+
+#### 10.3 Performance Testing
+- Browser resource usage monitoring
+- Screenshot capture latency measurement
+- Memory leak detection
+- Concurrent research session handling
+
+### 11. Documentation Requirements
+
+- Technical implementation documentation
+- Configuration guide for screenshot settings
+- WordPress publishing workflow documentation
+- Troubleshooting guide for common issues
+
+### 12. Success Criteria
+
+1. **Functional Requirements Met**: All core features implemented and tested
+2. **Performance Maintained**: <200ms latency added to research pipeline
+3. **WordPress Integration**: Screenshots properly embedded in published content
+4. **Reliability**: 95% success rate for screenshot capture attempts
+5. **Resource Management**: Zero browser resource leaks detected
+6. **User Adoption**: Feature enabled by default with positive feedback
+
+This PRD provides comprehensive guidance for implementing native Playwright screenshot integration while maintaining the high quality and performance standards of the Universal RAG CMS. 
