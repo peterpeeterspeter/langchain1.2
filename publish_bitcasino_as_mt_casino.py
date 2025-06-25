@@ -308,7 +308,7 @@ async def main():
         publisher = MTCasinoPublisher(
             wordpress_url='https://www.crashcasino.io',
             username='nmlwh',
-            password='q8ZU 4UHD 90vI Ej55 U0Jh yh8c'
+            password='your-wordpress-password-here'
         )
         
         print('🎰 Publishing as MT Casino with full metadata...')

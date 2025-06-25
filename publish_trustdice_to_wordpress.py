@@ -29,7 +29,7 @@ async def publish_trustdice_to_crashcasino():
     wordpress_config = WordPressConfig(
         site_url="https://www.crashcasino.io",
         username="nmlwh",
-        application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c",
+        application_password="your-wordpress-password-here",
         default_status="publish",  # Publish immediately
         default_author_id=1,
         default_category_ids=[1],  # Default category

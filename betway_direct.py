@@ -6,7 +6,7 @@ import os
 # Configure WordPress from memory
 os.environ['WORDPRESS_SITE_URL'] = 'https://www.crashcasino.io'
 os.environ['WORDPRESS_USERNAME'] = 'admin'
-os.environ['WORDPRESS_APP_PASSWORD'] = 'q8ZU 4UHD 90vI Ej55 U0Jh yh8c'
+os.environ['WORDPRESS_APP_PASSWORD'] = 'your-wordpress-password-here'
 
 sys.path.insert(0, 'src')
 from chains.universal_rag_lcel import create_universal_rag_chain

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-🎰 TRUSTDICE MT CASINO WORDPRESS PUBLISHING - WITH FIXED ASYNC CONTEXT MANAGER
-Universal RAG CMS v6.1 - Using LangChain Best Practices + Fixed WordPress Publishing
+🎰 LADBROKES PRODUCTION TEST - FIXED CONFIGURATION 
+Based on the successful TrustDice MT Casino script that produced Post ID 51371
 
-This script uses the corrected WordPress publishing logic that properly handles
-the async context manager for WordPressRESTPublisher.
+This script uses the EXACT working configuration from run_trustdice_mt_casino_fixed.py
+but adapted for Ladbrokes casino review production testing.
 """
 
 import os
@@ -15,11 +15,12 @@ import json
 from datetime import datetime
 
 # ✅ CRITICAL: Set WordPress environment variables BEFORE importing the chain
+# Using EXACT same variable names and values as the WORKING script
 os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
 os.environ["WORDPRESS_USERNAME"] = "nmlwh"
 os.environ["WORDPRESS_PASSWORD"] = "your-wordpress-password-here"
 
-print("🔧 WordPress environment variables set:")
+print("🔧 WordPress environment variables set (WORKING CONFIGURATION):")
 print(f"   WORDPRESS_URL: {os.environ.get('WORDPRESS_URL')}")
 print(f"   WORDPRESS_USERNAME: {os.environ.get('WORDPRESS_USERNAME')}")
 print(f"   WORDPRESS_PASSWORD: {'*' * len(os.environ.get('WORDPRESS_PASSWORD', ''))}")
@@ -29,33 +30,33 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from chains.universal_rag_lcel import create_universal_rag_chain
 
-async def run_trustdice_mt_casino_fixed():
-    """Run TrustDice analysis with FIXED WordPress publishing for MT Casino"""
+async def run_ladbrokes_production_fixed():
+    """Run Ladbrokes analysis using FIXED WordPress publishing configuration"""
     
-    print("🎰 TRUSTDICE MT CASINO - FIXED WORDPRESS PUBLISHING")
+    print("🎰 LADBROKES PRODUCTION TEST - FIXED CONFIGURATION")
     print("=" * 70)
-    print("🎯 Target: TrustDice Casino → MT Casino WordPress Post")
+    print("🎯 Target: Ladbrokes Casino → MT Casino WordPress Post")
     print("📝 WordPress Site: https://www.crashcasino.io")
-    print("🔐 WordPress: ✅ FIXED async context manager")
+    print("🔐 WordPress: ✅ EXACT working configuration from Post ID 51371")
     print("🏗️ Post Type: MT Casino (Custom Post Type)")
     print()
     
-    # Initialize RAG chain with WordPress fully enabled
-    print("🚀 Initializing Universal RAG Chain v6.1 with FIXED WordPress...")
+    # Initialize RAG chain with EXACT same configuration as working script
+    print("🚀 Initializing Universal RAG Chain v6.1 with WORKING configuration...")
     rag_chain = create_universal_rag_chain(
         model_name="gpt-4o-mini",
         temperature=0.1,
         enable_comprehensive_web_research=True,
-        enable_wordpress_publishing=True,  # This now uses the FIXED async context manager
+        enable_wordpress_publishing=True,
         enable_dataforseo_images=True,
         enable_web_search=True,
         enable_cache_bypass=False
     )
     
-    print("✅ Chain initialized with FIXED WordPress publishing logic")
+    print("✅ Chain initialized with WORKING WordPress publishing configuration")
     
-    # TrustDice casino query focused on MT Casino requirements
-    trustdice_query = """Create a comprehensive professional TrustDice Casino review for MT Casino custom post type.
+    # Ladbrokes casino query focused on MT Casino requirements
+    ladbrokes_query = """Create a comprehensive professional Ladbrokes Casino review for MT Casino custom post type.
     
     Cover: licensing and regulation, cryptocurrency features and payment methods, games portfolio including crash games, 
     welcome bonuses and promotions, mobile experience and usability, customer support quality, security measures, 
@@ -63,20 +64,20 @@ async def run_trustdice_mt_casino_fixed():
     
     Format for WordPress MT Casino post type with proper SEO optimization."""
     
-    print(f"🔍 TrustDice MT Casino Query:")
-    print(f"📝 {trustdice_query}")
+    print(f"🔍 Ladbrokes MT Casino Query:")
+    print(f"📝 {ladbrokes_query}")
     print("-" * 70)
     
     start_time = time.time()
     
     try:
-        # Execute RAG chain with WordPress publishing
-        print("⚡ Executing chain with FIXED WordPress publishing...")
+        # Execute RAG chain with EXACT same input structure as working script
+        print("⚡ Executing chain with WORKING WordPress publishing...")
         
-        # Use the fixed input structure
+        # Use the EXACT input structure from working script
         query_input = {
-            "question": trustdice_query,
-            "publish_to_wordpress": True  # This triggers the FIXED WordPress publishing logic
+            "question": ladbrokes_query,
+            "publish_to_wordpress": True
         }
         
         response = await rag_chain.ainvoke(query_input)
@@ -90,48 +91,62 @@ async def run_trustdice_mt_casino_fixed():
         print(f"📚 Sources: {len(response.sources)} sources")
         print(f"🖼️ Images: {response.metadata.get('images_found', 0)} found")
         
-        # Check FIXED WordPress publishing result
+        # Check Ladbrokes content quality
+        ladbrokes_count = response.answer.lower().count('ladbrokes')
+        print(f"🏷️ Ladbrokes mentions: {ladbrokes_count}")
+        
+        # Check WordPress publishing result
         wordpress_published = response.metadata.get("wordpress_published", False)
         
         if wordpress_published:
             wp_url = response.metadata.get("wordpress_url", "")
             post_id = response.metadata.get("wordpress_post_id", "")
-            print(f"\n🌟 ✅ FIXED WORDPRESS PUBLISHING SUCCESS!")
+            post_type = response.metadata.get("wordpress_post_type", "unknown")
+            print(f"\n🌟 ✅ WORDPRESS PUBLISHING SUCCESS!")
             print(f"📝 Post ID: {post_id}")
             print(f"🔗 Post URL: {wp_url}")
+            print(f"📂 Post Type: {post_type}")
             print(f"📊 Category: {response.metadata.get('wordpress_category', 'N/A')}")
             print(f"🏷️ Custom Fields: {response.metadata.get('wordpress_custom_fields_count', 0)}")
             print(f"🔖 Tags: {response.metadata.get('wordpress_tags_count', 0)}")
-            print(f"🎰 MT Casino: ✅ Published to MT Casino post type")
+            
+            # Verify MT Casino post type
+            if 'mt_listing' in str(post_type).lower() or '/casino/' in str(wp_url):
+                print(f"🎰 MT Casino: ✅ Published to MT Casino custom post type")
+            else:
+                print(f"⚠️ Warning: May not be MT Casino post type")
+                
         else:
-            print(f"\n❌ WordPress publishing still failed")
+            print(f"\n❌ WordPress publishing failed")
             error = response.metadata.get("wordpress_error", "Unknown error")
             print(f"💡 Error: {error}")
-            print(f"🔧 This means the fix may need additional debugging")
         
         # Show content preview
-        print("\n📄 TRUSTDICE CONTENT PREVIEW:")
+        print("\n📄 LADBROKES CONTENT PREVIEW:")
         print("=" * 50)
         content_preview = response.answer[:1000] + "..." if len(response.answer) > 1000 else response.answer
         print(content_preview)
         
         # Save results
         results = {
-            "query": trustdice_query,
+            "method": "ladbrokes_production_fixed",
+            "query": ladbrokes_query,
             "processing_time": processing_time,
             "content_length": len(response.answer),
             "confidence_score": response.confidence_score,
             "sources_count": len(response.sources),
             "images_found": response.metadata.get('images_found', 0),
+            "ladbrokes_mentions": ladbrokes_count,
             "wordpress_published": wordpress_published,
             "wordpress_post_id": response.metadata.get("wordpress_post_id"),
             "wordpress_url": response.metadata.get("wordpress_url"),
+            "wordpress_post_type": response.metadata.get("wordpress_post_type"),
             "wordpress_error": response.metadata.get("wordpress_error"),
             "full_content": response.answer,
             "timestamp": datetime.now().isoformat()
         }
         
-        filename = f"trustdice_mt_casino_fixed_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        filename = f"ladbrokes_production_fixed_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
         with open(filename, 'w', encoding='utf-8') as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         
@@ -149,19 +164,19 @@ async def run_trustdice_mt_casino_fixed():
     finally:
         # Final summary
         print("\n" + "=" * 70)
-        print("🏆 TRUSTDICE MT CASINO FIXED WORDPRESS TEST COMPLETE")
-        print("✅ Universal RAG CMS v6.1: ALL FEATURES OPERATIONAL")
-        print("🔧 WordPress Publishing: ASYNC CONTEXT MANAGER FIXED")
-        print("🎰 MT Casino Integration: CUSTOM POST TYPE READY")
+        print("🏆 LADBROKES PRODUCTION TEST COMPLETE")
+        print("✅ Universal RAG CMS v6.1: WORKING CONFIGURATION APPLIED")
+        print("🔧 WordPress Publishing: EXACT SAME ENV VARS AS POST 51371")
+        print("🎰 MT Casino Integration: CUSTOM POST TYPE TARGETING")
         print("🖼️ Image Integration: BULLETPROOF V1 PATTERNS")
         print("🌐 Live WordPress: https://www.crashcasino.io")
 
 if __name__ == "__main__":
-    result = asyncio.run(run_trustdice_mt_casino_fixed())
+    result = asyncio.run(run_ladbrokes_production_fixed())
     
     if result and result.metadata.get("wordpress_published"):
-        print("\n🎉 SUCCESS! Fixed WordPress publishing works!")
-        print(f"📝 TrustDice article published: {result.metadata.get('wordpress_url')}")
+        print("\n🎉 SUCCESS! Ladbrokes published using working configuration!")
+        print(f"📝 Ladbrokes article published: {result.metadata.get('wordpress_url')}")
     else:
-        print("\n⚠️ WordPress publishing needs further debugging")
-        print("🔧 The async context manager fix may need additional work") 
+        print("\n⚠️ WordPress publishing still needs debugging")
+        print("🔧 The environment variables or authentication may need adjustment") 

@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent / "src"))
 # Set WordPress environment variables
 os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
 os.environ["WORDPRESS_USERNAME"] = "nmlwh"
-os.environ["WORDPRESS_PASSWORD"] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+os.environ["WORDPRESS_PASSWORD"] = "your-wordpress-password-here"
 
 async def test_wordpress_direct():
     """Test WordPress publishing directly"""
@@ -40,7 +40,7 @@ async def test_wordpress_direct():
         wp_config = WordPressConfig(
             site_url="https://www.crashcasino.io",
             username="nmlwh",
-            application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+            application_password="your-wordpress-password-here"
         )
         
         print(f"✅ WordPress config created: {wp_config.site_url}")
@@ -103,7 +103,7 @@ async def test_wordpress_via_integration():
         wp_config = WordPressConfig(
             site_url="https://www.crashcasino.io",
             username="nmlwh",
-            application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+            application_password="your-wordpress-password-here"
         )
         
         wp_integration = WordPressIntegration(wordpress_config=wp_config)

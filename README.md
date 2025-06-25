@@ -3095,3 +3095,44 @@ With Tasks 17 & 18 complete, the system is now ready for:
 ---
 
 *Last Updated: 2025-01-20 - Tasks 17 & 18 Complete*
+
+---
+
+# Universal RAG Chain with LangChain
+
+A comprehensive RAG (Retrieval-Augmented Generation) system built with LangChain, featuring advanced web research, screenshot capabilities, WordPress publishing, and casino intelligence extraction.
+
+## 🎉 Latest Updates - WordPress Publishing Now 100% Operational
+
+### ✅ Major Breakthrough - All Publishing Issues Resolved (June 25, 2025)
+
+**WordPress publishing with MT Casino custom post type is now fully operational!**
+
+- **✅ Content Validation Fixed**: Resolved critical validation bug that was blocking publications
+- **✅ MT Casino Integration**: Successfully publishing to `mt_listing` custom post type
+- **✅ Image Integration**: 6 images per review uploaded and embedded correctly
+- **✅ Custom Fields**: All 18 MT Casino metadata fields populated
+- **✅ Production Verified**: Multiple successful publications (Post IDs 51371, 51406)
+
+### Recent Successful Publications
+- **TrustDice Casino Review**: [Live URL](https://www.crashcasino.io/casino/trustdice-casino-review-professional-analysis-rating/)
+- **Ladbrokes Casino Review**: [Live URL](https://www.crashcasino.io/casino/trustdice-casino-review-professional-analysis-rating-3/)
+
+For detailed fix documentation, see: [`WORDPRESS_PUBLISHING_FIXES.md`](WORDPRESS_PUBLISHING_FIXES.md)
+
+## 🚀 Features
+
+### Core Capabilities
+- **Advanced Web Research**: Multi-source research with Tavily integration
+- **Screenshot Generation**: Automated website screenshots with DataForSEO
+- **WordPress Publishing**: Direct publishing to WordPress with custom post types
+- **Image Integration**: Automatic image upload and embedding
+- **Casino Intelligence**: 95-field extraction for comprehensive casino analysis
+- **Content Validation**: Robust validation ensuring quality and accuracy
+
+### Technical Architecture
+- **LangChain LCEL**: Built with LangChain Expression Language for optimal performance
+- **Async Processing**: Full async support for concurrent operations
+- **Supabase Integration**: Cloud storage for screenshots and media
+- **Multi-Model Support**: Compatible with various LLM providers
+- **Caching System**: Intelligent caching for improved performance

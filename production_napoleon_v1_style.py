@@ -25,7 +25,7 @@ sys.path.insert(0, 'src')
 # Set WordPress credentials (V1 style - direct environment setup)
 os.environ['WORDPRESS_SITE_URL'] = "https://www.crashcasino.io"
 os.environ['WORDPRESS_USERNAME'] = "nmlwh" 
-os.environ['WORDPRESS_APP_PASSWORD'] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+os.environ['WORDPRESS_APP_PASSWORD'] = "your-wordpress-password-here"
 
 # Configure logging
 logging.basicConfig(level=logging.ERROR)  # Suppress noise
@@ -79,7 +79,7 @@ async def main():
         wp_config = WordPressConfig(
             site_url="https://www.crashcasino.io",
             username="nmlwh",
-            application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+            application_password="your-wordpress-password-here"
         )
         
         wordpress = WordPressIntegration(wp_config)  # Fixed constructor

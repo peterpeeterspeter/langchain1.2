@@ -17,7 +17,7 @@ def check_latest_posts():
     # WordPress credentials
     site_url = "https://www.crashcasino.io"
     username = "nmlwh"
-    app_password = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+    app_password = "your-wordpress-password-here"
     
     print("🔍 CHECKING LATEST WORDPRESS POSTS FOR IMAGES")
     print("=" * 60)

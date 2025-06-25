@@ -27,7 +27,7 @@ async def publish_betway_review_live():
     wordpress_config = {
         'site_url': 'https://www.crashcasino.io',
         'username': 'nmlwh',
-        'app_password': 'q8ZU 4UHD 90vI Ej55 U0Jh yh8c'
+        'app_password': 'your-wordpress-password-here'
     }
     
     print(f"📝 Target WordPress Site: {wordpress_config['site_url']}")

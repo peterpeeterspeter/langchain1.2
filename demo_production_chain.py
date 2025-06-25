@@ -25,7 +25,7 @@ async def main():
         wordpress_config = WordPressConfig(
             site_url="https://www.crashcasino.io",
             username="nmlwh", 
-            application_password="q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+            application_password="your-wordpress-password-here"
         )
         
         print('📝 Creating Production Universal RAG Chain...')

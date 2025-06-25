@@ -23,7 +23,7 @@ from datetime import datetime
 # This ensures they're available during UniversalRAGChain initialization
 os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
 os.environ["WORDPRESS_USERNAME"] = "nmlwh"  # ✅ WORKING: Using exact working credentials
-os.environ["WORDPRESS_PASSWORD"] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+os.environ["WORDPRESS_PASSWORD"] = "your-wordpress-password-here"
 
 print("🔧 WordPress environment variables set:")
 print(f"   WORDPRESS_URL: {os.environ.get('WORDPRESS_URL')}")

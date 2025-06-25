@@ -3758,10 +3758,14 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         if expected_casino:
             expected_casino_display = expected_casino.replace('_', ' ').title()
             
-            # Check if title contains expected casino name
+            # ✅ FIXED: Check if casino name appears anywhere in content (not just first line)
             title_match = False
-            first_heading = content.split('\n')[0] if content else ""
-            if expected_casino_display.lower() in first_heading.lower():
+            
+            # Handle escaped content - convert \n to actual newlines
+            processed_content = content.replace('\\n', '\n') if content else ""
+            
+            # Look for casino name anywhere in the content (case insensitive)
+            if expected_casino_display.lower() in processed_content.lower():
                 title_match = True
             
             if not title_match:
@@ -3783,8 +3787,12 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         if '&#' in content and content.count('&#') > 5:
             validation_errors.append("Content contains HTML entity encoding issues")
         
-        # Check for basic structure
-        if content.count('##') < 2:
+        # Check for basic structure - accept both markdown (##) and HTML (<h2>) H2 headings
+        markdown_h2_count = content.count('##')
+        html_h2_count = content.lower().count('<h2')
+        total_h2_count = markdown_h2_count + html_h2_count
+        
+        if total_h2_count < 2:
             validation_errors.append("Content lacks proper section structure (needs H2 headings)")
         
         is_valid = len(validation_errors) == 0

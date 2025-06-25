@@ -234,7 +234,7 @@ if __name__ == "__main__":
     os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
     os.environ["WORDPRESS_SITE_URL"] = "https://www.crashcasino.io"
     os.environ["WORDPRESS_USERNAME"] = "peeters.peter@telenet.be"
-    os.environ["WORDPRESS_PASSWORD"] = "q8ZU 4UHD 90vI Ej55 U0Jh yh8c"
+    os.environ["WORDPRESS_PASSWORD"] = "your-wordpress-password-here"
     
     print("🔧 WordPress environment configured for MT_LISTING publication")
     print("🎰 Starting Ladbrokes Casino Review with FIXED Universal RAG Chain...")
