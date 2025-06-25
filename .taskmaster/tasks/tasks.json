@@ -1396,7 +1396,7 @@
         "description": "Integrate screenshot functionality with existing WordPress publishing system, enabling automatic upload, alt text generation, and content embedding of captured screenshots.",
         "details": "This task will integrate the Core Playwright Screenshot Engine with the WordPress REST API Publisher, following the established V1 Bulletproof Image upload patterns. Implementation will include:\n\n1. Create a new `_upload_screenshot_to_wordpress()` method in the WordPress publisher module:\n   ```python\n   def _upload_screenshot_to_wordpress(self, screenshot_path, post_id=None, alt_text=None, caption=None):\n       \"\"\"\n       Upload a screenshot to WordPress using bulletproof upload patterns.\n       \n       Args:\n           screenshot_path (str): Path to the screenshot file\n           post_id (int, optional): WordPress post ID to associate with\n           alt_text (str, optional): Accessibility alt text\n           caption (str, optional): Image caption\n           \n       Returns:\n           dict: WordPress media object with ID and URL\n       \"\"\"\n       # Implementation leveraging existing bulletproof uploader patterns\n   ```\n\n2. Leverage existing bulletproof uploader patterns:\n   - Implement chunked uploads for large screenshots\n   - Add retry logic with exponential backoff\n   - Include proper error handling for network issues\n   - Validate media responses from WordPress API\n   - Implement proper cleanup of temporary files\n\n3. Add automatic alt text and caption generation:\n   - Integrate with an image analysis service or LLM for context-aware alt text\n   - Generate descriptive captions based on the screenshot content and context\n   - Include metadata about the source URL and capture timestamp\n   - Implement fallback text generation for accessibility compliance\n\n4. Implement screenshot embedding in published content:\n   - Create helper methods to insert screenshots at appropriate locations in content\n   - Support various embedding formats (inline, figure with caption, gallery)\n   - Add responsive image markup with appropriate srcset attributes\n   - Implement lazy loading for performance optimization\n   - Add proper attribution and source linking\n\n5. Create integration points with the screenshot engine:\n   - Establish a clean API for the screenshot engine to pass captures to the publisher\n   - Implement a queue system for handling multiple screenshots\n   - Add metadata preservation throughout the pipeline\n   - Create logging and monitoring for the integration points\n\n6. Add configuration options:\n   - Screenshot quality and format settings\n   - WordPress-specific media library organization\n   - Default alt text and caption templates\n   - Embedding preferences and styling options",
         "testStrategy": "1. Unit Testing:\n   - Test the `_upload_screenshot_to_wordpress()` method with various input scenarios\n   - Verify error handling with simulated network failures\n   - Test alt text and caption generation with different screenshot types\n   - Validate proper cleanup of temporary files\n\n2. Integration Testing:\n   - Test end-to-end flow from screenshot capture to WordPress publishing\n   - Verify screenshots appear correctly in published content\n   - Test with various WordPress configurations and versions\n   - Validate media library organization and metadata preservation\n\n3. Performance Testing:\n   - Measure upload times for various screenshot sizes\n   - Test concurrent uploads to identify bottlenecks\n   - Verify resource usage during high-volume operations\n   - Benchmark against previous image upload implementations\n\n4. Accessibility Testing:\n   - Validate alt text quality and presence\n   - Test screen reader compatibility with embedded screenshots\n   - Verify caption readability and context appropriateness\n   - Check contrast ratios and text overlays on screenshots\n\n5. Regression Testing:\n   - Ensure existing WordPress publishing functionality remains intact\n   - Verify compatibility with different content types\n   - Test with existing bulletproof upload patterns to ensure consistency\n   - Validate backward compatibility with previous image embedding approaches",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           19,
           20,
@@ -1411,14 +1411,82 @@
         "description": "Implement comprehensive testing of the screenshot functionality, including unit tests, performance optimization, memory leak detection, and integration testing with the research and publishing pipeline.",
         "details": "This task will implement a comprehensive testing and optimization framework for the screenshot functionality with the following components:\n\n1. Unit Testing Suite:\n   - Create unit tests for all screenshot capture methods (full page, viewport, element-specific)\n   - Test browser initialization and teardown processes\n   - Implement mocking for DOM elements and browser interactions\n   - Validate screenshot quality and format consistency\n\n2. Performance Optimization:\n   - Implement browser resource management optimization:\n     ```python\n     def optimize_browser_resources(browser_pool):\n         \"\"\"\n         Optimize browser resource usage by implementing intelligent pooling\n         and resource allocation strategies.\n         \"\"\"\n         # Configure browser pool size based on system resources\n         max_concurrent_browsers = min(os.cpu_count(), 4)\n         # Set resource constraints per browser instance\n         browser_options = {\n             'javascript_enabled': True,\n             'user_data_dir': None,  # Use temporary profiles\n             'args': [\n                 '--disable-extensions',\n                 '--disable-gpu',\n                 '--disable-dev-shm-usage',\n                 '--disable-setuid-sandbox',\n                 '--no-sandbox',\n                 '--disable-accelerated-2d-canvas',\n                 '--disable-renderer-backgrounding',\n                 '--disable-background-timer-throttling',\n                 '--disable-backgrounding-occluded-windows',\n                 '--disable-background-networking',\n             ]\n         }\n         return configure_browser_pool(max_concurrent_browsers, browser_options)\n     ```\n   - Implement caching for repeated screenshot requests\n   - Optimize image compression settings for balance of quality and size\n   - Implement parallel processing for batch screenshot operations\n\n3. Performance Testing Framework:\n   - Create benchmarking suite to measure screenshot capture latency\n   - Implement continuous performance monitoring\n   - Set up performance regression detection\n   - Create performance profiles for different screenshot types and sizes\n\n4. Memory Leak Detection:\n   - Implement memory profiling during extended screenshot operations\n   - Create automated tests for detecting memory leaks in browser instances\n   - Implement resource cleanup verification\n   - Add memory usage logging and alerting for production monitoring\n\n5. Integration Testing:\n   - Test integration with the complete research pipeline\n   - Verify screenshot metadata is correctly associated with research content\n   - Test WordPress publishing integration with various screenshot types\n   - Validate error handling and recovery mechanisms\n\n6. Load Testing:\n   - Implement stress testing for concurrent screenshot operations\n   - Measure system stability under high load\n   - Determine optimal concurrency settings for production\n   - Document performance characteristics and limitations",
         "testStrategy": "1. Unit Test Verification:\n   - Execute the complete unit test suite with >90% code coverage\n   - Verify all screenshot capture methods function correctly\n   - Validate error handling for edge cases (e.g., invisible elements, timeouts)\n   - Confirm browser resource management functions as expected\n\n2. Performance Testing:\n   - Measure screenshot capture latency across different page types:\n     - Simple pages: Target <100ms\n     - Complex pages: Target <200ms\n     - Large pages: Target <500ms\n   - Verify that screenshot operations add less than 200ms latency to the overall pipeline\n   - Test with various network conditions to ensure robustness\n   - Benchmark against baseline performance metrics\n\n3. Memory Leak Detection:\n   - Run extended test sessions (1000+ screenshots) and monitor memory usage\n   - Verify no memory growth over time during repeated operations\n   - Test browser instance recycling to confirm proper resource cleanup\n   - Validate system stability during extended operation periods\n\n4. Integration Testing:\n   - Verify end-to-end functionality with the research pipeline:\n     - Screenshot capture during research\n     - Metadata association\n     - Storage in Supabase\n     - Publishing to WordPress\n   - Test error scenarios and recovery mechanisms\n   - Validate screenshot quality in published content\n\n5. Load Testing:\n   - Perform concurrent screenshot operations (10, 20, 50 simultaneous)\n   - Measure system stability and resource usage under load\n   - Determine optimal concurrency settings for production\n   - Document performance characteristics and limitations\n\n6. Regression Testing:\n   - Create baseline performance metrics\n   - Implement automated regression detection\n   - Document performance improvements from optimization efforts",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           19,
           20,
           21
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement Unit Testing Suite for Screenshot Capture Methods",
+            "description": "Create a comprehensive unit testing suite for all screenshot capture methods, including full page, viewport, and element-specific captures. Implement test cases for browser initialization, teardown processes, and validate screenshot quality.",
+            "dependencies": [],
+            "details": "Create test modules for each screenshot capture method. Implement mocking for DOM elements and browser interactions using a framework like pytest-mock. Develop validation functions to check screenshot quality metrics (resolution, color accuracy) and format consistency. Include tests for error handling scenarios and edge cases like extremely large pages or complex DOM structures.",
+            "status": "done",
+            "testStrategy": "Use pytest for test organization. Implement test fixtures for browser setup/teardown. Create parameterized tests to validate different screenshot configurations. Use image comparison libraries to verify screenshot quality against reference images."
+          },
+          {
+            "id": 2,
+            "title": "Implement Browser Resource Management Optimization",
+            "description": "Optimize browser resource usage by implementing intelligent pooling and resource allocation strategies. Configure browser options to minimize resource consumption and implement caching for repeated screenshot requests.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement the optimize_browser_resources function as specified in the task description. Create a browser pool manager class that handles browser instance lifecycle. Implement a caching mechanism that stores screenshots based on URL and capture parameters with appropriate expiration policies. Optimize image compression settings to balance quality and file size based on use case requirements.",
+            "status": "done",
+            "testStrategy": "Measure memory and CPU usage before and after optimization. Create tests that verify browser instances are properly recycled. Implement cache hit/miss metrics collection."
+          },
+          {
+            "id": 3,
+            "title": "Develop Performance Testing Framework with Benchmarking",
+            "description": "Create a benchmarking suite to measure screenshot capture latency across different scenarios. Implement continuous performance monitoring and regression detection mechanisms.",
+            "dependencies": [
+              2
+            ],
+            "details": "Build a performance testing framework that measures key metrics: time to initialize browser, time to navigate to page, time to capture screenshot, and total operation time. Create baseline performance profiles for different screenshot types (full page, viewport, element) and page complexities. Implement automated performance regression detection that compares current performance against historical data. Set up continuous performance monitoring that can be integrated with CI/CD pipelines.",
+            "status": "done",
+            "testStrategy": "Use statistical analysis to identify performance anomalies. Implement percentile-based performance targets (p50, p95, p99). Create visualizations of performance trends over time."
+          },
+          {
+            "id": 4,
+            "title": "Implement Memory Leak Detection and Resource Cleanup",
+            "description": "Create a system for memory profiling during extended screenshot operations. Implement automated tests for detecting memory leaks in browser instances and verify proper resource cleanup.",
+            "dependencies": [
+              2
+            ],
+            "details": "Develop memory profiling tools that monitor browser process memory usage over time. Create long-running tests that perform repeated screenshot operations to detect memory growth patterns. Implement resource cleanup verification that ensures all browser processes and temporary files are properly terminated and removed. Add memory usage logging with configurable thresholds for alerting in production environments.\n<info added on 2025-06-24T18:43:58.501Z>\nMemory profiling system has been successfully implemented with the MemoryProfiler class that provides continuous monitoring, configurable sampling intervals (0.5-1.0 second), and memory alert thresholds. The ResourceCleanupVerifier class now tracks browser processes, temporary files, and system resources to ensure proper cleanup.\n\nMemory leak detection utilizes linear regression and correlation analysis to identify memory growth patterns with severity classification (none/minor/moderate/critical). Long-running tests now support 1+ hour durations with periodic memory snapshots.\n\nA comprehensive test suite with 14 test cases (100% pass rate) validates memory profiling, resource cleanup verification, memory trend analysis, integration scenarios, and JSON serialization.\n\nProduction features include a dedicated runner with test scenarios, configurable memory usage logging and alerts, CI/CD integration with exit codes for automation, detailed reporting with recommendations, browser process lifecycle monitoring, and temporary file cleanup verification.\n\nThe framework successfully detects memory leaks through statistical analysis and ensures proper resource cleanup during screenshot operations.\n</info added on 2025-06-24T18:43:58.501Z>",
+            "status": "done",
+            "testStrategy": "Run extended duration tests (1+ hours) with periodic memory snapshots. Implement linear regression analysis on memory usage over time to detect leaks. Verify process counts before and after operations to ensure no orphaned processes."
+          },
+          {
+            "id": 5,
+            "title": "Develop Integration Testing for Research Pipeline",
+            "description": "Create integration tests that verify the screenshot functionality works correctly with the complete research pipeline. Ensure screenshots are properly associated with research content and validate WordPress publishing integration.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Implement end-to-end tests that follow the complete workflow from research content creation to screenshot capture to WordPress publishing. Verify screenshot metadata is correctly associated with research content in the database. Test various screenshot types with the WordPress publishing system to ensure proper rendering and attachment. Implement comprehensive error handling tests that verify system recovery from failures at different stages of the pipeline.",
+            "status": "done",
+            "testStrategy": "Use a staging environment that mirrors production. Create test fixtures that represent real-world research content. Implement assertions that verify the complete data flow through all system components."
+          },
+          {
+            "id": 6,
+            "title": "Implement Load Testing for Concurrent Operations",
+            "description": "Develop stress testing capabilities for concurrent screenshot operations. Measure system stability under high load and determine optimal concurrency settings for production deployment.",
+            "dependencies": [
+              2,
+              3,
+              4
+            ],
+            "details": "Create a load testing framework that can simulate multiple concurrent users requesting screenshots. Implement gradual scaling tests that increase load until system degradation is observed. Measure key metrics under load: response time, error rate, memory usage, and CPU utilization. Document performance characteristics and system limitations based on test results. Determine and configure optimal concurrency settings for the production environment based on findings.",
+            "status": "done",
+            "testStrategy": "Use tools like Locust or custom async testing frameworks to generate load. Monitor system resources during tests to identify bottlenecks. Establish maximum concurrent operations before quality or performance degradation."
+          }
+        ]
       },
       {
         "id": 23,
@@ -1439,7 +1507,7 @@
     ],
     "metadata": {
       "created": "2025-06-16T20:43:05.251Z",
-      "updated": "2025-06-24T17:24:42.884Z",
+      "updated": "2025-06-25T06:38:29.857Z",
       "description": "Tasks for master context"
     }
   }

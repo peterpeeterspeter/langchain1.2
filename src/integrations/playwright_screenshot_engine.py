@@ -8,12 +8,21 @@ Implements browser pool management and screenshot capture using pure Playwright 
 - No LangChain wrapper dependencies
 - Pure Playwright browser automation
 - Integrates with existing Universal RAG architecture
+
+✅ TASK 22.2 BROWSER RESOURCE OPTIMIZATION
+- Intelligent browser resource allocation
+- Screenshot caching for repeated requests  
+- Optimized image compression settings
+- Performance monitoring and resource cleanup
 """
 
 import asyncio
 import logging
 import time
 import random
+import os
+import psutil
+import hashlib
 from typing import Dict, List, Optional, Any, Tuple, Callable, Union, Type
 from dataclasses import dataclass, field
 from contextlib import asynccontextmanager
@@ -34,6 +43,290 @@ except ImportError:
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+@dataclass
+class ResourceOptimizationConfig:
+    """Configuration for browser resource optimization (Task 22.2)"""
+    # CPU and memory constraints
+    max_concurrent_browsers: Optional[int] = None  # Auto-detect based on system
+    memory_limit_mb: int = 2048  # Per browser instance
+    cpu_utilization_threshold: float = 0.8  # Scale down if exceeded
+    
+    # Browser optimization settings
+    disable_images: bool = False  # Set to True for text-heavy sites
+    disable_javascript: bool = False  # Set to True for static content
+    disable_css: bool = False  # Set to True for minimal rendering
+    use_minimal_viewport: bool = False  # Use smaller viewport to save memory
+    
+    # Caching configuration
+    enable_screenshot_caching: bool = True
+    cache_ttl_hours: int = 24
+    max_cache_entries: int = 1000
+    cache_cleanup_interval_minutes: int = 30
+    
+    # Image compression optimization
+    png_compression_level: int = 6  # 0-9, higher = smaller files
+    jpeg_quality: int = 85  # 0-100, lower = smaller files
+    auto_format_selection: bool = True  # Auto-choose format based on content
+    
+    @classmethod
+    def get_performance_config(cls) -> 'ResourceOptimizationConfig':
+        """Get configuration optimized for performance over quality"""
+        return cls(
+            disable_images=True,
+            disable_css=True,
+            use_minimal_viewport=True,
+            jpeg_quality=70,
+            png_compression_level=9
+        )
+    
+    @classmethod
+    def get_quality_config(cls) -> 'ResourceOptimizationConfig':
+        """Get configuration optimized for quality over performance"""
+        return cls(
+            disable_images=False,
+            disable_javascript=False,
+            disable_css=False,
+            jpeg_quality=95,
+            png_compression_level=3
+        )
+
+@dataclass
+class ScreenshotCacheEntry:
+    """Represents a cached screenshot entry (Task 22.2)"""
+    screenshot_data: bytes
+    url: str
+    cache_key: str
+    created_at: datetime
+    last_accessed: datetime
+    access_count: int
+    capture_config: Dict[str, Any]
+    file_size: int
+    content_hash: str
+    
+    def is_expired(self, ttl_hours: int) -> bool:
+        """Check if cache entry has expired"""
+        return datetime.now() > self.created_at + timedelta(hours=ttl_hours)
+    
+    def update_access(self):
+        """Update access tracking"""
+        self.last_accessed = datetime.now()
+        self.access_count += 1
+
+class ScreenshotCache:
+    """
+    Intelligent caching system for screenshot operations (Task 22.2)
+    Implements LRU eviction with TTL and content-aware caching
+    """
+    
+    def __init__(self, config: ResourceOptimizationConfig = None):
+        self.config = config or ResourceOptimizationConfig()
+        self._cache: Dict[str, ScreenshotCacheEntry] = {}
+        self._lru_order: List[str] = []  # For LRU tracking
+        self._lock = asyncio.Lock()
+        
+        # Statistics
+        self._stats = {
+            'hits': 0,
+            'misses': 0,
+            'evictions': 0,
+            'total_requests': 0,
+            'cache_size_bytes': 0,
+            'total_entries_created': 0
+        }
+        
+        logger.info(f"Screenshot cache initialized: max_entries={self.config.max_cache_entries}, "
+                   f"ttl={self.config.cache_ttl_hours}h")
+    
+    def _generate_cache_key(self, url: str, capture_config: Dict[str, Any]) -> str:
+        """Generate cache key based on URL and capture configuration"""
+        key_components = [
+            url,
+            capture_config.get('format', 'png'),
+            capture_config.get('quality', 85),
+            capture_config.get('full_page', True),
+            capture_config.get('viewport_width', 1920),
+            capture_config.get('viewport_height', 1080),
+            capture_config.get('selector')
+        ]
+        
+        key_string = '|'.join(str(c) for c in key_components if c is not None)
+        return hashlib.md5(key_string.encode()).hexdigest()
+    
+    async def get(self, url: str, capture_config: Dict[str, Any]) -> Optional[bytes]:
+        """Retrieve screenshot from cache if available and valid"""
+        if not self.config.enable_screenshot_caching:
+            return None
+            
+        cache_key = self._generate_cache_key(url, capture_config)
+        
+        async with self._lock:
+            if cache_key not in self._cache:
+                self._stats['misses'] += 1
+                self._stats['total_requests'] += 1
+                return None
+            
+            entry = self._cache[cache_key]
+            
+            # Check if entry has expired
+            if entry.is_expired(self.config.cache_ttl_hours):
+                await self._remove_entry(cache_key)
+                self._stats['misses'] += 1
+                self._stats['total_requests'] += 1
+                return None
+            
+            # Update access tracking
+            entry.update_access()
+            self._update_lru_order(cache_key)
+            
+            self._stats['hits'] += 1
+            self._stats['total_requests'] += 1
+            
+            return entry.screenshot_data
+    
+    async def set(self, url: str, capture_config: Dict[str, Any], screenshot_data: bytes):
+        """Store screenshot in cache with intelligent eviction"""
+        if not self.config.enable_screenshot_caching:
+            return
+            
+        cache_key = self._generate_cache_key(url, capture_config)
+        
+        async with self._lock:
+            # Check if we need to evict entries
+            if len(self._cache) >= self.config.max_cache_entries:
+                await self._evict_lru_entry()
+            
+            # Create cache entry
+            content_hash = hashlib.sha256(screenshot_data).hexdigest()[:16]
+            entry = ScreenshotCacheEntry(
+                screenshot_data=screenshot_data,
+                url=url,
+                cache_key=cache_key,
+                created_at=datetime.now(),
+                last_accessed=datetime.now(),
+                access_count=1,
+                capture_config=capture_config.copy(),
+                file_size=len(screenshot_data),
+                content_hash=content_hash
+            )
+            
+            # Store entry
+            self._cache[cache_key] = entry
+            self._update_lru_order(cache_key)
+            self._stats['cache_size_bytes'] += len(screenshot_data)
+            self._stats['total_entries_created'] += 1
+    
+    def _update_lru_order(self, cache_key: str):
+        """Update LRU order for cache key"""
+        if cache_key in self._lru_order:
+            self._lru_order.remove(cache_key)
+        self._lru_order.append(cache_key)
+    
+    async def _evict_lru_entry(self):
+        """Evict least recently used cache entry"""
+        if not self._lru_order:
+            return
+            
+        lru_key = self._lru_order[0]
+        await self._remove_entry(lru_key)
+        self._stats['evictions'] += 1
+    
+    async def _remove_entry(self, cache_key: str):
+        """Remove cache entry and update statistics"""
+        if cache_key in self._cache:
+            entry = self._cache[cache_key]
+            self._stats['cache_size_bytes'] -= entry.file_size
+            del self._cache[cache_key]
+            
+        if cache_key in self._lru_order:
+            self._lru_order.remove(cache_key)
+    
+    def get_stats(self) -> Dict[str, Any]:
+        """Get cache performance statistics"""
+        total_requests = self._stats['total_requests']
+        hit_rate = (self._stats['hits'] / total_requests * 100) if total_requests > 0 else 0.0
+        
+        return {
+            'cache_size': len(self._cache),
+            'cache_size_bytes': self._stats['cache_size_bytes'],
+            'total_requests': total_requests,
+            'cache_hits': self._stats['hits'],
+            'cache_misses': self._stats['misses'],
+            'cache_hit_rate_percent': round(hit_rate, 2),
+            'evictions': self._stats['evictions'],
+            'total_entries_created': self._stats['total_entries_created']
+        }
+    
+    async def clear(self):
+        """Clear all cache entries"""
+        async with self._lock:
+            self._cache.clear()
+            self._lru_order.clear()
+            self._stats['cache_size_bytes'] = 0
+
+class ImageCompressionOptimizer:
+    """
+    Intelligent image compression optimizer (Task 22.2)
+    Analyzes screenshot data and optimizes compression settings
+    """
+    
+    @staticmethod
+    def optimize_compression_settings(
+        screenshot_data: bytes,
+        target_format: str,
+        optimization_config: ResourceOptimizationConfig
+    ) -> Dict[str, Any]:
+        """
+        Analyze screenshot and determine optimal compression settings
+        
+        Args:
+            screenshot_data: Original screenshot bytes
+            target_format: Desired format ('png' or 'jpeg')
+            optimization_config: Configuration for optimization
+            
+        Returns:
+            Dictionary with optimization recommendations
+        """
+        data_size = len(screenshot_data)
+        
+        # Basic optimization based on file size
+        if data_size < 50000:  # Small files (< 50KB) - minimal compression
+            optimization_applied = False
+            recommended_format = target_format
+            recommended_quality = optimization_config.jpeg_quality
+        elif data_size < 500000:  # Medium files (< 500KB) - moderate compression
+            optimization_applied = True
+            if optimization_config.auto_format_selection and target_format == 'png':
+                recommended_format = 'jpeg'  # JPEG better for photos
+                recommended_quality = optimization_config.jpeg_quality
+            else:
+                recommended_format = target_format
+                recommended_quality = max(70, optimization_config.jpeg_quality - 15)
+        else:  # Large files (>= 500KB) - aggressive compression
+            optimization_applied = True
+            if optimization_config.auto_format_selection:
+                recommended_format = 'jpeg'  # Always prefer JPEG for large files
+                recommended_quality = max(60, optimization_config.jpeg_quality - 25)
+            else:
+                recommended_format = target_format
+                recommended_quality = max(60, optimization_config.jpeg_quality - 25)
+        
+        # Estimate file size reduction
+        if optimization_applied and recommended_format == 'jpeg':
+            # Rough estimate: JPEG typically 70-90% smaller than PNG for photos
+            estimated_reduction = 0.8 if target_format == 'png' else 0.3
+        else:
+            estimated_reduction = 0.1 if optimization_applied else 0.0
+        
+        return {
+            'optimization_applied': optimization_applied,
+            'format': recommended_format,
+            'quality': recommended_quality if recommended_format == 'jpeg' else None,
+            'estimated_size_reduction_percent': round(estimated_reduction * 100, 1),
+            'file_size_estimate': int(data_size * (1 - estimated_reduction)),
+            'original_size': data_size,
+            'reason': f"File size {data_size} bytes - {'aggressive' if data_size >= 500000 else 'moderate' if data_size >= 50000 else 'minimal'} compression"
+        }
 
 @dataclass
 class BrowserProfile:
@@ -92,8 +385,14 @@ class BrowserInstance:
 
 class BrowserPoolManager:
     """
-    Native Playwright browser pool management system
+    Native Playwright browser pool management system with Task 22.2 optimizations
     Efficiently manages browser instances for screenshot capture
+    
+    ✅ TASK 22.2 FEATURES:
+    - Resource-aware browser pool sizing
+    - Optimized browser launch options
+    - Memory usage monitoring
+    - Performance metrics tracking
     """
     
     def __init__(
@@ -101,18 +400,37 @@ class BrowserPoolManager:
         max_pool_size: int = 3,
         max_browser_age_seconds: int = 3600,  # 1 hour
         max_usage_per_browser: int = 100,
-        browser_timeout_seconds: int = 30
+        browser_timeout_seconds: int = 30,
+        optimization_config: ResourceOptimizationConfig = None
     ):
         self.max_pool_size = max_pool_size
         self.max_browser_age_seconds = max_browser_age_seconds
         self.max_usage_per_browser = max_usage_per_browser
         self.browser_timeout_seconds = browser_timeout_seconds
         
+        # Task 22.2: Resource optimization integration
+        self.optimization_config = optimization_config or ResourceOptimizationConfig()
+        self.browser_options: Optional[Dict[str, Any]] = None
+        
         self._pool: List[BrowserInstance] = []
         self._playwright: Optional[Playwright] = None
         self._lock = asyncio.Lock()
         
-        logger.info(f"Initialized BrowserPoolManager with max_pool_size={max_pool_size}")
+        # Performance monitoring (Task 22.2)
+        self._resource_stats = {
+            'total_browsers_created': 0,
+            'peak_pool_size': 0,
+            'total_memory_usage_mb': 0,
+            'avg_browser_lifespan_seconds': 0,
+            'resource_optimization_enabled': bool(optimization_config)
+        }
+        
+        # Apply resource optimization on initialization
+        if self.optimization_config:
+            optimize_browser_resources(self, self.optimization_config)
+        
+        logger.info(f"Initialized BrowserPoolManager with max_pool_size={max_pool_size}, "
+                   f"optimization={'enabled' if optimization_config else 'disabled'}")
 
     async def initialize(self):
         """Initialize the Playwright instance"""
@@ -202,31 +520,37 @@ class BrowserPoolManager:
             return await self._create_new_browser()
 
     async def _create_new_browser(self) -> BrowserInstance:
-        """Create a new browser instance with random profile"""
+        """Create a new browser instance with Task 22.2 optimized configuration"""
         if not self._playwright:
             await self.initialize()
             
         profile = BrowserProfile.get_random_profile()
         
-        # Browser launch options for stealth and performance
-        launch_options = {
-            "headless": True,
-            "args": [
-                "--disable-extensions",
-                "--disable-gpu",
-                "--disable-dev-shm-usage", 
-                "--disable-setuid-sandbox",
-                "--no-sandbox",
-                "--disable-accelerated-2d-canvas",
-                "--disable-background-timer-throttling",
-                "--disable-backgrounding-occluded-windows",
-                "--disable-renderer-backgrounding",
-                "--disable-web-security",
-                "--disable-features=TranslateUI",
-                "--disable-ipc-flooding-protection",
-                f"--user-agent={profile.user_agent}"
-            ]
-        }
+        # Use optimized browser options if available (Task 22.2)
+        if self.browser_options:
+            launch_options = self.browser_options.copy()
+            # Add user agent from profile
+            launch_options['args'].append(f"--user-agent={profile.user_agent}")
+        else:
+            # Fallback to default options for stealth and performance
+            launch_options = {
+                "headless": True,
+                "args": [
+                    "--disable-extensions",
+                    "--disable-gpu",
+                    "--disable-dev-shm-usage", 
+                    "--disable-setuid-sandbox",
+                    "--no-sandbox",
+                    "--disable-accelerated-2d-canvas",
+                    "--disable-background-timer-throttling",
+                    "--disable-backgrounding-occluded-windows",
+                    "--disable-renderer-backgrounding",
+                    "--disable-web-security",
+                    "--disable-features=TranslateUI",
+                    "--disable-ipc-flooding-protection",
+                    f"--user-agent={profile.user_agent}"
+                ]
+            }
         
         try:
             browser = await self._playwright.chromium.launch(**launch_options)
@@ -240,6 +564,11 @@ class BrowserPoolManager:
             )
             
             self._pool.append(instance)
+            
+            # Update resource statistics (Task 22.2)
+            self._resource_stats['total_browsers_created'] += 1
+            self._resource_stats['peak_pool_size'] = max(self._resource_stats['peak_pool_size'], len(self._pool))
+            
             logger.info(f"Created new browser instance (pool size: {len(self._pool)})")
             
             return instance
@@ -337,12 +666,17 @@ class BrowserPoolManager:
                 logger.warning(f"Error removing stale browser: {e}")
 
     async def health_check(self) -> Dict[str, Any]:
-        """Get health status of the browser pool"""
+        """Get health status of the browser pool with Task 22.2 metrics"""
         async with self._lock:
             current_time = time.time()
             
             healthy_count = sum(1 for instance in self._pool if instance.is_healthy)
             total_usage = sum(instance.usage_count for instance in self._pool)
+            
+            # Calculate average browser lifespan
+            if self._pool:
+                avg_lifespan = sum(current_time - instance.created_at for instance in self._pool) / len(self._pool)
+                self._resource_stats['avg_browser_lifespan_seconds'] = round(avg_lifespan, 2)
             
             return {
                 "pool_size": len(self._pool),
@@ -353,8 +687,56 @@ class BrowserPoolManager:
                 "browser_ages": [
                     current_time - instance.created_at 
                     for instance in self._pool
-                ]
+                ],
+                # Task 22.2: Resource optimization metrics
+                "resource_stats": self._resource_stats.copy(),
+                "optimization_enabled": self.optimization_config is not None,
+                "memory_limit_mb": self.optimization_config.memory_limit_mb if self.optimization_config else None
             }
+    
+    def get_resource_stats(self) -> Dict[str, Any]:
+        """Get detailed resource usage statistics (Task 22.2)"""
+        current_time = time.time()
+        
+        # Calculate memory usage estimation
+        estimated_memory_usage = len(self._pool) * (self.optimization_config.memory_limit_mb if self.optimization_config else 512)
+        
+        browser_lifespans = [current_time - instance.created_at for instance in self._pool]
+        
+        return {
+            'pool_metrics': {
+                'current_pool_size': len(self._pool),
+                'max_pool_size': self.max_pool_size,
+                'pool_utilization': len(self._pool) / self.max_pool_size if self.max_pool_size > 0 else 0,
+                'healthy_browsers': sum(1 for instance in self._pool if instance.is_healthy)
+            },
+            'resource_metrics': {
+                'estimated_memory_usage_mb': estimated_memory_usage,
+                'memory_limit_per_browser_mb': self.optimization_config.memory_limit_mb if self.optimization_config else 512,
+                'total_browsers_created': self._resource_stats['total_browsers_created'],
+                'peak_pool_size': self._resource_stats['peak_pool_size']
+            },
+            'performance_metrics': {
+                'avg_browser_lifespan_seconds': self._resource_stats['avg_browser_lifespan_seconds'],
+                'min_browser_age_seconds': min(browser_lifespans) if browser_lifespans else 0,
+                'max_browser_age_seconds': max(browser_lifespans) if browser_lifespans else 0,
+                'browser_age_variance': self._calculate_age_variance(browser_lifespans)
+            },
+            'optimization_status': {
+                'resource_optimization_enabled': self._resource_stats['resource_optimization_enabled'],
+                'caching_enabled': self.optimization_config.enable_screenshot_caching if self.optimization_config else False,
+                'auto_format_selection': self.optimization_config.auto_format_selection if self.optimization_config else False
+            }
+        }
+    
+    def _calculate_age_variance(self, ages: List[float]) -> float:
+        """Calculate variance in browser ages"""
+        if len(ages) < 2:
+            return 0.0
+        
+        mean_age = sum(ages) / len(ages)
+        variance = sum((age - mean_age) ** 2 for age in ages) / len(ages)
+        return round(variance, 2)
 
 # Global browser pool instance for the Universal RAG Chain
 _global_browser_pool: Optional[BrowserPoolManager] = None
@@ -402,19 +784,49 @@ class ScreenshotResult:
 
 class ScreenshotService:
     """
-    Core screenshot capture service using native Playwright APIs
+    Core screenshot capture service using native Playwright APIs with Task 22.2 optimizations
     Integrates with BrowserPoolManager for efficient resource usage
+    
+    ✅ TASK 22.2 FEATURES:
+    - Screenshot caching for repeated requests
+    - Intelligent image compression optimization
+    - Performance monitoring and metrics
+    - Resource-aware capture settings
     """
     
-    def __init__(self, browser_pool: BrowserPoolManager, config: ScreenshotConfig = None):
+    def __init__(
+        self, 
+        browser_pool: BrowserPoolManager, 
+        config: ScreenshotConfig = None,
+        enable_caching: bool = True,
+        cache_instance: ScreenshotCache = None
+    ):
         self.browser_pool = browser_pool
         self.config = config or ScreenshotConfig()
         
-        logger.info(f"ScreenshotService initialized with format={self.config.format}, quality={self.config.quality}")
+        # Task 22.2: Screenshot caching integration
+        self.enable_caching = enable_caching
+        self.cache = cache_instance or (get_global_screenshot_cache() if enable_caching else None)
+        
+        # Task 22.2: Image compression optimizer
+        self.compression_optimizer = ImageCompressionOptimizer()
+        
+        # Performance metrics
+        self._capture_stats = {
+            'total_captures': 0,
+            'cache_hits': 0,
+            'cache_misses': 0,
+            'total_bytes_captured': 0,
+            'avg_capture_time_ms': 0,
+            'compression_optimizations': 0
+        }
+        
+        logger.info(f"ScreenshotService initialized with format={self.config.format}, quality={self.config.quality}, "
+                   f"caching={'enabled' if enable_caching else 'disabled'}")
 
     async def capture_full_page_screenshot(self, url: str) -> ScreenshotResult:
         """
-        Capture full page screenshot using native Playwright page.screenshot()
+        Capture full page screenshot with Task 22.2 caching and optimization
         
         Args:
             url: Target URL to screenshot
@@ -423,6 +835,32 @@ class ScreenshotService:
             ScreenshotResult with capture data or error information
         """
         start_time = time.time()
+        
+        # Task 22.2: Check cache first
+        capture_config = {
+            'format': self.config.format,
+            'quality': self.config.quality,
+            'full_page': self.config.full_page,
+            'viewport_width': self.config.viewport_width,
+            'viewport_height': self.config.viewport_height
+        }
+        
+        if self.cache:
+            cached_data = await self.cache.get(url, capture_config)
+            if cached_data:
+                self._capture_stats['cache_hits'] += 1
+                self._capture_stats['total_captures'] += 1
+                logger.debug(f"Cache hit for {url[:50]}...")
+                return ScreenshotResult(
+                    success=True,
+                    screenshot_data=cached_data,
+                    url=url,
+                    timestamp=time.time(),
+                    file_size=len(cached_data),
+                    viewport_size={"width": self.config.viewport_width, "height": self.config.viewport_height}
+                )
+            else:
+                self._capture_stats['cache_misses'] += 1
         
         try:
             async with self.browser_pool.get_browser_context() as context:
@@ -434,6 +872,9 @@ class ScreenshotService:
                     
                     # Wait for page to load
                     await page.wait_for_load_state(self.config.wait_for_load_state)
+                    
+                    # Task 22.2: Optimize compression settings
+                    optimization_config = self.browser_pool.optimization_config if self.browser_pool.optimization_config else ResourceOptimizationConfig()
                     
                     # Capture screenshot using native Playwright API
                     screenshot_options = {
@@ -447,8 +888,37 @@ class ScreenshotService:
                     
                     screenshot_data = await page.screenshot(**screenshot_options)
                     
+                    # Task 22.2: Apply compression optimization
+                    compression_settings = self.compression_optimizer.optimize_compression_settings(
+                        screenshot_data, self.config.format, optimization_config
+                    )
+                    
+                    if compression_settings['optimization_applied']:
+                        # Re-capture with optimized settings
+                        screenshot_options['type'] = compression_settings['format']
+                        if compression_settings['quality']:
+                            screenshot_options['quality'] = compression_settings['quality']
+                        
+                        screenshot_data = await page.screenshot(**screenshot_options)
+                        self._capture_stats['compression_optimizations'] += 1
+                        logger.debug(f"Applied compression optimization: {compression_settings['format']}")
+                    
                     # Get viewport information
                     viewport = page.viewport_size
+                    
+                    # Task 22.2: Cache the result
+                    if self.cache:
+                        await self.cache.set(url, capture_config, screenshot_data)
+                    
+                    # Update statistics
+                    capture_time_ms = (time.time() - start_time) * 1000
+                    self._capture_stats['total_captures'] += 1
+                    self._capture_stats['total_bytes_captured'] += len(screenshot_data)
+                    
+                    # Update average capture time
+                    current_avg = self._capture_stats['avg_capture_time_ms']
+                    total_captures = self._capture_stats['total_captures']
+                    self._capture_stats['avg_capture_time_ms'] = (current_avg * (total_captures - 1) + capture_time_ms) / total_captures
                     
                     return ScreenshotResult(
                         success=True,
@@ -629,6 +1099,28 @@ class ScreenshotService:
                 url=url,
                 timestamp=time.time()
             )
+
+    def get_capture_stats(self) -> Dict[str, Any]:
+        """Get detailed capture performance statistics (Task 22.2)"""
+        cache_hit_rate = (self._capture_stats['cache_hits'] / self._capture_stats['total_captures']) * 100 if self._capture_stats['total_captures'] > 0 else 0
+        
+        return {
+            'capture_metrics': {
+                'total_captures': self._capture_stats['total_captures'],
+                'cache_hits': self._capture_stats['cache_hits'],
+                'cache_misses': self._capture_stats['cache_misses'],
+                'cache_hit_rate_percent': round(cache_hit_rate, 2),
+                'avg_capture_time_ms': round(self._capture_stats['avg_capture_time_ms'], 2),
+                'total_bytes_captured': self._capture_stats['total_bytes_captured'],
+                'avg_bytes_per_capture': round(self._capture_stats['total_bytes_captured'] / self._capture_stats['total_captures'], 2) if self._capture_stats['total_captures'] > 0 else 0
+            },
+            'optimization_metrics': {
+                'compression_optimizations': self._capture_stats['compression_optimizations'],
+                'optimization_rate_percent': round((self._capture_stats['compression_optimizations'] / self._capture_stats['total_captures']) * 100, 2) if self._capture_stats['total_captures'] > 0 else 0,
+                'caching_enabled': self.enable_caching,
+                'cache_instance_active': self.cache is not None
+            }
+        }
 
     async def wait_for_dynamic_content(self, page: Page, wait_strategy: str = 'networkidle') -> bool:
         """
@@ -4046,6 +4538,208 @@ async def test_anti_detection_stealth():
         logger.error(f"❌ Stealth system test error: {e}")
         import traceback
         traceback.print_exc()
+
+# ========================================================================================
+# TASK 22.2: BROWSER RESOURCE OPTIMIZATION
+# ========================================================================================
+
+def optimize_browser_resources(
+    browser_pool: 'BrowserPoolManager' = None,
+    config: ResourceOptimizationConfig = None
+) -> Dict[str, Any]:
+    """
+    Optimize browser resource usage by implementing intelligent pooling
+    and resource allocation strategies.
+    
+    Args:
+        browser_pool: Existing browser pool to optimize (optional)
+        config: Resource optimization configuration
+        
+    Returns:
+        Dictionary with optimization results and browser configuration
+    """
+    if config is None:
+        config = ResourceOptimizationConfig()
+    
+    # Get system resource information
+    cpu_count = os.cpu_count() or 4
+    memory_gb = psutil.virtual_memory().total / (1024**3)
+    available_memory_gb = psutil.virtual_memory().available / (1024**3)
+    
+    # Calculate optimal browser pool size based on system resources
+    if config.max_concurrent_browsers is None:
+        # Conservative approach: use 50% of CPU cores, max 4 browsers
+        config.max_concurrent_browsers = min(max(cpu_count // 2, 1), 4)
+        
+        # Adjust based on available memory (each browser ~512MB minimum)
+        max_by_memory = int(available_memory_gb // 0.5)
+        config.max_concurrent_browsers = min(config.max_concurrent_browsers, max_by_memory)
+    
+    # Configure browser launch options for resource optimization
+    browser_options = {
+        'headless': True,
+        'args': [
+            # Essential performance optimizations
+            '--disable-extensions',
+            '--disable-gpu',
+            '--disable-dev-shm-usage',
+            '--disable-setuid-sandbox',
+            '--no-sandbox',
+            '--disable-accelerated-2d-canvas',
+            '--disable-renderer-backgrounding',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-background-networking',
+            
+            # Memory optimizations
+            f'--memory-pressure-off',
+            f'--max_old_space_size={config.memory_limit_mb}',
+            '--no-zygote',
+            '--disable-ipc-flooding-protection',
+            
+            # Network optimizations
+            '--aggressive-cache-discard',
+            '--disable-background-networking',
+            '--disable-background-mode',
+            '--disable-default-apps',
+            '--disable-sync',
+            
+            # Rendering optimizations
+            '--disable-features=TranslateUI,VizDisplayCompositor'
+        ]
+    }
+    
+    # Add conditional optimizations based on config
+    if config.disable_images:
+        browser_options['args'].extend([
+            '--blink-settings=imagesEnabled=false',
+            '--disable-remote-fonts'
+        ])
+    
+    if config.disable_javascript:
+        browser_options['args'].append('--disable-javascript')
+    
+    if config.use_minimal_viewport:
+        browser_options['args'].append('--window-size=800,600')
+    
+    # Configure browser pool if provided
+    if browser_pool:
+        browser_pool.max_pool_size = config.max_concurrent_browsers
+        browser_pool.browser_options = browser_options
+        browser_pool.optimization_config = config
+    
+    optimization_results = {
+        'success': True,
+        'optimized_pool_size': config.max_concurrent_browsers,
+        'system_cpu_cores': cpu_count,
+        'system_memory_gb': round(memory_gb, 2),
+        'available_memory_gb': round(available_memory_gb, 2),
+        'browser_options': browser_options,
+        'optimization_config': config,
+        'estimated_memory_per_browser_mb': config.memory_limit_mb,
+        'total_estimated_memory_usage_mb': config.max_concurrent_browsers * config.memory_limit_mb,
+        'browser_pool_updated': browser_pool is not None,
+        'optimization_applied': True,
+        'recommendations': [
+            f"Browser pool size optimized to {config.max_concurrent_browsers} browsers",
+            f"Memory limit set to {config.memory_limit_mb}MB per browser",
+            f"Total memory usage: {config.max_concurrent_browsers * config.memory_limit_mb}MB",
+            "Performance optimizations applied to browser launch options"
+        ],
+        'memory_limit_mb': config.memory_limit_mb,
+        'max_concurrent_browsers': config.max_concurrent_browsers,
+        'system_memory_mb': int(memory_gb * 1024),
+        'recommended_pool_size': config.max_concurrent_browsers
+    }
+    
+    logger.info(f"🚀 Browser resources optimized: {config.max_concurrent_browsers} browsers, "
+                f"{config.memory_limit_mb}MB limit per browser")
+    
+    return optimization_results
+
+def get_global_screenshot_cache() -> ScreenshotCache:
+    """Get or create global screenshot cache instance"""
+    global _global_screenshot_cache
+    if _global_screenshot_cache is None:
+        _global_screenshot_cache = ScreenshotCache()
+    return _global_screenshot_cache
+
+async def cleanup_global_screenshot_cache():
+    """Cleanup global screenshot cache"""
+    global _global_screenshot_cache
+    if _global_screenshot_cache:
+        await _global_screenshot_cache.clear()
+        _global_screenshot_cache = None
+
+# Global cache instance
+_global_screenshot_cache: Optional[ScreenshotCache] = None
+
+def get_global_screenshot_cache() -> ScreenshotCache:
+    """Get or create global screenshot cache instance"""
+    global _global_screenshot_cache
+    if _global_screenshot_cache is None:
+        _global_screenshot_cache = ScreenshotCache()
+    return _global_screenshot_cache
+
+async def cleanup_global_screenshot_cache():
+    """Clean up global screenshot cache"""
+    global _global_screenshot_cache
+    if _global_screenshot_cache:
+        await _global_screenshot_cache.stop_cleanup_task()
+        await _global_screenshot_cache.clear()
+        _global_screenshot_cache = None
+
+class ImageCompressionOptimizer:
+    """
+    Intelligent image compression optimization
+    Automatically selects optimal format and compression settings
+    """
+    
+    @staticmethod
+    def optimize_compression_settings(
+        screenshot_data: bytes,
+        target_format: str,
+        optimization_config: ResourceOptimizationConfig
+    ) -> Dict[str, Any]:
+        """
+        Optimize compression settings based on image content and target usage
+        
+        Args:
+            screenshot_data: Raw screenshot data
+            target_format: Target format ('png', 'jpeg')
+            optimization_config: Optimization configuration
+            
+        Returns:
+            Optimized compression settings
+        """
+        file_size = len(screenshot_data)
+        
+        # Analyze content characteristics (simplified heuristics)
+        # In production, could use image analysis libraries
+        is_large_image = file_size > 1024 * 1024  # > 1MB
+        
+        if optimization_config.auto_format_selection:
+            # Auto-select format based on content characteristics
+            if is_large_image and target_format == 'png':
+                # Large PNG - consider JPEG for better compression
+                suggested_format = 'jpeg'
+                quality = max(optimization_config.jpeg_quality - 10, 70)
+            else:
+                suggested_format = target_format
+                quality = optimization_config.jpeg_quality
+        else:
+            suggested_format = target_format
+            quality = optimization_config.jpeg_quality
+        
+        compression_settings = {
+            'format': suggested_format,
+            'quality': quality if suggested_format == 'jpeg' else None,
+            'compression_level': optimization_config.png_compression_level if suggested_format == 'png' else None,
+            'optimization_applied': suggested_format != target_format,
+            'estimated_size_reduction': 0.3 if suggested_format == 'jpeg' and target_format == 'png' else 0.1
+        }
+        
+        return compression_settings
 
 if __name__ == "__main__":
     # Test the anti-detection stealth system

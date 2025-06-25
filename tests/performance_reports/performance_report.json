@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "timestamp": "2025-06-24T20:23:44.814138",
+    "tests_executed": 8,
+    "overall_success": true,
+    "health_status": "healthy",
+    "regressions_detected": false,
+    "regression_count": 0,
+    "recommendations": [
+      "Performance within acceptable ranges"
+    ]
+  },
+  "detailed_analysis": {
+    "sample_size": 8,
+    "success_rate": 1.0,
+    "failure_rate": 0.0,
+    "timing_analysis": {
+      "total_time_ms": {
+        "mean": 322.70121574401855,
+        "median": 170.97699642181396,
+        "p95": 1059.9125504493709,
+        "p99": 1295.7439160346983,
+        "min": 0.009059906005859375,
+        "max": 1354.7017574310303,
+        "std_dev": 466.01899026224817
+      },
+      "capture_time_ms": {
+        "mean": 270.9982395172119,
+        "median": 0.06890296936035156,
+        "p95": 1083.7979793548582,
+        "p99": 1300.5173778533936,
+        "min": 0.007867813110351562,
+        "max": 1354.6972274780273,
+        "std_dev": 605.8061559809371
+      }
+    },
+    "resource_analysis": {
+      "avg_memory_mb": 2048,
+      "avg_screenshot_size_bytes": 183466
+    }
+  },
+  "results_count": 8
+}
