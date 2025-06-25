@@ -395,15 +395,42 @@ class QueryAwareCache:
         self.cache_stats = {"hits": 0, "misses": 0}
     
     def _get_cache_key(self, query: str, query_analysis: Optional[QueryAnalysis] = None) -> str:
-        """Generate cache key including query analysis"""
+        """Generate cache key including query analysis AND casino name extraction"""
+        # Extract casino name from query to prevent cross-contamination
+        casino_name = self._extract_casino_name_from_query(query.lower())
+        
         base_key = hashlib.md5(query.encode()).hexdigest()
         
         if query_analysis:
             analysis_str = f"{query_analysis.query_type.value}_{query_analysis.expertise_level.value}"
+            # Include casino name in cache key to prevent wrong casino content
+            if casino_name:
+                analysis_str += f"_casino_{casino_name}"
             combined_key = f"{base_key}_{hashlib.md5(analysis_str.encode()).hexdigest()[:8]}"
             return combined_key
         
+        # Include casino name even without query analysis
+        if casino_name:
+            casino_key = hashlib.md5(casino_name.encode()).hexdigest()[:8]
+            return f"{base_key}_casino_{casino_key}"
+        
         return base_key
+    
+    def _extract_casino_name_from_query(self, query: str) -> Optional[str]:
+        """Extract specific casino name from query to prevent cache contamination"""
+        # Common casino names that should have specific cache keys
+        casino_patterns = [
+            'eurobet', 'trustdice', 'betway', 'bet365', 'ladbrokes', 'william hill',
+            'pokerstars', 'party casino', 'paddy power', '888 casino', 'casumo',
+            'leovegas', 'unibet', 'bwin', 'betfair', 'coral', 'sky bet',
+            'virgin casino', 'genting', 'mrgreen', 'mansion casino'
+        ]
+        
+        for casino in casino_patterns:
+            if casino in query:
+                return casino.replace(' ', '_')
+        
+        return None
     
     def _get_ttl_hours(self, query_analysis: Optional[QueryAnalysis] = None) -> int:
         """Get TTL in hours based on query type"""
@@ -2251,9 +2278,15 @@ STRUCTURED CASINO INTELLIGENCE:""",
             import logging
             logging.error(f"Casino intelligence extraction failed: {e}")
             return self._create_empty_casino_intelligence_dict()
+            
+    def _fix_logging_import_issue(self):
+        """Ensure logging is properly imported at module level"""
+        import logging
+        return logging
     
     def _create_empty_casino_intelligence_dict(self) -> Dict[str, Any]:
         """Create empty casino intelligence dictionary with default values"""
+        from datetime import datetime
         return {
             'casino_name': 'Unknown Casino',
             'extraction_timestamp': datetime.now().isoformat(),
@@ -2848,7 +2881,12 @@ Response:'''
                     "casino_game_guide": "game_guide"
                 }
                 
-                template_type = template_type_mapping.get(content_type, "casino_review")
+                # 🔧 FIX: Ensure casino reviews always use casino_review template
+                if "casino" in query.lower() and ("review" in query.lower() or "analysis" in query.lower()):
+                    template_type = "casino_review"
+                    logging.info(f"🎰 Force-selected casino_review template for query: {query[:50]}...")
+                else:
+                    template_type = template_type_mapping.get(content_type, "casino_review")
                 
                 # Get existing template with proper query type and expertise level
                 base_template = self.template_manager.get_template(
@@ -3696,6 +3734,48 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         
         return content
     
+    def _validate_content_before_publishing(self, content: str, query: str) -> Tuple[bool, List[str]]:
+        """Validate content matches query expectations before publishing"""
+        validation_errors = []
+        
+        # Extract expected casino name from query
+        expected_casino = self._extract_casino_name_from_query(query.lower())
+        
+        if expected_casino:
+            expected_casino_display = expected_casino.replace('_', ' ').title()
+            
+            # Check if title contains expected casino name
+            title_match = False
+            first_heading = content.split('\n')[0] if content else ""
+            if expected_casino_display.lower() in first_heading.lower():
+                title_match = True
+            
+            if not title_match:
+                validation_errors.append(f"Title doesn't contain expected casino '{expected_casino_display}'")
+            
+            # Check if content mentions wrong casinos prominently
+            other_casinos = ['trustdice', 'betway', 'bet365'] 
+            if expected_casino in other_casinos:
+                other_casinos.remove(expected_casino)
+            
+            for other_casino in other_casinos:
+                other_casino_display = other_casino.replace('_', ' ').title()
+                # Count mentions of other casinos
+                mentions = content.lower().count(other_casino.lower())
+                if mentions > 2:  # Allow brief mentions for comparison
+                    validation_errors.append(f"Content contains too many mentions of '{other_casino_display}' ({mentions} times)")
+        
+        # Check for HTML encoding issues
+        if '&#' in content and content.count('&#') > 5:
+            validation_errors.append("Content contains HTML entity encoding issues")
+        
+        # Check for basic structure
+        if content.count('##') < 2:
+            validation_errors.append("Content lacks proper section structure (needs H2 headings)")
+        
+        is_valid = len(validation_errors) == 0
+        return is_valid, validation_errors
+
     async def _optional_wordpress_publishing(self, inputs: Union[Dict[str, Any], str]) -> Dict[str, Any]:
         """Step 6: Enhanced WordPress publishing with casino review categories and metadata"""
         if not self.enable_wordpress_publishing or not self.wordpress_service:
@@ -3705,8 +3785,8 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         if isinstance(inputs, str):
             inputs = {"final_content": inputs}
         
-        # ✅ FIX: Check chain-level flag instead of inputs
-        publish_requested = getattr(self, '_publish_to_wordpress', False)
+        # ✅ FIX: Check chain-level flag OR inputs parameter
+        publish_requested = getattr(self, '_publish_to_wordpress', False) or inputs.get('publish_to_wordpress', False)
         
         logging.info(f"🔧 WordPress publishing check: enable_wordpress_publishing={self.enable_wordpress_publishing}, wordpress_service={self.wordpress_service is not None}, publish_requested={publish_requested}")
         
@@ -3718,7 +3798,17 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
             final_content = inputs.get("final_content", "")
             query = getattr(self, '_current_query', inputs.get("question", ""))
             
-            logging.info("✅ WordPress publishing initiated (chain-level flag active)")
+            # 🔧 NEW: Validate content before publishing
+            is_valid, validation_errors = self._validate_content_before_publishing(final_content, query)
+            
+            if not is_valid:
+                logging.error(f"❌ Content validation failed. Errors: {validation_errors}")
+                # Don't publish invalid content, but return it for review
+                inputs["validation_errors"] = validation_errors
+                inputs["wordpress_publishing_skipped"] = "Content validation failed"
+                return inputs
+            
+            logging.info("✅ Content validation passed - proceeding with WordPress publishing")
             query_analysis = inputs.get("query_analysis")
             structured_metadata = inputs.get("structured_metadata", {})
             
@@ -4373,9 +4463,14 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         
         return min(1.0, effectiveness)
     
-    async def ainvoke(self, inputs, **kwargs) -> RAGResponse:
+    async def ainvoke(self, inputs, publish_to_wordpress=False, **kwargs) -> RAGResponse:
         """🚀 ULTIMATE Enhanced async invoke using ALL advanced features"""
         start_time = time.time()
+        
+        # 🔧 NEW: Set WordPress publishing flag and track current query
+        self._publish_to_wordpress = publish_to_wordpress
+        query = inputs.get("query", inputs.get("question", ""))
+        self._current_query = query
         callback = RAGMetricsCallback()
         
         # Extract query from inputs (handle both dict and string)
