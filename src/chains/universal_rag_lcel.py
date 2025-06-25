@@ -734,9 +734,11 @@ class UniversalRAGChain:
                     
                     storage_service = SupabaseScreenshotStorage(supabase_config)
                     
-                    # Initialize screenshot service with lazy browser pool initialization
+                    # Initialize screenshot service with proper browser pool
+                    from src.integrations.playwright_screenshot_engine import BrowserPoolManager
+                    browser_pool = BrowserPoolManager(max_pool_size=2)
                     self.screenshot_service = IntegratedScreenshotService(
-                        browser_pool=None,  # Will be initialized lazily when first used
+                        browser_pool=browser_pool,
                         supabase_storage=storage_service,
                         screenshot_config=ScreenshotConfig()
                     )
@@ -744,8 +746,10 @@ class UniversalRAGChain:
                     logging.info("📸 Screenshot Integration ENABLED with Supabase storage")
                 else:
                     # Initialize without storage for local testing
+                    from src.integrations.playwright_screenshot_engine import BrowserPoolManager, ScreenshotService
+                    browser_pool = BrowserPoolManager(max_pool_size=2)
                     self.screenshot_service = ScreenshotService(
-                        browser_pool=None,  # Will be initialized lazily when first used
+                        browser_pool=browser_pool,
                         config=ScreenshotConfig()
                     )
                     logging.info("📸 Screenshot Integration ENABLED (local only - no storage)")
@@ -3869,7 +3873,7 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
             wp_config = WordPressConfig(
                 site_url=os.getenv("WORDPRESS_URL", ""),
                 username=os.getenv("WORDPRESS_USERNAME", ""),
-                application_password=os.getenv("WORDPRESS_PASSWORD", "")
+                application_password=os.getenv("WORDPRESS_APP_PASSWORD", "")
             )
             
             logging.info(f"🔧 FIXED WordPress config: site_url={wp_config.site_url}, username={wp_config.username}")
