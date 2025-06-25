@@ -621,9 +621,9 @@ class UniversalRAGChain:
         if self.enable_wordpress_publishing:
             try:
                 wp_config = WordPressConfig(
-                    site_url=os.getenv("WORDPRESS_SITE_URL") or os.getenv("WORDPRESS_URL", ""),
+                    site_url=os.getenv("WORDPRESS_URL", "") or os.getenv("WORDPRESS_SITE_URL", ""),
                     username=os.getenv("WORDPRESS_USERNAME", ""),
-                    application_password=os.getenv("WORDPRESS_APP_PASSWORD") or os.getenv("WORDPRESS_PASSWORD", "")
+                    application_password=os.getenv("WORDPRESS_PASSWORD", "") or os.getenv("WORDPRESS_APP_PASSWORD", "")
                 )
                 self.wordpress_service = WordPressIntegration(wordpress_config=wp_config)
                 logging.info("📝 WordPress Publishing ENABLED")
@@ -3881,7 +3881,7 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
             wp_config = WordPressConfig(
                 site_url=os.getenv("WORDPRESS_URL", ""),
                 username=os.getenv("WORDPRESS_USERNAME", ""),
-                application_password=os.getenv("WORDPRESS_APP_PASSWORD", "")
+                application_password=os.getenv("WORDPRESS_PASSWORD", "")
             )
             
             logging.info(f"🔧 FIXED WordPress config: site_url={wp_config.site_url}, username={wp_config.username}")

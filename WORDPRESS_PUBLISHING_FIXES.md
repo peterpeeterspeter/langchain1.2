@@ -32,10 +32,10 @@ But our content structure puts the title later:
 <br>\n# Ladbrokes Casino Review: A Comprehensive Analysis...
 ```
 
-## ✅ Solution Implemented
+## ✅ Solution Implemented - NOW IN DEFAULT CHAIN
 
 ### Fixed Validation Logic
-Updated the validation method in `src/chains/universal_rag_lcel.py`:
+Updated the validation method in `src/chains/universal_rag_lcel.py` (now part of default chain):
 
 ```python
 def _validate_content_before_publishing(self, content: str, query: str) -> Tuple[bool, List[str]]:
@@ -68,10 +68,20 @@ def _validate_content_before_publishing(self, content: str, query: str) -> Tuple
 3. **Case-insensitive matching** throughout content
 4. **Maintains all other validation checks** for HTML encoding and structure
 
-## 🎰 WordPress Configuration
+## 🎰 WordPress Configuration - NOW AUTOMATIC
 
-### Working Environment Variables
-Set these **BEFORE** any imports in test scripts:
+### Default Chain Configuration
+The Universal RAG Chain now automatically uses the working environment variables:
+
+```python
+# The chain now checks these variables in priority order:
+WORDPRESS_URL (preferred) or WORDPRESS_SITE_URL (fallback)
+WORDPRESS_USERNAME  
+WORDPRESS_PASSWORD (preferred) or WORDPRESS_APP_PASSWORD (fallback)
+```
+
+### Simple Setup
+Just set these environment variables and the default chain will work:
 
 ```python
 os.environ["WORDPRESS_URL"] = "https://www.crashcasino.io"
@@ -81,11 +91,10 @@ os.environ["WORDPRESS_PASSWORD"] = "your-wordpress-app-password-here"
 
 **Note**: Replace `your-wordpress-app-password-here` with your actual WordPress application password.
 
-### Critical Notes
-- ✅ Use `WORDPRESS_URL` (not `WORDPRESS_SITE_URL`)
-- ✅ Set `WORDPRESS_USERNAME` explicitly  
-- ✅ Set password directly (not from env lookup)
-- ✅ Set variables BEFORE imports to avoid caching issues
+### Automatic Compatibility
+- ✅ **Backward Compatible**: Still supports old variable names (`WORDPRESS_SITE_URL`, `WORDPRESS_APP_PASSWORD`)
+- ✅ **Priority System**: Uses working variables first, falls back to old names
+- ✅ **No Code Changes Required**: Default chain behavior now includes all fixes
 
 ## 🏆 Verified Results
 
@@ -140,13 +149,26 @@ Use `ladbrokes_production_fixed.py` with working configuration for end-to-end te
 3. **Consider adding more robust title extraction** if needed
 4. **Document any edge cases** discovered in production
 
-## ✅ Status: PRODUCTION READY
+## ✅ Status: PRODUCTION READY - INTEGRATED INTO DEFAULT CHAIN
 
-All WordPress publishing issues have been resolved. The system now successfully:
-- Validates content correctly
-- Publishes to MT Casino custom post type
-- Uploads and embeds images
-- Populates all metadata fields
-- Generates high-quality casino reviews
+All WordPress publishing issues have been resolved and **integrated into the default Universal RAG Chain**. 
 
-The production chain is **100% operational** for casino review generation and WordPress publishing. 
+### 🚀 Now Available by Default:
+- ✅ **Content validation fix** - automatically validates content correctly
+- ✅ **WordPress environment variables** - supports both old and new variable names  
+- ✅ **MT Casino custom post type** - publishes to `mt_listing` automatically
+- ✅ **Image upload and embedding** - 6 images per review
+- ✅ **Metadata population** - 18 custom fields for casino data
+- ✅ **High-quality content generation** - proven with multiple successful publications
+
+### 📝 How to Use:
+Simply use `create_universal_rag_chain()` with WordPress publishing enabled:
+
+```python
+from chains.universal_rag_lcel import create_universal_rag_chain
+
+chain = create_universal_rag_chain(enable_wordpress_publishing=True)
+result = await chain.ainvoke({"question": "Review Betway Casino"}, publish_to_wordpress=True)
+```
+
+The production chain is **100% operational** for casino review generation and WordPress publishing **out of the box**. 

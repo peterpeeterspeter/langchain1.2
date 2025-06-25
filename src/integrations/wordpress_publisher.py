@@ -48,9 +48,9 @@ logger = logging.getLogger(__name__)
 @dataclass
 class WordPressConfig:
     """WordPress configuration with environment-driven defaults"""
-    site_url: str = field(default_factory=lambda: os.getenv("WORDPRESS_SITE_URL", ""))
+    site_url: str = field(default_factory=lambda: os.getenv("WORDPRESS_URL", "") or os.getenv("WORDPRESS_SITE_URL", ""))
     username: str = field(default_factory=lambda: os.getenv("WORDPRESS_USERNAME", ""))
-    application_password: str = field(default_factory=lambda: os.getenv("WORDPRESS_APP_PASSWORD", ""))
+    application_password: str = field(default_factory=lambda: os.getenv("WORDPRESS_PASSWORD", "") or os.getenv("WORDPRESS_APP_PASSWORD", ""))
     jwt_token: Optional[str] = field(default_factory=lambda: os.getenv("WORDPRESS_JWT_TOKEN"))
     oauth_token: Optional[str] = field(default_factory=lambda: os.getenv("WORDPRESS_OAUTH_TOKEN"))
     
