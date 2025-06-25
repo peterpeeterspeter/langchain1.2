@@ -1616,13 +1616,13 @@ Answer:
             
             # Process screenshot requests with configurable options
             screenshot_config = ScreenshotConfig(
-                timeout=30000,  # 30 seconds timeout for casino sites
+                timeout_ms=30000,  # 30 seconds timeout for casino sites
                 wait_for_load_state="networkidle",  # Wait for network to be idle
-                enable_full_page=True,  # Capture full page
-                capture_mobile_view=False,  # Desktop view only for comprehensive research
-                enable_console_logs=True,  # Capture console logs for debugging
-                enable_network_logs=False,  # Skip network logs to reduce overhead
-                priority=ScreenshotPriority.HIGH  # High priority for research evidence
+                full_page=True,  # Capture full page
+                format="png",  # PNG format for quality
+                quality=85,  # Good quality for evidence
+                viewport_width=1920,  # Desktop viewport
+                viewport_height=1080
             )
             
             # Capture screenshots with retry logic and timeout handling
@@ -1639,18 +1639,12 @@ Answer:
                     logging.info(f"📸 Capturing screenshot for {target.url}")
                     
                     # Capture screenshot using the screenshot service
-                    screenshot_result = await self.screenshot_service.capture_screenshot(
+                    screenshot_result = await self.screenshot_service.capture_and_store_screenshot(
                         url=target.url,
-                        config=screenshot_config,
-                        metadata={
-                            'query': query,
-                            'target_type': target.target_type.value,
-                            'priority_score': target.priority_score,
-                            'confidence': target.confidence,
-                            'research_context': target.research_context,
-                            'source': 'comprehensive_web_research',
-                            'timestamp': time.time()
-                        }
+                        capture_type="full_page",
+                        content_id=f"web_research_{query}",
+                        detect_casino_elements=True,
+                        capture_config=screenshot_config
                     )
                     
                     if screenshot_result and screenshot_result.success:
@@ -3734,6 +3728,22 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         
         return content
     
+    def _extract_casino_name_from_query(self, query: str) -> Optional[str]:
+        """Extract specific casino name from query to prevent content contamination"""
+        # Common casino names that should have specific cache keys
+        casino_patterns = [
+            'eurobet', 'trustdice', 'betway', 'bet365', 'ladbrokes', 'william hill',
+            'pokerstars', 'party casino', 'paddy power', '888 casino', 'casumo',
+            'leovegas', 'unibet', 'bwin', 'betfair', 'coral', 'sky bet',
+            'virgin casino', 'genting', 'mrgreen', 'mansion casino'
+        ]
+        
+        for casino in casino_patterns:
+            if casino in query:
+                return casino.replace(' ', '_')
+        
+        return None
+    
     def _validate_content_before_publishing(self, content: str, query: str) -> Tuple[bool, List[str]]:
         """Validate content matches query expectations before publishing"""
         validation_errors = []
@@ -4479,13 +4489,14 @@ Ensure all sections are comprehensive and based on the 95-field casino intellige
         else:
             query = str(inputs)
         
-        # ✅ FIX: Store publishing intent at chain instance level
+        # ✅ FIX: Store publishing intent at chain instance level (preserve parameter value)
         if isinstance(inputs, dict):
-            self._publish_to_wordpress = inputs.get("publish_to_wordpress", False)
+            # Don't override the parameter value, use inputs as fallback
+            inputs_publish = inputs.get("publish_to_wordpress", False)
+            self._publish_to_wordpress = publish_to_wordpress or inputs_publish
             if self._publish_to_wordpress:
                 logging.info("📝 WordPress publishing requested and stored at chain level")
-        else:
-            self._publish_to_wordpress = False
+        # Keep parameter value for non-dict inputs
         
         # Store for later access in pipeline steps
         self._current_query = query
