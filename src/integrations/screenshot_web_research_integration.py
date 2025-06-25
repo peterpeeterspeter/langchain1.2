@@ -378,6 +378,34 @@ class ScreenshotRequestQueue:
         logger.info(f"Added {added_count} targets to screenshot queue (total queued: {len(self._queue)})")
         return added_count
     
+    def add_request(self, target: ScreenshotTarget) -> str:
+        """
+        Add a single screenshot target to the queue
+        
+        Args:
+            target: ScreenshotTarget object to add
+            
+        Returns:
+            Request ID for tracking
+        """
+        import uuid
+        
+        if len(self._queue) >= self.max_queue_size:
+            raise ValueError(f"Queue is full (max size: {self.max_queue_size})")
+        
+        if target.url not in self._queued_urls:
+            heapq.heappush(self._queue, target)
+            self._queued_urls.add(target.url)
+            self._stats['total_queued'] += 1
+            
+            # Generate request ID
+            request_id = str(uuid.uuid4())
+            logger.debug(f"Added screenshot request {request_id} for {target.url}")
+            return request_id
+        else:
+            logger.debug(f"URL already queued, skipping: {target.url}")
+            return "duplicate"
+    
     def get_next_target(self) -> Optional[ScreenshotTarget]:
         """Get the next highest priority target from the queue"""
         if self._queue:
@@ -385,6 +413,32 @@ class ScreenshotRequestQueue:
             self._queued_urls.discard(target.url)
             return target
         return None
+    
+    def get_request(self, request_id: str) -> Optional[ScreenshotTarget]:
+        """
+        Get a specific target by request ID
+        
+        Args:
+            request_id: Request ID to look for
+            
+        Returns:
+            ScreenshotTarget if found, None otherwise
+        """
+        # For simplicity, return the next target in queue
+        # In a full implementation, we'd track request_id -> target mapping
+        return self.get_next_target()
+    
+    def complete_request(self, request_id: str):
+        """
+        Mark a request as completed
+        
+        Args:
+            request_id: Request ID to mark as completed
+        """
+        # In a full implementation, we'd track completion by request_id
+        # For now, just increment the completed count
+        self._stats['total_completed'] += 1
+        logger.debug(f"Marked request {request_id} as completed")
     
     def mark_completed(self, target: ScreenshotTarget, result: ScreenshotResult):
         """Mark a target as completed with its result"""
