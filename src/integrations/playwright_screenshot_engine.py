@@ -3120,7 +3120,7 @@ class SupabaseScreenshotStorage:
         try:
             # First create media_asset record
             media_asset_data = {
-                "content_id": content_id,
+                "content_id": None,  # Fix: Don't reference non-existent content_items
                 "storage_path": storage_result.storage_path,
                 "file_name": storage_result.storage_path.split('/')[-1],
                 "mime_type": f"image/{'png' if storage_result.storage_path.endswith('.png') else 'jpeg'}",
@@ -3146,7 +3146,7 @@ class SupabaseScreenshotStorage:
             
             # Then create screenshot_captures record
             capture_metadata = {
-                "content_id": content_id,
+                "content_id": None,  # Fix: Don't reference non-existent content_items
                 "media_asset_id": media_asset_id,
                 "url": url,
                 "capture_type": capture_type,

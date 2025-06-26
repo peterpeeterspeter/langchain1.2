@@ -366,7 +366,7 @@ Extracted Intelligence:
                     # Standard extraction for other categories
                     extraction_chain = self.extraction_prompt | self.llm
                     result = extraction_chain.invoke({
-                        'content': doc.page_content[:4000],  # Limit content length
+                        'content': doc.page_content[:12000],  # Increased limit for better extraction
                         'category': category
                     })
                 

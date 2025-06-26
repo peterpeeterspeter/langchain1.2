@@ -1,0 +1,158 @@
+2025-06-26 09:53:54,956 - src.chains.enhanced_confidence_scoring_system - INFO - Enhanced Confidence Scoring System initialized
+/Users/Peter/.pyenv/versions/3.11.8/lib/python3.11/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+2025-06-26 09:53:55,365 - src.integrations.wordpress_publisher - WARNING - Casino intelligence schema not found. Casino-specific features disabled.
+2025-06-26 09:53:55,381 - langchain_community.utils.user_agent - WARNING - USER_AGENT environment variable not set, consider setting it to identify your requests.
+2025-06-26 09:53:55,383 - root - INFO - ✅ Enhanced Web Research Chain AVAILABLE
+2025-06-26 09:53:55,440 - root - INFO - ✅ Screenshot Integration AVAILABLE
+2025-06-26 09:53:55,504 - root - INFO - 🚀 Supabase auto-initialized from environment: https://ambjsovdhizjxwhhnbtd.supabase.co
+2025-06-26 09:53:55,505 - root - INFO - ✅ Vector store auto-initialized with native SupabaseVectorStore wrapper
+2025-06-26 09:53:55,506 - root - INFO - 🧠 OptimizedPromptManager initialized with advanced features
+2025-06-26 09:53:55,506 - src.chains.enhanced_confidence_scoring_system - INFO - IntelligentCache initialized with adaptive strategy
+2025-06-26 09:53:55,512 - root - INFO - 🖼️ DataForSEO Image Integration ENABLED
+2025-06-26 09:53:55,513 - root - INFO - 🌐 Web Search (Tavily) ENABLED
+2025-06-26 09:53:55,527 - root - INFO - 🔍 Comprehensive Web Research (WebBaseLoader) ENABLED - ALL 8 categories (95 fields)
+2025-06-26 09:53:55,527 - src.integrations.screenshot_web_research_integration - INFO - URLTargetIdentifier initialized
+2025-06-26 09:53:55,527 - src.integrations.screenshot_web_research_integration - INFO - ScreenshotRequestQueue initialized with max_size=50
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - Supabase client initialized successfully
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - 🚀 Browser resources optimized: 1 browsers, 2048MB limit per browser
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - Initialized BrowserPoolManager with max_pool_size=2, optimization=disabled
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - Screenshot cache initialized: max_entries=1000, ttl=24h
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - ScreenshotService initialized with format=png, quality=85, caching=enabled
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - CasinoElementLocator initialized
+2025-06-26 09:53:55,534 - src.integrations.playwright_screenshot_engine - INFO - Initialized IntegratedScreenshotService with Supabase storage
+2025-06-26 09:53:55,534 - root - INFO - 📸 Screenshot Integration ENABLED with Supabase storage
+2025-06-26 09:53:56,270 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-06-26 09:53:56,462 - faiss.loader - INFO - Loading faiss.
+2025-06-26 09:53:56,533 - faiss.loader - INFO - Successfully loaded faiss.
+2025-06-26 09:53:56,536 - faiss - INFO - Failed to load GPU Faiss: name 'GpuIndexIVFFlat' is not defined. Will not load constructor refs for GPU indexes. This is only an error if you're trying to use GPU Faiss.
+2025-06-26 09:53:57,023 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-06-26 09:53:57,091 - root - INFO - 🔗 Authoritative Hyperlink Generation ENABLED
+2025-06-26 09:53:57,094 - root - INFO - 🚀 ULTIMATE UniversalRAGChain initialized with model: gpt-4o-mini
+2025-06-26 09:53:57,094 - root - INFO - ✅ ALL ADVANCED FEATURES INTEGRATED:
+2025-06-26 09:53:57,094 - root - INFO -   🧠 Advanced Prompt Optimization
+2025-06-26 09:53:57,094 - root - INFO -   ⚡ Enhanced Confidence Scoring
+2025-06-26 09:53:57,094 - root - INFO -   📝 Template System v2.0
+2025-06-26 09:53:57,094 - root - INFO -   🔍 Contextual Retrieval System
+2025-06-26 09:53:57,094 - root - INFO -   🖼️ DataForSEO Image Integration
+2025-06-26 09:53:57,094 - root - INFO -   ⚙️ FTI Content Processing
+2025-06-26 09:53:57,094 - root - INFO -   🔒 Security & Compliance
+2025-06-26 09:53:57,094 - root - INFO -   🌐 Web Search Research (Tavily)
+2025-06-26 09:53:57,094 - root - INFO -   🔍 Comprehensive Web Research (WebBaseLoader)
+2025-06-26 09:53:57,094 - root - INFO -   📸 Screenshot Evidence Capture
+2025-06-26 09:53:57,094 - root - INFO -   🔗 Authoritative Hyperlink Generation
+2025-06-26 09:53:57,094 - root - INFO -   📚 Response Storage & Vectorization
+2025-06-26 09:53:57,095 - root - INFO - 🚀 Running ULTIMATE Universal RAG Chain with ALL features
+2025-06-26 09:53:57,150 - root - INFO - 🔍 Web search: Betway Casino review with geographic restrictions analysis
+2025-06-26 09:53:57,680 - root - WARNING - Received string response from web search: HTTPError('433 Client Error:  for url: https://api.tavily.com/search')...
+2025-06-26 09:53:57,681 - root - INFO - 🔍 Web search: Betway Casino review with geographic restrictions analysis 2024
+2025-06-26 09:53:58,154 - root - WARNING - Received string response from web search: HTTPError('433 Client Error:  for url: https://api.tavily.com/search')...
+2025-06-26 09:53:58,154 - root - INFO - ✅ Web search found 0 results
+2025-06-26 09:53:58,155 - root - INFO - 🔍 Comprehensive web research for: betway
+2025-06-26 09:53:58,156 - root - INFO - 🔍 Researching AskGamblers for betway
+2025-06-26 09:53:58,891 - root - INFO - ✅ Found content from AskGamblers - Authority: 0.95
+2025-06-26 09:53:58,891 - root - INFO - 🔍 Researching Casino.Guru for betway
+2025-06-26 09:54:01,024 - root - INFO - ✅ Found content from Casino.Guru - Authority: 0.93
+2025-06-26 09:54:01,024 - root - INFO - 🔍 Researching Casinomeister for betway
+2025-06-26 09:54:02,092 - root - INFO - ✅ Found content from Casinomeister - Authority: 0.9
+2025-06-26 09:54:02,093 - root - INFO - 🔍 Researching UK Gambling Commission for betway
+2025-06-26 09:54:02,728 - root - INFO - ✅ Found content from UK Gambling Commission - Authority: 0.98
+2025-06-26 09:54:02,728 - root - INFO - 🔍 Researching Latest Casino Bonuses for betway
+2025-06-26 09:54:03,881 - root - INFO - ✅ Found content from Latest Casino Bonuses - Authority: 0.88
+2025-06-26 09:54:03,882 - root - INFO - 🔍 Researching The POGG for betway
+2025-06-26 09:54:05,870 - root - INFO - ✅ Found content from The POGG - Authority: 0.85
+2025-06-26 09:54:05,871 - root - INFO - 📸 Starting screenshot evidence capture for 6 research results
+2025-06-26 09:54:05,871 - src.integrations.screenshot_web_research_integration - INFO - Identified 6 screenshot targets from 6 web results
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request 03a5f1cb-bbc5-4e0c-aad3-ef2808bd62b8 for https://askgamblers.com/casino-reviews/betway-casino-review (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request 6853ae58-598d-4a25-ac60-5ad3a1bd57ee for https://casino.guru/betway-casino-review (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request a0ce8838-4966-4dcc-973c-e9eed240428e for https://casinomeister.com/casino-reviews/betway (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request 4e762b55-e938-47cf-aa47-3f25714ba376 for https://gamblingcommission.gov.uk/check-a-licence?name=betway (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request 60ef5fcf-df9e-461f-8f18-0772ae1e0a55 for https://lcb.org/lcb-casino-reviews/betway-casino (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Queued screenshot request a4b6b448-5f38-4548-9ceb-db46a6a0118c for https://thepogg.com/casino-review/betway (priority: 1.00)
+2025-06-26 09:54:05,872 - root - INFO - 📸 Capturing screenshot for https://askgamblers.com/casino-reviews/betway-casino-review
+2025-06-26 09:54:06,341 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-06-26 09:54:06,764 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/rpc/match_documents "HTTP/2 200 OK"
+2025-06-26 09:54:06,772 - root - INFO - ✅ Vector search successful: 5 documents found
+2025-06-26 09:54:06,776 - src.integrations.playwright_screenshot_engine - INFO - Playwright initialized successfully
+2025-06-26 09:54:07,047 - src.integrations.playwright_screenshot_engine - INFO - Created new browser instance (pool size: 1)
+2025-06-26 09:54:09,976 - src.integrations.dataforseo_image_search - INFO - Cached search result for key: 9a5ca0bacc16fa98e406ba596ef90377
+2025-06-26 09:54:09,976 - src.integrations.dataforseo_image_search - INFO - Image search completed: 105 images found
+2025-06-26 09:54:21,332 - src.integrations.dataforseo_image_search - INFO - Cached search result for key: de447301e4390625029241ac275b93b8
+2025-06-26 09:54:21,334 - src.integrations.dataforseo_image_search - INFO - Image search completed: 105 images found
+2025-06-26 09:54:28,104 - src.integrations.dataforseo_image_search - INFO - Cached search result for key: aa640d4b088a6280477e49b51232a3d8
+2025-06-26 09:54:28,106 - src.integrations.dataforseo_image_search - INFO - Image search completed: 104 images found
+2025-06-26 09:54:31,437 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://askgamblers.com/casino-reviews/betway-casino-review: 4 total
+2025-06-26 09:54:31,449 - src.integrations.playwright_screenshot_engine - INFO - Detected 4 casino elements on https://askgamblers.com/casino-reviews/betway-casino-review
+2025-06-26 09:54:31,964 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/askgamblers_com_full_page_20250626_095431_50f84a52.png "HTTP/2 200 OK"
+2025-06-26 09:54:32,115 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:54:32,117 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:54:32,117 - root - WARNING - ❌ Screenshot capture exception for https://askgamblers.com/casino-reviews/betway-casino-review: 'dict' object has no attribute 'success'
+2025-06-26 09:54:32,117 - root - INFO - 📸 Capturing screenshot for https://casinomeister.com/casino-reviews/betway
+2025-06-26 09:54:54,981 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://casinomeister.com/casino-reviews/betway: 37 total
+2025-06-26 09:54:54,995 - src.integrations.playwright_screenshot_engine - INFO - Detected 37 casino elements on https://casinomeister.com/casino-reviews/betway
+2025-06-26 09:54:55,905 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/casinomeister_com_full_page_20250626_095454_2cde891f.jpg "HTTP/2 200 OK"
+2025-06-26 09:54:56,066 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:54:56,067 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:54:56,067 - root - WARNING - ❌ Screenshot capture exception for https://casinomeister.com/casino-reviews/betway: 'dict' object has no attribute 'success'
+2025-06-26 09:54:56,067 - root - INFO - 📸 Capturing screenshot for https://thepogg.com/casino-review/betway
+2025-06-26 09:55:21,171 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://thepogg.com/casino-review/betway: 29 total
+2025-06-26 09:55:21,190 - src.integrations.playwright_screenshot_engine - INFO - Detected 29 casino elements on https://thepogg.com/casino-review/betway
+2025-06-26 09:55:22,082 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/thepogg_com_full_page_20250626_095521_7e2d157d.jpg "HTTP/2 200 OK"
+2025-06-26 09:55:22,217 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:55:22,219 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:55:22,219 - root - WARNING - ❌ Screenshot capture exception for https://thepogg.com/casino-review/betway: 'dict' object has no attribute 'success'
+2025-06-26 09:55:22,220 - root - INFO - 📸 Capturing screenshot for https://lcb.org/lcb-casino-reviews/betway-casino
+2025-06-26 09:55:28,587 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://lcb.org/lcb-casino-reviews/betway-casino: 8 total
+2025-06-26 09:55:28,600 - src.integrations.playwright_screenshot_engine - INFO - Detected 8 casino elements on https://lcb.org/lcb-casino-reviews/betway-casino
+2025-06-26 09:55:29,194 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/lcb_org_full_page_20250626_095528_94a5a776.png "HTTP/2 200 OK"
+2025-06-26 09:55:29,362 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:55:29,364 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:55:29,365 - root - WARNING - ❌ Screenshot capture exception for https://lcb.org/lcb-casino-reviews/betway-casino: 'dict' object has no attribute 'success'
+2025-06-26 09:55:29,365 - root - INFO - 📸 Capturing screenshot for https://casino.guru/betway-casino-review
+2025-06-26 09:55:34,575 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://casino.guru/betway-casino-review: 37 total
+2025-06-26 09:55:34,592 - src.integrations.playwright_screenshot_engine - INFO - Detected 37 casino elements on https://casino.guru/betway-casino-review
+2025-06-26 09:55:35,134 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/casino_guru_full_page_20250626_095534_7985bbb6.png "HTTP/2 200 OK"
+2025-06-26 09:55:35,272 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:55:35,315 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:55:35,330 - root - WARNING - ❌ Screenshot capture exception for https://casino.guru/betway-casino-review: 'dict' object has no attribute 'success'
+2025-06-26 09:55:35,353 - root - INFO - 📸 Capturing screenshot for https://gamblingcommission.gov.uk/check-a-licence?name=betway
+2025-06-26 09:55:57,179 - src.integrations.playwright_screenshot_engine - INFO - Detected casino elements for https://gamblingcommission.gov.uk/check-a-licence?name=betway: 9 total
+2025-06-26 09:55:57,188 - src.integrations.playwright_screenshot_engine - INFO - Detected 9 casino elements on https://gamblingcommission.gov.uk/check-a-licence?name=betway
+2025-06-26 09:55:57,797 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/storage/v1/object/screenshots/gamblingcommission_gov_uk_full_page_20250626_095557_fe7579b5.png "HTTP/2 200 OK"
+2025-06-26 09:55:57,955 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/media_assets "HTTP/2 400 Bad Request"
+2025-06-26 09:55:57,956 - src.integrations.playwright_screenshot_engine - ERROR - Metadata storage error: {'code': '22P02', 'details': None, 'hint': None, 'message': 'invalid input syntax for type uuid: "web_research_Betway Casino review with geographic restrictions analysis"'}
+2025-06-26 09:55:57,956 - root - WARNING - ❌ Screenshot capture exception for https://gamblingcommission.gov.uk/check-a-licence?name=betway: 'dict' object has no attribute 'success'
+2025-06-26 09:55:57,956 - root - INFO - 📸 Screenshot evidence capture completed: 0 successful, 6 failed
+2025-06-26 09:55:57,956 - root - INFO - 🏗️ Storing structured casino research data for: betway
+/Users/Peter/.pyenv/versions/3.11.8/lib/python3.11/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+2025-06-26 09:55:57,984 - root - INFO - 🎰 Extracting 95-field casino intelligence using LLM + PydanticOutputParser...
+2025-06-26 09:56:13,372 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-26 09:56:13,465 - root - INFO - ✅ Successfully extracted 95-field casino intelligence with confidence: 0.20
+2025-06-26 09:56:14,056 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/embeddings "HTTP/1.1 200 OK"
+2025-06-26 09:56:14,266 - httpx - INFO - HTTP Request: POST https://ambjsovdhizjxwhhnbtd.supabase.co/rest/v1/documents?columns=%22content%22%2C%22id%22%2C%22embedding%22%2C%22metadata%22 "HTTP/2 201 Created"
+2025-06-26 09:56:14,274 - root - INFO - ✅ Stored structured casino research for betway with 28 fields
+2025-06-26 09:56:14,274 - root - INFO - ✅ Structured casino data captured for taxonomy processing: 28 fields
+2025-06-26 09:56:14,274 - root - INFO - ✅ Comprehensive web research found 6 detailed sources
+/Users/Peter/.pyenv/versions/3.11.8/lib/python3.11/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+2025-06-26 09:56:14,307 - root - INFO - 🎰 Extracting 95-field casino intelligence using LLM + PydanticOutputParser...
+2025-06-26 09:56:27,643 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-26 09:56:27,730 - root - INFO - ✅ Successfully extracted 95-field casino intelligence with confidence: 0.20
+/Users/Peter/.pyenv/versions/3.11.8/lib/python3.11/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+2025-06-26 09:56:27,742 - root - INFO - 🎰 Extracting 95-field casino intelligence using LLM + PydanticOutputParser...
+2025-06-26 09:56:41,135 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-26 09:56:41,221 - root - INFO - ✅ Successfully extracted 95-field casino intelligence with confidence: 0.20
+2025-06-26 09:56:41,222 - root - INFO - 🔍 Extracted structured casino data for taxonomy processing: 28 top-level fields
+/Users/Peter/.pyenv/versions/3.11.8/lib/python3.11/site-packages/pydantic/_internal/_config.py:373: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+2025-06-26 09:56:41,239 - root - INFO - 🎰 Extracting 95-field casino intelligence using LLM + PydanticOutputParser...
+2025-06-26 09:56:56,859 - httpx - INFO - HTTP Request: POST https://api.openai.com/v1/chat/completions "HTTP/1.1 200 OK"
+2025-06-26 09:56:56,953 - root - INFO - ✅ Successfully extracted 95-field casino intelligence with confidence: 0.10
+2025-06-26 09:56:56,956 - root - INFO - 🎰 Generating structured casino content using PydanticOutputParser...

@@ -145,7 +145,7 @@ class CommissionModel(str, Enum):
 class LicenseInformation(BaseModel):
     """Detailed licensing information"""
     primary_license: Optional[LicenseAuthority] = Field(None, description="Primary operating license")
-    additional_licenses: List[LicenseAuthority] = Field(default_factory=list, description="Additional licenses held")
+    additional_licenses: Optional[List[LicenseAuthority]] = Field(default_factory=list, description="Additional licenses held")
     license_numbers: Dict[str, str] = Field(default_factory=dict, description="License numbers by authority")
     license_status: str = Field("Unknown", description="Current license status")
     license_expiry_dates: Dict[str, str] = Field(default_factory=dict, description="License expiry dates")
@@ -271,7 +271,7 @@ class BonusesCategory(BaseModel):
     """CATEGORY 3: Bonuses & Promotions (15 fields)"""
     
     # Welcome Bonus (9 fields)
-    welcome_bonus: WelcomeBonusDetails = Field(default_factory=WelcomeBonusDetails, description="Welcome bonus details")
+    welcome_bonus: Optional[WelcomeBonusDetails] = Field(default_factory=WelcomeBonusDetails, description="Welcome bonus details")
     
     # Ongoing Promotions (6 fields)
     reload_bonuses: bool = Field(False, description="Reload bonuses available")
@@ -418,7 +418,46 @@ class AffiliateProgramIntelligenceCategory(BaseModel):
 
 
 # ============================================================================
-# MAIN CASINO INTELLIGENCE MODEL (95 FIELDS TOTAL)
+# CATEGORY 8: TERMS & CONDITIONS ANALYSIS (10 FIELDS)
+# ============================================================================
+
+class TermsLicensingInfo(BaseModel):
+    """Licensing and regulatory information from T&C"""
+    license_authorities: List[str] = Field(default_factory=list, description="License authorities mentioned in T&C")
+    license_numbers: List[str] = Field(default_factory=list, description="License numbers found in T&C")
+    regulatory_jurisdictions: List[str] = Field(default_factory=list, description="Regulatory jurisdictions mentioned")
+
+
+class TermsRestrictions(BaseModel):
+    """Geographic and user restrictions from T&C"""
+    restricted_countries: List[str] = Field(default_factory=list, description="Countries where service is restricted")
+    age_requirements: Optional[str] = Field(None, description="Minimum age requirements")
+    verification_requirements: List[str] = Field(default_factory=list, description="Account verification requirements")
+
+
+class TermsFinancialConditions(BaseModel):
+    """Financial terms and conditions"""
+    withdrawal_conditions: List[str] = Field(default_factory=list, description="Withdrawal terms and conditions")
+    bonus_terms: List[str] = Field(default_factory=list, description="Bonus terms extracted from T&C")
+    transaction_limits: Optional[str] = Field(None, description="Transaction limits mentioned")
+    fee_structure: Optional[str] = Field(None, description="Fee structure from T&C")
+
+
+class TermsAndConditionsCategory(BaseModel):
+    """CATEGORY 8: Terms & Conditions Analysis (10 fields)"""
+    
+    # Licensing & Regulatory (3 fields)
+    licensing_info: TermsLicensingInfo = Field(default_factory=TermsLicensingInfo, description="Licensing information from T&C")
+    
+    # User Restrictions (3 fields)  
+    restrictions: TermsRestrictions = Field(default_factory=TermsRestrictions, description="User and geographic restrictions")
+    
+    # Financial Terms (4 fields)
+    financial_conditions: TermsFinancialConditions = Field(default_factory=TermsFinancialConditions, description="Financial terms and conditions")
+
+
+# ============================================================================
+# MAIN CASINO INTELLIGENCE MODEL (110 FIELDS TOTAL)
 # ============================================================================
 
 class CasinoIntelligence(BaseModel):
@@ -484,6 +523,14 @@ class CasinoIntelligence(BaseModel):
     affiliate_program: AffiliateProgramIntelligenceCategory = Field(
         default_factory=AffiliateProgramIntelligenceCategory,
         description="Category 7: Affiliate Program Intelligence (15 fields)"
+    )
+    
+    # ========================================================================
+    # CATEGORY 8: TERMS & CONDITIONS (10 FIELDS) - NEWLY ADDED
+    # ========================================================================
+    terms_and_conditions: TermsAndConditionsCategory = Field(
+        default_factory=TermsAndConditionsCategory,
+        description="Category 8: Terms & Conditions Analysis (10 fields)"
     )
     
     # ========================================================================

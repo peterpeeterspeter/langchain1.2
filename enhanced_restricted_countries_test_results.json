@@ -1,0 +1,33 @@
+{
+  "timestamp": "2025-06-26T09:41:39.172071",
+  "test_results": {
+    "restricted_countries_extracted": 15,
+    "has_intelligence_insights": true,
+    "has_compliance_notice": true,
+    "has_comprehensive_disclosure": true,
+    "has_content_formatting": true,
+    "has_post_processing": true,
+    "affiliate_disclosure_present": true,
+    "compliance_warnings_present": true
+  },
+  "restricted_countries_found": [
+    "United States",
+    "United Kingdom",
+    "France",
+    "Germany",
+    "Spain",
+    "Italy",
+    "Netherlands",
+    "Belgium",
+    "Denmark",
+    "Sweden",
+    "Norway",
+    "Finland",
+    "Turkey",
+    "Israel",
+    "Iran"
+  ],
+  "sample_insights": "\ud83d\udeab **Extensive Geographic Restrictions**: This casino restricts players from 15 countries including United States, United Kingdom, France, and others.\n\ud83d\udee1\ufe0f **High Safety Rating**: This casino scores exceptionally well on safety and trustworthiness metrics.\n\ud83c\udfae **Extensive Game Library**: With 2000+ slots, this casino offers exceptional game variety.\n\u20bf **Crypto-Friendly**: Supports cryptocurrency payments for modern players.\n\ud83d\ude80 **Technology Leader**: Features cutting-edge technology like VR gaming or AI personalization.",
+  "sample_compliance_notice": "\ud83c\udf0d **Geographic Restrictions**: This casino is **NOT AVAILABLE** in 15 countries including: United States, United Kingdom, France, Germany, Spain, and others. Please check if your country is eligible before signing up.\n\ud83d\udd1e **Age Verification Required**: Must be 18+ to play (21+ in some jurisdictions).\n\ud83d\udccb **Licensed Operation**: Regulated by Malta Gaming Authority, UK Gambling Commission.\n\ud83d\udee1\ufe0f **Responsible Gambling**: Tools available for deposit limits, time limits, and self-exclusion.\n\u26a0\ufe0f **Disclaimer**: Gambling can be addictive. Please play responsibly and within your means.\n\ud83d\udd17 **Affiliate Disclosure**: This review may contain affiliate links. We may earn commission from qualifying purchases.",
+  "sample_geo_disclosure": "## \ud83c\udf0d **GEOGRAPHIC RESTRICTIONS - IMPORTANT NOTICE**\n\n**\u26a0\ufe0f EXTENSIVE RESTRICTIONS**: This casino is **NOT AVAILABLE** to players from **15 countries/territories**.\n\n**Primary Restricted Countries:**\n\u2022 United States\n\u2022 United Kingdom\n\u2022 France\n\u2022 Germany\n\u2022 Spain\n\u2022 Italy\n\u2022 Netherlands\n\u2022 Belgium\n\u2022 Denmark\n\u2022 Sweden\n\u2022 **...and 5 additional countries**\n\n### \ud83d\udea8 **COMPLIANCE REQUIREMENTS**\n\u2022 **Verify Eligibility**: Always check if your country is eligible before registration\n\u2022 **Legal Compliance**: Ensure on..."
+}
