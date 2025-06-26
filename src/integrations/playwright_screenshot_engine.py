@@ -3075,7 +3075,16 @@ class SupabaseScreenshotStorage:
             
             upload_time = (time.time() - start_time) * 1000  # Convert to milliseconds
             
-            if result.get('error'):
+            # ✅ FIX: Handle new Supabase client response format
+            if hasattr(result, 'data') and result.data is None:
+                # Error occurred
+                error_msg = getattr(result, 'error', 'Unknown upload error')
+                return StorageResult(
+                    success=False,
+                    error_message=f"Storage upload failed: {error_msg}"
+                )
+            elif hasattr(result, 'get') and result.get('error'):
+                # Legacy format
                 return StorageResult(
                     success=False,
                     error_message=f"Storage upload failed: {result['error']}"
@@ -3421,7 +3430,21 @@ class IntegratedScreenshotService:
             Dictionary with capture and storage results
         """
         try:
-            # 1. Capture screenshot
+            # ✅ FIX: Ensure content_id is a valid UUID before processing
+            import uuid
+            import hashlib
+            
+            if content_id:
+                try:
+                    uuid.UUID(content_id)
+                except ValueError:
+                    # Convert non-UUID content_id to a deterministic UUID
+                    namespace = uuid.UUID('1b671a64-40d5-491e-99b0-da01ff1f3341')
+                    content_id = str(uuid.uuid5(namespace, hashlib.sha1(content_id.encode('utf-8')).hexdigest()))
+
+            start_time = time.time()
+            
+            # Determine which capture method to use
             if capture_type == "full_page":
                 screenshot_result = await self.screenshot_service.capture_full_page_screenshot(url)
             elif capture_type == "viewport":

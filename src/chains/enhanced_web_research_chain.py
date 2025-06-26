@@ -44,6 +44,7 @@ class ComprehensiveResearchData(BaseModel):
     innovations: Dict[str, Any] = Field(default_factory=dict)
     compliance: Dict[str, Any] = Field(default_factory=dict)
     assessment: Dict[str, Any] = Field(default_factory=dict)
+    affiliate_program: Dict[str, Any] = Field(default_factory=dict)
 
 @dataclass
 class URLStrategy:
@@ -58,7 +59,10 @@ class URLStrategy:
                 'trustworthiness': [
                     '/about', '/about-us', '/company', '/licensing', 
                     '/legal', '/terms', '/privacy', '/responsible-gaming',
-                    '/security', '/fairness', '/audits', '/certifications'
+                    '/security', '/fairness', '/audits', '/certifications',
+                    '/terms-and-conditions', '/terms-of-service', '/tos',
+                    '/legal/terms', '/about/terms', '/support/terms',
+                    '/legal/terms-conditions', '/help/terms', '/info/terms'
                 ],
                 'games': [
                     '/casino', '/games', '/slots', '/live-casino',
@@ -68,12 +72,16 @@ class URLStrategy:
                 'bonuses': [
                     '/promotions', '/bonuses', '/welcome-bonus',
                     '/free-spins', '/loyalty', '/vip', '/rewards',
-                    '/offers', '/deals', '/cashback', '/reload'
+                    '/offers', '/deals', '/cashback', '/reload',
+                    '/bonus-terms', '/promotion-terms', '/terms/bonuses',
+                    '/legal/bonus-conditions', '/wagering-requirements'
                 ],
                 'payments': [
                     '/banking', '/payments', '/deposit', '/withdrawal',
                     '/payment-methods', '/cashier', '/transactions',
-                    '/fees', '/limits', '/crypto', '/verification'
+                    '/fees', '/limits', '/crypto', '/verification',
+                    '/payment-terms', '/withdrawal-terms', '/banking-terms',
+                    '/terms/payments', '/legal/banking'
                 ],
                 'user_experience': [
                     '/support', '/help', '/contact', '/faq',
@@ -89,12 +97,29 @@ class URLStrategy:
                     '/responsible-gambling', '/self-exclusion',
                     '/age-verification', '/aml', '/kyc',
                     '/complaints', '/dispute-resolution', '/transparency',
-                    '/ethics', '/data-protection'
+                    '/ethics', '/data-protection',
+                    '/terms-and-conditions', '/privacy-policy', '/cookie-policy',
+                    '/gdpr', '/data-protection', '/regulatory-information',
+                    '/compliance', '/legal/compliance', '/regulatory-compliance'
                 ],
                 'assessment': [
                     '/reviews', '/ratings', '/awards', '/comparisons',
                     '/testimonials', '/case-studies', '/analysis',
                     '/reports', '/statistics', '/performance'
+                ],
+                'terms_and_conditions': [
+                    '/terms-and-conditions', '/terms-of-service', '/tos',
+                    '/legal/terms', '/about/terms', '/support/terms',
+                    '/legal/terms-conditions', '/help/terms', '/info/terms',
+                    '/user-agreement', '/service-agreement', '/player-agreement',
+                    '/website-terms', '/platform-terms', '/gaming-terms',
+                    '/legal/user-terms', '/legal/service-terms',
+                    '/terms/general', '/terms/gaming', '/terms/website'
+                ],
+                'affiliate_program': [
+                    '/affiliates', '/partners', '/webmasters', '/affiliate-program',
+                    '/affiliate-terms', '/affiliate/terms', '/partner/terms',
+                    '/legal/affiliates', '/affiliate-agreement', '/commission'
                 ]
             }
 
@@ -270,6 +295,54 @@ If information is not found, indicate "Not found" rather than guessing.
 Extracted {category} Information:
 """
         )
+        
+        # ✅ NEW: Specialized T&C extraction prompt
+        self.terms_extraction_prompt = PromptTemplate(
+            input_variables=["content"],
+            template="""
+Extract comprehensive casino intelligence from this Terms & Conditions content.
+
+Terms & Conditions Content:
+{content}
+
+Extract the following information in structured format:
+
+**LICENSING & REGULATORY:**
+- License authorities and jurisdictions
+- License numbers and regulatory IDs
+- Compliance certifications
+
+**GEOGRAPHIC RESTRICTIONS:**
+- Restricted countries and regions
+- Age verification requirements
+- Geo-blocking policies
+
+**PAYMENT & FINANCIAL:**
+- Supported payment methods
+- Withdrawal processing times
+- Transaction limits and fees
+- Currency support
+
+**GAMING & OPERATIONS:**
+- Game providers and software
+- Bonus terms and wagering requirements
+- Account verification procedures
+
+**DISPUTE & COMPLIANCE:**
+- Dispute resolution procedures
+- Responsible gambling measures
+- Data protection policies
+
+**CONTACT & SUPPORT:**
+- Regulatory contact information
+- Dispute escalation contacts
+- Compliance officer details
+
+Return ONLY factual information found in the content. If information is not explicitly stated, mark as "Not found".
+
+Extracted Intelligence:
+"""
+        )
     
     def extract_category_data(self, documents: List[Document], category: str) -> Dict[str, Any]:
         """Extract data for a specific category from documents"""
@@ -286,26 +359,117 @@ Extracted {category} Information:
                 continue  # Skip minimal content
             
             try:
-                # Extract using LLM
-                extraction_chain = self.extraction_prompt | self.llm
-                
-                result = extraction_chain.invoke({
-                    'content': doc.page_content[:4000],  # Limit content length
-                    'category': category
-                })
+                # ✅ NEW: Use specialized T&C extraction for terms_and_conditions category
+                if category == 'terms_and_conditions':
+                    result = self._extract_terms_intelligence(doc)
+                else:
+                    # Standard extraction for other categories
+                    extraction_chain = self.extraction_prompt | self.llm
+                    result = extraction_chain.invoke({
+                        'content': doc.page_content[:4000],  # Limit content length
+                        'category': category
+                    })
                 
                 extracted_data['sources'].append(doc.metadata.get('source', 'Unknown'))
-                extracted_data['raw_extractions'].append(result.content)
+                extracted_data['raw_extractions'].append(result.content if hasattr(result, 'content') else str(result))
                 
             except Exception as e:
                 print(f"Extraction failed for {doc.metadata.get('source', 'Unknown')}: {e}")
                 continue
         
-        # Calculate confidence based on successful extractions
-        if len(extracted_data['raw_extractions']) > 0:
-            extracted_data['confidence_score'] = min(len(extracted_data['raw_extractions']) / 3.0, 1.0)
+        # ✅ NEW: Enhanced confidence scoring for T&C content
+        if category == 'terms_and_conditions':
+            extracted_data['confidence_score'] = self._calculate_terms_confidence(extracted_data['raw_extractions'])
+        else:
+            # Calculate confidence based on successful extractions
+            if len(extracted_data['raw_extractions']) > 0:
+                extracted_data['confidence_score'] = min(len(extracted_data['raw_extractions']) / 3.0, 1.0)
         
         return extracted_data
+    
+    def _extract_terms_intelligence(self, document: Document) -> Dict[str, Any]:
+        """Extract specialized intelligence from T&C content"""
+        
+        content = document.page_content
+        
+        # ✅ Intelligent content chunking for large T&C documents
+        if len(content) > 6000:
+            # Extract key sections for focused analysis
+            key_sections = self._extract_key_terms_sections(content)
+            content = "\n\n".join(key_sections)[:5000]  # Use most relevant sections
+        
+        # Apply specialized T&C extraction
+        extraction_chain = self.terms_extraction_prompt | self.llm
+        
+        result = extraction_chain.invoke({
+            'content': content
+        })
+        
+        return result
+    
+    def _extract_key_terms_sections(self, content: str) -> List[str]:
+        """Extract key sections from lengthy T&C documents"""
+        
+        # Section patterns to prioritize
+        high_value_patterns = [
+            r'licen[sc]e?[sd]?\b.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'restrict.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'jurisdiction.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'payment.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'withdraw.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'bonus.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'verification.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'dispute.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'complaint.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'responsible.*?(?=\n\n|\n[A-Z]|\Z)',
+            r'age.*?(?=\n\n|\n[A-Z]|\Z)'
+        ]
+        
+        key_sections = []
+        content_lower = content.lower()
+        
+        for pattern in high_value_patterns:
+            matches = re.finditer(pattern, content_lower, re.IGNORECASE | re.DOTALL)
+            for match in matches:
+                section = content[match.start():match.end()]
+                if len(section) > 100:  # Only substantial sections
+                    key_sections.append(section[:800])  # Limit section length
+        
+        # If no patterns found, use first 3000 characters
+        if not key_sections:
+            key_sections = [content[:3000]]
+        
+        return key_sections[:5]  # Return top 5 sections max
+    
+    def _calculate_terms_confidence(self, extractions: List[str]) -> float:
+        """Calculate confidence score specifically for T&C extractions"""
+        
+        if not extractions:
+            return 0.0
+        
+        # Score based on presence of high-value T&C indicators
+        confidence_indicators = [
+            'license', 'jurisdiction', 'restrict', 'payment', 
+            'withdraw', 'bonus', 'verification', 'dispute',
+            'compliance', 'regulatory', 'authority', 'terms'
+        ]
+        
+        total_score = 0
+        for extraction in extractions:
+            extraction_lower = extraction.lower()
+            indicator_count = sum(1 for indicator in confidence_indicators if indicator in extraction_lower)
+            
+            # Score based on indicator density
+            section_score = min(indicator_count / 6.0, 1.0)  # Max score of 1.0
+            total_score += section_score
+        
+        # Average across extractions, boost for legal document quality
+        avg_score = total_score / len(extractions)
+        
+        # Boost confidence for T&C content (legal accuracy assumption)
+        legal_boost = 0.15 if avg_score > 0.3 else 0.0
+        
+        return min(avg_score + legal_boost, 1.0)
 
 class ComprehensiveWebResearchChain:
     """Main LCEL chain for comprehensive casino research using WebBaseLoader"""
@@ -319,7 +483,11 @@ class ComprehensiveWebResearchChain:
         self.casino_domain = casino_domain
         self.alternative_domains = alternative_domains or []
         self.llm = llm or ChatOpenAI(model="gpt-3.5-turbo", temperature=0.1)
-        self.categories = categories or ['trustworthiness', 'games', 'bonuses', 'payments', 'user_experience', 'innovations', 'compliance', 'assessment']
+        self.categories = categories or [
+            'trustworthiness', 'games', 'bonuses', 'payments', 
+            'user_experience', 'innovations', 'compliance', 'assessment',
+            'terms_and_conditions', 'affiliate_program'  # NEW: Dedicated T&C category
+        ]
         
         # Initialize components
         self.url_strategy = URLStrategy(
@@ -327,150 +495,110 @@ class ComprehensiveWebResearchChain:
             alternative_domains=self.alternative_domains
         )
         
-        self.web_loader = EnhancedWebBaseLoader(
+        self.loader = EnhancedWebBaseLoader(
             strategy=self.url_strategy,
             requests_per_second=0.5,
             max_workers=6,  # Increased for 8-category processing
             timeout=30
         )
         
-        self.data_extractor = CasinoDataExtractor(llm=self.llm)
+        self.extractor = CasinoDataExtractor(llm=self.llm)
         
         # Build LCEL chain
         self.chain = self._build_chain()
     
     def _build_chain(self):
-        """Build the main LCEL chain for web research"""
+        """Build the runnable chain"""
         
         def load_and_extract_data(input_dict: Dict[str, Any]) -> Dict[str, Any]:
-            """Load web content and extract structured data"""
+            """Function to load documents and extract data for all categories."""
             
-            casino_domain = input_dict.get('casino_domain', self.casino_domain)
-            categories = input_dict.get('categories', self.categories)
-            
-            print(f"🔍 Starting comprehensive web research for: {casino_domain}")
-            print(f"📊 Categories: {', '.join(categories)}")
+            categories = input_dict['categories']
             
             # Generate URLs for all categories
-            url_collection = self.web_loader.generate_urls(categories)
+            url_collection = self.loader.generate_urls(categories)
             
-            results = {
-                'casino_domain': casino_domain,
-                'categories_researched': categories,
-                'total_urls_attempted': sum(len(urls) for urls in url_collection.values()),
-                'category_data': {},
-                'research_summary': {}
-            }
+            results = {}
             
-            # Process each category in parallel (ALL 8 categories for complete 95-field analysis)
-            with ThreadPoolExecutor(max_workers=6) as executor:
-                future_to_category = {}
+            # Using ThreadPoolExecutor for concurrent category processing
+            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+                future_to_category = {
+                    executor.submit(self._process_category, category, urls): category
+                    for category, urls in url_collection.items()
+                }
                 
-                for category, urls in url_collection.items():
-                    print(f"🌐 Loading {len(urls)} URLs for {category}...")
-                    
-                    future = executor.submit(self._process_category, category, urls)
-                    future_to_category[future] = category
-                
-                # Collect results
                 for future in as_completed(future_to_category):
                     category = future_to_category[future]
-                    
                     try:
-                        category_result = future.result()
-                        results['category_data'][category] = category_result
-                        
-                        # Add to summary
-                        results['research_summary'][category] = {
-                            'urls_successful': len(category_result['sources']),
-                            'confidence_score': category_result['confidence_score'],
-                            'data_quality': 'High' if category_result['confidence_score'] > 0.7 else 'Medium' if category_result['confidence_score'] > 0.3 else 'Low'
-                        }
-                        
-                        print(f"✅ Completed {category}: {len(category_result['sources'])} sources, {category_result['confidence_score']:.2f} confidence")
-                        
-                    except Exception as e:
-                        print(f"❌ Failed to process {category}: {e}")
-                        results['category_data'][category] = {'error': str(e)}
-            
-            # Calculate overall research quality
-            total_confidence = sum(r.get('confidence_score', 0) for r in results['research_summary'].values())
-            avg_confidence = total_confidence / len(results['research_summary']) if results['research_summary'] else 0
-            
-            results['overall_quality'] = {
-                'average_confidence': avg_confidence,
-                'research_grade': 'A' if avg_confidence > 0.8 else 'B' if avg_confidence > 0.6 else 'C' if avg_confidence > 0.4 else 'D',
-                'ready_for_95_fields': avg_confidence > 0.6
-            }
-            
-            print(f"\n🎯 Research Complete: {results['overall_quality']['research_grade']} grade, {avg_confidence:.2f} confidence")
-            print(f"📊 Ready for 95 fields extraction: {results['overall_quality']['ready_for_95_fields']}")
+                        result = future.result()
+                        results.update(result)
+                    except Exception as exc:
+                        print(f'❌ {category} generated an exception: {exc}')
+                        results[category] = {'error': str(exc)}
             
             return results
-        
-        # Build LCEL chain
-        return RunnableLambda(load_and_extract_data)
-    
+
+        return RunnablePassthrough.assign(extracted_data=RunnableLambda(load_and_extract_data))
+
     def _process_category(self, category: str, urls: List[str]) -> Dict[str, Any]:
         """Process a single category with its URLs"""
         
-        # Load documents with fallback
-        documents = self.web_loader.load_with_fallback(urls)
+        print(f"Processing category: {category}")
         
-        if not documents:
-            return {
-                'sources': [],
-                'raw_extractions': [],
-                'structured_data': {},
-                'confidence_score': 0.0,
-                'error': 'No content could be loaded'
-            }
+        try:
+            documents = self.loader.load_with_fallback(urls)
+            print(f"Found {len(documents)} documents for category '{category}'")
+
+            if not documents:
+                return {category: {}}
+
+            if category in ['trustworthiness', 'compliance', 'terms_and_conditions', 'affiliate_program']:
+                # Use specialized T&C intelligence extractor
+                extracted_data = self.extractor.extract_category_data(documents, category)
+            else:
+                # Use general extractor for other categories
+                extracted_data = self.extractor.extract_category_data(documents, category)
+                
+            return {category: extracted_data}
         
-        # Extract structured data
-        extracted_data = self.data_extractor.extract_category_data(documents, category)
-        
-        return extracted_data
-    
+        except Exception as e:
+            print(f"❌ Failed to process {category}: {e}")
+            return {category: {'error': str(e)}}
+
     def invoke(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke the research chain"""
-        return self.chain.invoke(input_dict)
+        """Invoke the chain with input"""
+        chain = self._build_chain()
+        return chain.invoke(input_dict)
 
 # Factory function for easy initialization
 def create_comprehensive_web_research_chain(casino_domain: str = "casino.org", 
                                            alternative_domains: Optional[List[str]] = None,
                                            llm: Optional[ChatOpenAI] = None,
                                            categories: Optional[List[str]] = None) -> ComprehensiveWebResearchChain:
-    """
-    Create a comprehensive web research chain for casino analysis
+    """Factory function for creating the chain"""
     
-    Args:
-        casino_domain: Target casino domain for analysis
-        alternative_domains: Alternative domains to try (.com, .co.uk, etc.)
-        llm: Language model for data extraction
-        categories: Categories to analyze (defaults to ALL 8 for complete 95-field analysis)
+    if categories is None:
+        categories = [
+            'trustworthiness',   # 15 fields - Licensing, fairness, reputation
+            'games',             # 12 fields - Variety, software providers, etc.
+            'bonuses',           # 12 fields - Welcome offers, VIP programs
+            'payments',          # 15 fields - Methods, speed, limits
+            'user_experience',   # 12 fields - Support, mobile, navigation
+            'innovations',       # 8 fields - VR, AI, blockchain
+            'compliance',        # 10 fields - RG, AML, data protection
+            'assessment',        # 11 fields - Ratings, recommendations, improvements
+            'terms_and_conditions',
+            'affiliate_program'
+        ]
         
-    Returns:
-        ComprehensiveWebResearchChain configured for complete 95-field casino analysis
-    """
-    
-    # Default to ALL 8 categories for complete 95-field analysis
-    default_categories = [
-        'trustworthiness',    # 15 fields - Licensing, security, reputation
-        'games',             # 12 fields - Slots, tables, providers, RTP
-        'bonuses',           # 12 fields - Welcome, loyalty, wagering requirements  
-        'payments',          # 15 fields - Methods, fees, processing times
-        'user_experience',   # 12 fields - Support, mobile, interface
-        'innovations',       # 8 fields - VR, AI, blockchain, social features
-        'compliance',        # 10 fields - RG, AML, data protection
-        'assessment'         # 11 fields - Ratings, recommendations, improvements
-    ]
-    
-    return ComprehensiveWebResearchChain(
+    chain = ComprehensiveWebResearchChain(
         casino_domain=casino_domain,
         alternative_domains=alternative_domains,
         llm=llm,
-        categories=categories or default_categories
+        categories=categories
     )
+    
+    return chain
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -488,7 +616,12 @@ if __name__ == "__main__":
         
         # Run research
         results = research_chain.invoke({
-            'casino_domain': 'casino.org'
+            'casino_domain': 'casino.org',
+            'categories': [
+                'trustworthiness', 'games', 'bonuses', 'payments', 
+                'user_experience', 'innovations', 'compliance', 'assessment',
+                'terms_and_conditions', 'affiliate_program'
+            ]
         })
         
         print(f"\n🎯 RESULTS SUMMARY:")

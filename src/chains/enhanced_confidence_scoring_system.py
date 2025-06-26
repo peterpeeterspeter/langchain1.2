@@ -576,8 +576,8 @@ class SourceQualityAnalyzer:
             Dict containing quality scores, tier, and detailed analysis
         """
         try:
-            # Extract content and metadata
-            content = document.page_content.lower()
+            # Extract content and metadata with None check
+            content = (document.page_content or "").lower()
             metadata = document.metadata or {}
             
             # Calculate individual quality indicators
@@ -2210,8 +2210,8 @@ class ResponseValidator:
         # Check source-content alignment
         source_keywords = set()
         for source in sources:
-            if 'content' in source:
-                source_keywords.update(re.findall(r'\b\w+\b', source['content'].lower()))
+            if 'content' in source and source['content']:
+                source_keywords.update(re.findall(r'\b\w+\b', (source['content'] or "").lower()))
         
         content_keywords = set(re.findall(r'\b\w+\b', content.lower()))
         

@@ -130,6 +130,14 @@ class SupportChannelType(str, Enum):
     VIDEO_CALL = "Video Call"
 
 
+class CommissionModel(str, Enum):
+    """Commission models for affiliate programs"""
+    REVENUE_SHARE = "Revenue Share"
+    CPA = "Cost Per Acquisition (CPA)"
+    HYBRID = "Hybrid Model"
+    UNKNOWN = "Unknown"
+
+
 # ============================================================================
 # CATEGORY 1: TRUSTWORTHINESS & SAFETY (25 FIELDS)
 # ============================================================================
@@ -365,6 +373,51 @@ class InnovationsCategory(BaseModel):
 
 
 # ============================================================================
+# CATEGORY 7: AFFILIATE PROGRAM INTELLIGENCE (15 FIELDS)
+# ============================================================================
+
+class AffiliateCommissionDetails(BaseModel):
+    """Affiliate commission structure and terms"""
+    commission_model: CommissionModel = Field(CommissionModel.UNKNOWN, description="Primary commission model (e.g., RevShare, CPA)")
+    revenue_share_percentage: Optional[str] = Field(None, description="Reported revenue share percentage range (e.g., '25%-45%')")
+    cpa_details: Optional[str] = Field(None, description="Details of the CPA deal, if applicable")
+    hybrid_model_description: Optional[str] = Field(None, description="Description of the hybrid model components")
+    negative_carryover_policy: Optional[str] = Field(None, description="Policy on carrying over negative balances")
+    cookie_duration_days: Optional[int] = Field(None, description="Duration of the tracking cookie in days")
+    sub_affiliate_commission: Optional[str] = Field(None, description="Commission structure for sub-affiliates")
+
+
+class AffiliateMarketingRules(BaseModel):
+    """Rules and restrictions for affiliate marketing"""
+    prohibited_keywords: List[str] = Field(default_factory=list, description="List of prohibited PPC keywords")
+    social_media_policy: Optional[str] = Field(None, description="Guidelines for social media promotion")
+    email_marketing_policy: Optional[str] = Field(None, description="Rules for email marketing campaigns")
+    content_approval_required: bool = Field(False, description="Whether content must be approved before publishing")
+    brand_bidding_allowed: bool = Field(True, description="Whether bidding on brand keywords is allowed")
+
+
+class AffiliatePaymentTerms(BaseModel):
+    """Payment terms for affiliates"""
+    minimum_payment_threshold: Optional[str] = Field(None, description="Minimum earnings required for a payout")
+    payment_methods: List[str] = Field(default_factory=list, description="Available payment methods for affiliates")
+    payment_schedule: Optional[str] = Field(None, description="Frequency of payments (e.g., 'Monthly', 'Net-15')")
+
+
+class AffiliateProgramIntelligenceCategory(BaseModel):
+    """CATEGORY 7: Affiliate Program Intelligence (15 fields)"""
+    program_name: Optional[str] = Field(None, description="Official name of the affiliate program")
+    program_url: Optional[str] = Field(None, description="URL of the affiliate program's website")
+    
+    commission_details: AffiliateCommissionDetails = Field(default_factory=AffiliateCommissionDetails)
+    marketing_rules: AffiliateMarketingRules = Field(default_factory=AffiliateMarketingRules)
+    payment_terms: AffiliatePaymentTerms = Field(default_factory=AffiliatePaymentTerms)
+    
+    termination_policy: Optional[str] = Field(None, description="Summary of the termination clause")
+    player_ownership_clause: Optional[str] = Field(None, description="Summary of the player ownership clause")
+    compliance_requirements: List[str] = Field(default_factory=list, description="Specific compliance requirements for affiliates")
+
+
+# ============================================================================
 # MAIN CASINO INTELLIGENCE MODEL (95 FIELDS TOTAL)
 # ============================================================================
 
@@ -381,8 +434,9 @@ class CasinoIntelligence(BaseModel):
     4. Payments & Banking (15 fields)
     5. User Experience & Support (10 fields)
     6. Innovations & Features (10 fields)
+    7. Affiliate Program Intelligence (15 fields)
     
-    Total: 95 fields for comprehensive casino intelligence extraction
+    Total: 110 fields for comprehensive casino intelligence extraction
     """
     
     # ========================================================================
@@ -425,6 +479,11 @@ class CasinoIntelligence(BaseModel):
     innovations: InnovationsCategory = Field(
         default_factory=InnovationsCategory,
         description="Category 6: Innovations & Features (10 fields)"
+    )
+    
+    affiliate_program: AffiliateProgramIntelligenceCategory = Field(
+        default_factory=AffiliateProgramIntelligenceCategory,
+        description="Category 7: Affiliate Program Intelligence (15 fields)"
     )
     
     # ========================================================================
@@ -525,11 +584,11 @@ class CasinoIntelligence(BaseModel):
     
     def calculate_completeness_score(self) -> float:
         """Calculate how complete this intelligence profile is (0-1)"""
-        total_fields = 95
+        total_fields = 110
         filled_fields = 0
         
         # Count filled fields across all categories
-        for category_name in ['trustworthiness', 'games', 'bonuses', 'payments', 'user_experience', 'innovations']:
+        for category_name in ['trustworthiness', 'games', 'bonuses', 'payments', 'user_experience', 'innovations', 'affiliate_program']:
             category = getattr(self, category_name)
             filled_fields += self._count_filled_fields_in_object(category)
         
@@ -662,15 +721,15 @@ def validate_casino_intelligence_schema():
     return {
         "total_fields": total_fields,
         "schema_valid": True,
-        "categories": 6,
-        "target_field_count": 95,
+        "categories": 7,
+        "target_field_count": 110,
         "schema_version": "1.0.0"
     }
 
 
 if __name__ == "__main__":
     # Test the schema
-    print("🎰 Testing Casino Intelligence Schema (95 Fields)")
+    print("🎰 Testing Casino Intelligence Schema (110 Fields)")
     print("=" * 60)
     
     # Validate schema
