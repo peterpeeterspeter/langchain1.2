@@ -119,7 +119,7 @@
         "id": 25,
         "title": "Implement Cache-Specific Exceptions",
         "description": "Create custom exception classes for cache-related errors to provide clear error handling and messaging for the RedisSemanticCache system.",
-        "status": "cancelled",
+        "status": "done",
         "dependencies": [
           24
         ],
@@ -131,7 +131,7 @@
             "id": 1,
             "title": "Implement base CacheError class",
             "description": "Create the base CacheError class that all other cache exceptions will inherit from.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -140,7 +140,7 @@
             "id": 2,
             "title": "Implement connection-related exceptions",
             "description": "Create ConnectionError and MultiCacheConnectionError classes for handling Redis connection failures across multiple cache instances.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -149,7 +149,7 @@
             "id": 3,
             "title": "Implement semantic key and content routing exceptions",
             "description": "Create SemanticKeyGenerationError and ContentRoutingError classes.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -158,7 +158,7 @@
             "id": 4,
             "title": "Implement cache synchronization exceptions",
             "description": "Create CacheSyncError for handling synchronization issues between different cache types.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -167,7 +167,7 @@
             "id": 5,
             "title": "Implement casino-specific exceptions",
             "description": "Create CasinoCacheError and CasinoContextExtractionError classes.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -176,7 +176,7 @@
             "id": 6,
             "title": "Implement TTL and threshold validation exceptions",
             "description": "Create TTLStrategyError, TTLValidationError, and DistanceThresholdError classes with proper validation logic.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -185,7 +185,7 @@
             "id": 7,
             "title": "Implement configuration and analytics exceptions",
             "description": "Create CacheConfigurationError and CacheAnalyticsError classes.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -194,7 +194,7 @@
             "id": 8,
             "title": "Implement LCEL integration exceptions",
             "description": "Create LCELIntegrationError for handling failures in LangChain Expression Language integration.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -203,7 +203,7 @@
             "id": 9,
             "title": "Implement async-specific exceptions",
             "description": "Create AsyncCacheError and AsyncOperationTimeout classes with async-compatible error handling patterns.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -212,7 +212,7 @@
             "id": 10,
             "title": "Write unit tests for exception hierarchy",
             "description": "Create tests that verify inheritance relationships and proper exception catching.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -221,7 +221,7 @@
             "id": 11,
             "title": "Write unit tests for async error handling",
             "description": "Create tests that verify exceptions work correctly in async contexts with asyncio.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -230,7 +230,7 @@
             "id": 12,
             "title": "Write validation error tests",
             "description": "Create tests for TTL and distance threshold validation with boundary values.",
-            "status": "pending",
+            "status": "done",
             "dependencies": [],
             "details": "",
             "testStrategy": ""
@@ -1364,7 +1364,7 @@
         "description": "Create a simple example file demonstrating how to use LangChain's native caching with RedisSemanticCache in just 3 lines of code, focusing on set_llm_cache() and .with_cache() usage patterns.",
         "details": "Create a new file `simple_redis_cache_example.py` in the examples directory with the following content:\n\n```python\nfrom langchain_core.globals import set_llm_cache\nfrom langchain_redis import RedisSemanticCache\nfrom langchain_openai import ChatOpenAI\nfrom langchain_core.embeddings import OpenAIEmbeddings\n\n# Example 1: Global LLM cache setup (1 line)\nset_llm_cache(RedisSemanticCache(redis_url=\"redis://localhost:6379\", embedding=OpenAIEmbeddings()))\n\n# Example 2: Model-specific cache with .with_cache() (1 line)\nllm = ChatOpenAI().with_cache(RedisSemanticCache(redis_url=\"redis://localhost:6379\", embedding=OpenAIEmbeddings()))\n\n# Example 3: Simple usage demonstration\ndef demonstrate_caching():\n    # First call - will hit the API and cache the result\n    print(\"First call (cache miss):\")\n    start = time.time()\n    result1 = llm.invoke(\"What is the capital of France?\")\n    print(f\"Time taken: {time.time() - start:.2f}s\")\n    print(f\"Result: {result1.content}\\n\")\n    \n    # Second call - should be retrieved from cache\n    print(\"Second call (cache hit):\")\n    start = time.time()\n    result2 = llm.invoke(\"What is the capital of France?\")\n    print(f\"Time taken: {time.time() - start:.2f}s\")\n    print(f\"Result: {result2.content}\")\n\nif __name__ == \"__main__\":\n    import time\n    demonstrate_caching()\n```\n\nThe example should be minimal and focused on demonstrating the core caching functionality without any custom orchestrators, factories, or middleware. It should clearly show:\n\n1. How to set up a global LLM cache with RedisSemanticCache in a single line\n2. How to apply caching to a specific LLM instance using .with_cache() in a single line\n3. A simple demonstration of the caching in action showing the performance difference between a cache miss and a cache hit\n\nMake sure the example is self-contained and can be run with minimal dependencies (just LangChain, Redis, and OpenAI).",
         "testStrategy": "1. Verify the example runs correctly:\n   - Install required dependencies: `pip install langchain langchain-redis langchain-openai redis`\n   - Ensure Redis is running locally (or update the redis_url to point to your Redis instance)\n   - Run the example: `python simple_redis_cache_example.py`\n   - Confirm the second call is significantly faster than the first call\n\n2. Validate caching behavior:\n   - Check Redis to confirm cache entries are being created:\n     ```\n     redis-cli\n     KEYS *\n     ```\n   - Verify the cache is being used by examining the time difference between calls\n   - Modify the prompt slightly and verify it creates a new cache entry\n\n3. Test with different LLM providers:\n   - Modify the example to use a different LLM provider (e.g., Anthropic)\n   - Verify caching works consistently across different providers\n\n4. Confirm the example meets the requirements:\n   - Ensure the core caching setup is demonstrated in just 3 lines of code\n   - Verify both set_llm_cache() and .with_cache() patterns are shown\n   - Check that no custom orchestrators, factories, or middleware are used",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           24
         ],
@@ -1374,7 +1374,7 @@
     ],
     "metadata": {
       "created": "2025-06-16T20:43:05.251Z",
-      "updated": "2025-06-26T12:49:51.194Z",
+      "updated": "2025-06-27T05:48:47.383Z",
       "description": "Tasks for master context"
     }
   }

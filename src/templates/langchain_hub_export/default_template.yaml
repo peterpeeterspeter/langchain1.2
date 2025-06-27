@@ -1,0 +1,44 @@
+input_variables:
+- context
+- question
+metadata:
+  description: General purpose RAG template for accurate context-based answers
+  input_variables:
+  - context
+  - question
+  name: Default RAG Template
+  tags:
+  - rag
+  - qa
+  - general
+  - context
+  - default
+  use_cases:
+  - General Q&A
+  - Information retrieval
+  - Context-based answers
+  version: 1.0.0
+template: 'Based on the following context, answer the question accurately and comprehensively.
+
+
+  Context: {context}
+
+  Question: {question}
+
+
+  Instructions:
+
+  - Provide accurate, fact-based answers using the context provided
+
+  - If context is insufficient, clearly state limitations
+
+  - Structure responses with clear headings when appropriate
+
+  - Include specific details and examples from the context
+
+  - Maintain professional, informative tone
+
+  - End with actionable next steps when relevant
+
+
+  Answer:'

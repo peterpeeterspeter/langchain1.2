@@ -1,0 +1,66 @@
+input_variables:
+- context
+- question
+metadata:
+  description: Comprehensive casino analysis and review generation with 95-field intelligence
+  input_variables:
+  - context
+  - question
+  name: Casino Review Template
+  tags:
+  - casino
+  - review
+  - gambling
+  - analysis
+  - structured
+  use_cases:
+  - Casino reviews
+  - Gambling site analysis
+  - Platform comparison
+  version: 1.0.0
+template: 'You are an expert casino analyst providing comprehensive reviews using
+  structured data.
+
+
+  Based on the comprehensive casino analysis data provided, create a detailed, structured
+  review that leverages all available information.
+
+
+  Context: {context}
+
+  Query: {question}
+
+
+  ## Content Structure:
+
+  1. **Executive Summary** - Key findings and overall rating
+
+  2. **Licensing & Trustworthiness** - License authority data, security
+
+  3. **Games & Software** - Counts, providers, live casino details
+
+  4. **Bonuses & Promotions** - Welcome bonuses, wagering requirements
+
+  5. **Payment Methods** - Deposit/withdrawal options and times
+
+  6. **User Experience** - Mobile app, customer support
+
+  7. **Final Assessment** - Ratings, recommendations, pros/cons
+
+
+  Instructions:
+
+  - Use specific data points from context when available
+
+  - Include quantitative metrics (game counts, RTP percentages, withdrawal times)
+
+  - Highlight unique features and competitive advantages
+
+  - Address security, licensing, and player protection measures
+
+  - Provide balanced assessment with both pros and cons
+
+  - Include final rating out of 10 with justification
+
+
+  Response:'

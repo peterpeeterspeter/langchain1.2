@@ -989,17 +989,9 @@ class UniversalRAGChain:
                 structured_metadata=RunnableLambda(self._extract_structured_metadata)
             )
             
-            # Step 6: Template selection based on query type
+            # Step 6: Template selection and content generation
             | RunnablePassthrough.assign(
-                selected_template=RunnableLambda(self._select_optimal_template)
-            )
-            
-            # Step 7: Format template with context and generate content
-            | RunnableLambda(self._format_with_selected_template)
-            | self.llm
-            | StrOutputParser()
-            | RunnablePassthrough.assign(
-                generated_content=RunnableLambda(lambda x: x if isinstance(x, str) else x.get("generated_content", str(x)))
+                generated_content=RunnableLambda(self._generate_content_with_template)
             )
             
             # Step 8: Response enhancement and formatting
@@ -1128,6 +1120,38 @@ class UniversalRAGChain:
             context_parts.append(f"## Additional Sources\n{search_context}")
         
         return "\n\n".join(context_parts) if context_parts else "No additional context available."
+    
+    async def _generate_content_with_template(self, inputs: Dict[str, Any]) -> str:
+        """✅ FIXED: Combined template selection and content generation for LCEL chain"""
+        try:
+            # Step 1: Select optimal template
+            template = await self._select_optimal_template(inputs)
+            
+            # Step 2: Format with context mapping  
+            context = inputs.get("enhanced_context", "")
+            question = inputs.get("question", "")
+            
+            # Step 3: Generate content using the template
+            formatted_prompt = template.invoke({
+                "context": context,
+                "question": question
+            })
+            
+            # Step 4: Call LLM with formatted prompt
+            response = await self.llm.ainvoke(formatted_prompt)
+            content = response.content if hasattr(response, 'content') else str(response)
+            
+            return content
+            
+        except Exception as e:
+            logging.error(f"Template generation failed: {e}")
+            # Fallback to simple generation
+            query = inputs.get("question", "")
+            context = inputs.get("enhanced_context", "")
+            
+            fallback_prompt = f"Based on the following context, answer the question:\n\nContext: {context}\n\nQuestion: {query}\n\nAnswer:"
+            response = await self.llm.ainvoke(fallback_prompt)
+            return response.content if hasattr(response, 'content') else str(response)
     
     def _extract_structured_metadata(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
         """Extract structured metadata from research data (pure function)"""
@@ -2336,63 +2360,90 @@ Answer:
             logging.error(f"FTI content processing failed: {e}")
             return {"content_type": "unknown", "metadata": {}, "processing_method": "error"}
     
-    async def _get_enhanced_template_v2(self, inputs: Dict[str, Any]) -> str:
-        """Step 2d: Get enhanced template using Template System v2.0"""
-        if not self.enable_template_system_v2 or not self.template_manager:
-            return "standard_template"
+    async def _get_enhanced_template_v2(self, inputs: Dict[str, Any]) -> ChatPromptTemplate:
+        """Step 2d: Get enhanced template using native LangChain Hub integration"""
+        if not self.enable_template_system_v2:
+            return self._get_fallback_template()
         
         query = inputs.get("question", "")
         query_analysis = inputs.get("query_analysis")
         
         try:
-            # Map query analysis to template types
-            template_type = "universal_rag"
-            query_type = None
-            expertise_level = None
+            # Import native LangChain hub
+            from langchain import hub
             
-            if query_analysis:
-                # Map to template system enums
-                if hasattr(query_analysis, 'query_type'):
-                    query_type = self._map_to_template_query_type(query_analysis.query_type)
-                if hasattr(query_analysis, 'expertise_level'):
-                    expertise_level = self._map_to_template_expertise_level(query_analysis.expertise_level)
+            # Determine hub template ID based on query analysis
+            hub_id = self._determine_hub_template_id(query_analysis)
             
-            # Get enhanced template
-            template = self.template_manager.get_template(
-                template_type=template_type,
-                query_type=query_type,
-                expertise_level=expertise_level
-            )
+            # Pull template directly from LangChain Hub
+            template = hub.pull(hub_id)
+            logging.info(f"✅ Using LangChain Hub template: {hub_id}")
             
             return template
             
         except Exception as e:
-            logging.error(f"Template System v2.0 failed: {e}")
-            return "standard_template"
+            logging.error(f"LangChain Hub template pull failed: {e}")
+            logging.info(f"   Falling back to universal template")
+            
+            # Fallback to universal template
+            try:
+                from langchain import hub
+                template = hub.pull('universal-rag-template-v2')
+                logging.info("✅ Using fallback universal template from Hub")
+                return template
+            except Exception as e2:
+                logging.error(f"Hub fallback failed: {e2}")
+                return self._get_fallback_template()
     
-    def _map_to_template_query_type(self, query_type):
-        """Map query analysis type to template query type"""
-        mapping = {
-            "CASINO_REVIEW": TemplateQueryType.CASINO_REVIEW,
-            "GAME_GUIDE": TemplateQueryType.GAME_GUIDE,
-            "PROMOTION_ANALYSIS": TemplateQueryType.PROMOTION_ANALYSIS,
-            "COMPARISON": TemplateQueryType.COMPARISON,
-            "NEWS_UPDATE": TemplateQueryType.NEWS_UPDATE,
-            "GENERAL_INFO": TemplateQueryType.GENERAL_INFO,
-            "TROUBLESHOOTING": TemplateQueryType.TROUBLESHOOTING,
-            "REGULATORY": TemplateQueryType.REGULATORY
+    def _determine_hub_template_id(self, query_analysis: Optional[QueryAnalysis]) -> str:
+        """Determine which LangChain Hub template to use based on query analysis"""
+        
+        if not query_analysis:
+            return 'universal-rag-template-v2'
+        
+        # Extract query type and expertise level
+        query_type = getattr(query_analysis, 'query_type', None)
+        expertise_level = getattr(query_analysis, 'expertise_level', None)
+        
+        # Map query types to hub template IDs
+        query_type_str = query_type.value if hasattr(query_type, 'value') else str(query_type).lower()
+        expertise_str = expertise_level.value if hasattr(expertise_level, 'value') else str(expertise_level).lower()
+        
+        # Map to our uploaded template IDs
+        hub_template_mapping = {
+            'casino_review': f'casino_review-{expertise_str}-template',
+            'game_guide': f'game_guide-{expertise_str}-template', 
+            'promotion_analysis': f'promotion_analysis-{expertise_str}-template',
+            'comparison': f'comparison-{expertise_str}-template',
+            'news_update': f'news_update-{expertise_str}-template',
+            'general_info': f'general_info-{expertise_str}-template',
+            'troubleshooting': f'troubleshooting-{expertise_str}-template',
+            'regulatory': f'regulatory-{expertise_str}-template'
         }
-        return mapping.get(query_type.name if hasattr(query_type, 'name') else str(query_type), TemplateQueryType.GENERAL_INFO)
+        
+        # Get specific template or fallback to universal
+        hub_id = hub_template_mapping.get(query_type_str, 'universal-rag-template-v2')
+        
+        logging.info(f"🎯 Query analysis → Hub template mapping:")
+        logging.info(f"   Query type: {query_type_str}")
+        logging.info(f"   Expertise: {expertise_str}")
+        logging.info(f"   Hub ID: {hub_id}")
+        
+        return hub_id
     
-    def _map_to_template_expertise_level(self, expertise_level):
-        """Map query analysis expertise to template expertise"""
-        mapping = {
-            "BEGINNER": TemplateExpertiseLevel.BEGINNER,
-            "INTERMEDIATE": TemplateExpertiseLevel.INTERMEDIATE,
-            "ADVANCED": TemplateExpertiseLevel.ADVANCED,
-            "EXPERT": TemplateExpertiseLevel.EXPERT
-        }
-        return mapping.get(expertise_level.name if hasattr(expertise_level, 'name') else str(expertise_level), TemplateExpertiseLevel.INTERMEDIATE)
+    def _get_fallback_template(self) -> ChatPromptTemplate:
+        """Get basic fallback template when Hub is unavailable"""
+        from langchain_core.prompts import ChatPromptTemplate
+        
+        return ChatPromptTemplate.from_template(
+            """You are an expert content creator providing comprehensive answers.
+
+Context: {context}
+
+Question: {question}
+
+Please provide a detailed, well-structured response based on the context provided."""
+        )
     
     async def _integrate_all_context(self, inputs: Dict[str, Any]) -> str:
         """Step 3a: Integrate all gathered context INCLUDING structured 95-field data"""
@@ -2894,11 +2945,50 @@ STRUCTURED CASINO INTELLIGENCE:""",
         }
     
     async def _select_optimal_template(self, inputs: Dict[str, Any]) -> ChatPromptTemplate:
-        """✅ Native LangChain approach - simple and effective"""
+        """🎯 Native LangChain Hub Integration - Using our 34 uploaded templates"""
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain import hub
+        
+        try:
+            # Get query analysis for intelligent template selection
+            query_analysis = inputs.get("query_analysis")
+            query = inputs.get("question", "").lower()
+            
+            # Use hub template selection based on query analysis
+            if self.enable_template_system_v2:
+                template = await self._get_enhanced_template_v2(inputs)
+                if template:
+                    return template
+            
+            # ✅ Fallback: Simple hub template selection based on query content
+            if "casino" in query and ("review" in query or "analysis" in query):
+                hub_id = "casino-review-template"
+            elif "game" in query and ("guide" in query or "how to" in query):
+                hub_id = "game-guide-template"
+            elif any(word in query for word in ["vs", "versus", "compare", "comparison"]):
+                hub_id = "comparison-template"
+            else:
+                hub_id = "default-template"
+            
+            # ✅ Pull template directly from LangChain Hub
+            try:
+                template = hub.pull(hub_id)
+                logging.info(f"✅ Using template from LangChain Hub: {hub_id}")
+                return template
+            except Exception as hub_error:
+                logging.warning(f"⚠️ Hub pull failed for {hub_id}: {hub_error}")
+                return self._get_fallback_template()
+                
+        except Exception as e:
+            logging.error(f"Template selection failed: {e}")
+            return self._get_fallback_template()
+    
+    def _get_fallback_template_legacy(self, template_key: str = "default") -> ChatPromptTemplate:
+        """Fallback templates when hub is unavailable (development only)"""
         from langchain_core.prompts import ChatPromptTemplate
         
-        # ✅ Simple hub lookup - no complex classes
-        local_hub = {
+        # ✅ Temporary fallback - remove when hub templates are live
+        fallback_templates = {
             "casino_review": """You are an expert casino analyst providing comprehensive reviews using structured data.
 
 Based on the comprehensive casino analysis data provided, create a detailed, structured review that leverages all available information.
@@ -2959,22 +3049,8 @@ Question: {question}
 Answer:"""
         }
         
-        # ✅ Simple selection logic
-        query = inputs.get("question", "").lower()
-        
-        # Determine template type
-        if "casino" in query and ("review" in query or "analysis" in query):
-            template_key = "casino_review"
-        elif "game" in query and ("guide" in query or "how to" in query):
-            template_key = "game_guide"  
-        elif any(word in query for word in ["vs", "versus", "compare", "comparison"]):
-            template_key = "comparison"
-        else:
-            template_key = "default"
-        
-        # ✅ Get template and create ChatPromptTemplate
-        template_string = local_hub[template_key]
-        logging.info(f"✅ Using {template_key} template from our local hub")
+        template_string = fallback_templates.get(template_key, fallback_templates["default"])
+        logging.info(f"🔄 Using fallback {template_key} template (Hub unavailable)")
         
         return ChatPromptTemplate.from_template(template_string)
     
@@ -2982,11 +3058,17 @@ Answer:"""
         """Format the selected template with available context"""
         template = inputs["selected_template"]
         
-        # Use enhanced_context if available, otherwise use context
+        # ✅ FIXED: Map enhanced_context to context for template compatibility
         context = inputs.get("enhanced_context", inputs.get("context", ""))
         question = inputs.get("question", "")
         
-        return template.format(context=context, question=question)
+        # ✅ FIXED: Use ChatPromptTemplate.invoke instead of .format()
+        formatted_prompt = template.invoke({
+            "context": context, 
+            "question": question
+        })
+        
+        return formatted_prompt.to_string()
     
     async def _generate_with_all_features(self, inputs: Dict[str, Any]) -> str:
         """Step 4: Generate content with all enhancements - EXTENDED with 95-field intelligence"""

@@ -1,0 +1,62 @@
+input_variables:
+- context
+- question
+metadata:
+  description: Detailed comparison analysis for multiple options with structured evaluation
+  input_variables:
+  - context
+  - question
+  name: Comparison Analysis Template
+  tags:
+  - comparison
+  - analysis
+  - evaluation
+  - decision-making
+  use_cases:
+  - Product comparisons
+  - Service evaluations
+  - Option analysis
+  version: 1.0.0
+template: 'You are an expert analyst specializing in detailed comparisons.
+
+
+  Compare the options based on the provided context and answer the comparison question
+  thoroughly.
+
+
+  Context: {context}
+
+  Query: {question}
+
+
+  ## Comparison Structure:
+
+  1. **Overview** - What''s being compared
+
+  2. **Key Differences** - Main distinguishing factors
+
+  3. **Pros & Cons** - Advantages and disadvantages of each
+
+  4. **Performance Metrics** - Quantitative comparisons
+
+  5. **Use Cases** - Best scenarios for each option
+
+  6. **Recommendation** - Which is better for different needs
+
+
+  Instructions:
+
+  - Create side-by-side comparisons using tables when appropriate
+
+  - Use specific metrics and data points from context
+
+  - Address different user personas and their needs
+
+  - Highlight unique selling points for each option
+
+  - Provide clear decision-making framework
+
+  - Include final recommendation with reasoning
+
+
+  Response:'

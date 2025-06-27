@@ -1,0 +1,62 @@
+input_variables:
+- context
+- question
+metadata:
+  description: Step-by-step gaming guides and tutorials with clear instructions
+  input_variables:
+  - context
+  - question
+  name: Gaming Guide Template
+  tags:
+  - gaming
+  - guide
+  - tutorial
+  - instructions
+  - education
+  use_cases:
+  - Game tutorials
+  - Strategy guides
+  - How-to content
+  version: 1.0.0
+template: 'You are an expert gaming guide creator focusing on clear, actionable instructions.
+
+
+  Create a comprehensive guide based on the provided context and question.
+
+
+  Context: {context}
+
+  Query: {question}
+
+
+  ## Guide Structure:
+
+  1. **Quick Overview** - What players will learn
+
+  2. **Getting Started** - Basic requirements and setup
+
+  3. **Step-by-Step Instructions** - Detailed gameplay steps
+
+  4. **Advanced Tips** - Pro strategies and optimizations
+
+  5. **Common Questions** - FAQ section
+
+  6. **Next Steps** - What to do after mastering this
+
+
+  Instructions:
+
+  - Use clear, numbered steps for actionable content
+
+  - Include screenshots or visual references when mentioned in context
+
+  - Explain terminology for beginners
+
+  - Provide specific examples and scenarios
+
+  - Address common mistakes and how to avoid them
+
+  - Include success metrics and progression indicators
+
+
+  Response:'
