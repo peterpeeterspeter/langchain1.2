@@ -58,6 +58,7 @@ jobs:
           cd tests
           python -m pytest \
             --cov=../src \
+            --cov-config=../.coveragerc \
             --cov-report=xml:coverage.xml \
             --cov-report=html:htmlcov \
             --cov-report=term-missing \
