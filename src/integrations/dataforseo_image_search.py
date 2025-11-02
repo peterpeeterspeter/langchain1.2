@@ -44,7 +44,8 @@ from collections import deque
 
 # LangChain imports
 from langchain.tools import BaseTool
-from langchain.callbacks.manager import CallbackManagerForToolRun
+# Deprecated import - not needed for tool execution
+# from langchain.callbacks.manager import CallbackManagerForToolRun
 from langchain.schema import Document
 
 # Configure logging
@@ -800,7 +801,7 @@ class DataForSEOImageSearchTool(BaseTool):
     def _run(
         self,
         query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: Optional[Any] = None,  # CallbackManagerForToolRun deprecated
     ) -> str:
         """Run the image search synchronously"""
         try:
@@ -821,7 +822,7 @@ class DataForSEOImageSearchTool(BaseTool):
     async def _arun(
         self,
         query: str,
-        run_manager: Optional[CallbackManagerForToolRun] = None,
+        run_manager: Optional[Any] = None,  # CallbackManagerForToolRun deprecated
     ) -> str:
         """Run the image search asynchronously"""
         try:

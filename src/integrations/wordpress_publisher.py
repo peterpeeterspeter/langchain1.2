@@ -505,7 +505,14 @@ class WordPressRESTPublisher:
     
     async def __aenter__(self):
         """Async context manager entry"""
-        connector = aiohttp.TCPConnector(limit=self.config.max_concurrent_uploads)
+        # Handle SSL verification - disable for testing if needed
+        # In production, set WORDPRESS_VERIFY_SSL=false to disable SSL verification
+        verify_ssl = os.getenv("WORDPRESS_VERIFY_SSL", "true").lower() != "false"
+        
+        connector = aiohttp.TCPConnector(
+            limit=self.config.max_concurrent_uploads,
+            ssl=verify_ssl  # False to disable SSL verification
+        )
         timeout = aiohttp.ClientTimeout(total=self.config.request_timeout)
         self.session = aiohttp.ClientSession(connector=connector, timeout=timeout)
         

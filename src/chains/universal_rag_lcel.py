@@ -52,9 +52,10 @@ from functools import lru_cache
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
-from langchain.callbacks.manager import CallbackManagerForChainRun
-from langchain.memory import ConversationSummaryMemory
-from langchain.schema import BaseMemory
+# Removed deprecated imports - using langchain_core instead
+# from langchain.callbacks.manager import CallbackManagerForChainRun  # Deprecated
+# from langchain.memory import ConversationSummaryMemory  # Not used
+# from langchain.schema import BaseMemory  # Not used
 from langchain_community.cache import RedisCache
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain_core.callbacks import AsyncCallbackManagerForChainRun, BaseCallbackHandler
@@ -362,60 +363,11 @@ class RAGMetricsCallback(BaseCallbackHandler):
 # Vector Store Integration
 # ============================================================================
 
-class EnhancedVectorStore:
-    """Enhanced vector store with contextual retrieval capabilities"""
-    
-    def __init__(self, supabase_client, embedding_model):
-        self.supabase_client = supabase_client
-        self.embedding_model = embedding_model
-        self.vector_store = SupabaseVectorStore(
-            client=supabase_client,
-            embedding=embedding_model,
-            table_name="documents"
-        )
-    
-    async def asimilarity_search_with_score(self, query: str, k: int = 4, 
-                                          query_analysis: Optional[QueryAnalysis] = None) -> List[Tuple[Document, float]]:
-        """Enhanced similarity search with contextual query building"""
-        try:
-            # Build contextual query if analysis available
-            if query_analysis:
-                contextual_query = self._build_contextual_query(query, query_analysis)
-            else:
-                contextual_query = query
-            
-            # Perform similarity search
-            results = await self.vector_store.asimilarity_search_with_score(
-                contextual_query, k=k
-            )
-            
-            # Filter by similarity threshold
-            filtered_results = [
-                (doc, score) for doc, score in results 
-                if score >= 0.7  # Configurable threshold
-            ]
-            
-            return filtered_results
-            
-        except Exception as e:
-            logger.error(f"Similarity search failed: {e}")
-            return []
-    
-    def _build_contextual_query(self, query: str, query_analysis: QueryAnalysis) -> str:
-        """Build contextual query based on analysis"""
-        context_parts = [query]
-        
-        # Add expertise level context
-        if query_analysis.expertise_level == ExpertiseLevel.BEGINNER:
-            context_parts.append("explain in simple terms")
-        elif query_analysis.expertise_level == ExpertiseLevel.EXPERT:
-            context_parts.append("provide detailed technical analysis")
-        
-        # Add format context
-        if query_analysis.response_format == ResponseFormat.STRUCTURED:
-            context_parts.append("provide structured response")
-        
-        return " ".join(context_parts)
+# ============================================================================
+# REMOVED: EnhancedVectorStore wrapper - Using native SupabaseVectorStore directly
+# ============================================================================
+# The EnhancedVectorStore wrapper added unnecessary overhead. Native SupabaseVectorStore
+# is used directly with filtering handled in RetrievalComponent for better performance.
 
 
 # ============================================================================
@@ -689,6 +641,10 @@ class UniversalRAGChain:
         self.vector_store = vector_store
         self.supabase_client = supabase_client
         
+        # Initialize embeddings FIRST (needed for vector store)
+        self.embeddings = self._init_embeddings()
+        self.embedding_model = self.embeddings  # Alias for compatibility
+        
         # Auto-initialize services if not provided
         if not self.supabase_client:
             self._auto_initialize_supabase()
@@ -696,9 +652,8 @@ class UniversalRAGChain:
         if not self.vector_store:
             self._auto_initialize_vector_store()
         
-        # Initialize LLM and embeddings
+        # Initialize LLM
         self.llm = self.generation_component.llm
-        self.embeddings = self._init_embeddings()
         
         # Create LCEL chain (Phase 2)
         self.chain = self._create_simplified_lcel_chain()
@@ -729,11 +684,19 @@ class UniversalRAGChain:
             logging.error(f"❌ Supabase initialization failed: {e}")
     
     def _auto_initialize_vector_store(self):
-        """Auto-initialize vector store with Supabase client"""
+        """Auto-initialize vector store with Supabase client (native implementation)"""
         try:
             if self.supabase_client and hasattr(self, 'embedding_model'):
-                self.vector_store = EnhancedVectorStore(self.supabase_client, self.embedding_model)
-                logging.info("✅ Vector store auto-initialized")
+                # Use native SupabaseVectorStore directly (no wrapper overhead)
+                self.vector_store = SupabaseVectorStore(
+                    client=self.supabase_client,
+                    embedding=self.embedding_model,
+                    table_name="documents",
+                    query_name="match_documents"
+                )
+                logging.info("✅ Supabase vector store auto-initialized (native)")
+            else:
+                logging.warning("⚠️ Cannot initialize vector store: missing Supabase client or embeddings")
         except Exception as e:
             logging.error(f"❌ Vector store initialization failed: {e}")
     
@@ -939,7 +902,7 @@ Provide a comprehensive, well-structured answer:"""
 # ============================================================================
 
 def create_universal_rag_chain(
-    model_name: str = "gpt-4-mini",
+    model_name: str = "gpt-4o-mini",
     temperature: float = 0.1,
     enable_caching: bool = True,
     enable_contextual_retrieval: bool = True,

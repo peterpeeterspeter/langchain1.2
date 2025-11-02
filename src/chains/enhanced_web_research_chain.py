@@ -495,10 +495,12 @@ class ComprehensiveWebResearchChain:
             alternative_domains=self.alternative_domains
         )
         
+        self.max_workers = 6  # Store max_workers for use in _build_chain
+        
         self.loader = EnhancedWebBaseLoader(
             strategy=self.url_strategy,
             requests_per_second=0.5,
-            max_workers=6,  # Increased for 8-category processing
+            max_workers=self.max_workers,  # Use instance variable
             timeout=30
         )
         
@@ -566,9 +568,72 @@ class ComprehensiveWebResearchChain:
             return {category: {'error': str(e)}}
 
     def invoke(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
-        """Invoke the chain with input"""
+        """Invoke the chain with input and format results"""
         chain = self._build_chain()
-        return chain.invoke(input_dict)
+        extracted_data = chain.invoke(input_dict)
+        
+        # Format results to match expected structure
+        return self._format_results(extracted_data, input_dict)
+    
+    def _format_results(self, extracted_data: Dict[str, Any], input_dict: Dict[str, Any]) -> Dict[str, Any]:
+        """Format extracted data into expected result structure"""
+        categories = input_dict.get('categories', self.categories)
+        casino_domain = input_dict.get('casino_domain', self.casino_domain)
+        
+        # Build research summary
+        research_summary = {}
+        total_urls_attempted = 0
+        total_fields = 0
+        
+        for category in categories:
+            category_data = extracted_data.get(category, {})
+            if isinstance(category_data, dict) and 'error' not in category_data:
+                # Count fields
+                fields_count = len([k for k, v in category_data.items() if v])
+                total_fields += fields_count
+                
+                research_summary[category] = {
+                    'urls_successful': category_data.get('urls_researched', 0),
+                    'confidence_score': category_data.get('confidence_score', 0.5),
+                    'data_quality': 'good' if fields_count > 5 else 'fair' if fields_count > 0 else 'poor',
+                    'fields_extracted': fields_count
+                }
+                total_urls_attempted += research_summary[category]['urls_successful']
+            else:
+                research_summary[category] = {
+                    'urls_successful': 0,
+                    'confidence_score': 0.0,
+                    'data_quality': 'poor',
+                    'fields_extracted': 0
+                }
+        
+        # Calculate overall quality
+        avg_confidence = sum(s['confidence_score'] for s in research_summary.values()) / len(research_summary) if research_summary else 0.0
+        ready_for_95_fields = total_fields >= 50  # At least 50 fields populated
+        
+        # Determine grade
+        if avg_confidence >= 0.8 and total_fields >= 80:
+            grade = 'A'
+        elif avg_confidence >= 0.6 and total_fields >= 50:
+            grade = 'B'
+        elif avg_confidence >= 0.4 and total_fields >= 20:
+            grade = 'C'
+        else:
+            grade = 'D'
+        
+        return {
+            'research_summary': research_summary,
+            'overall_quality': {
+                'research_grade': grade,
+                'average_confidence': avg_confidence,
+                'ready_for_95_fields': ready_for_95_fields,
+                'total_fields_populated': total_fields
+            },
+            'total_urls_attempted': total_urls_attempted,
+            'urls_researched': [f"https://{casino_domain}"],  # Simplified
+            'documents': [],
+            'casino_domain': casino_domain
+        }
 
 # Factory function for easy initialization
 def create_comprehensive_web_research_chain(casino_domain: str = "casino.org", 
