@@ -6,7 +6,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from langchain_core.tools import tool
-from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import SystemMessage, HumanMessage
 from langgraph.prebuilt import create_react_agent
 
@@ -58,11 +58,11 @@ async def test_react_agent():
 
     # Create LLM (will use API if available, or skip if not)
     try:
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.2)
-        print("✓ Created OpenAI LLM (gpt-4o-mini)")
+        llm = ChatAnthropic(model="claude-3-haiku-20240307", temperature=0.2)
+        print("✓ Created Anthropic LLM (claude-3-haiku)")
     except Exception as e:
         print(f"⚠️  Could not create LLM: {e}")
-        print("⚠️  Test requires OPENAI_API_KEY to be set")
+        print("⚠️  Test requires ANTHROPIC_API_KEY to be set")
         return False
 
     # Create system message

@@ -29,9 +29,9 @@ def create_native_writing_agent(
     enable_seo: bool = True,
     verbose: bool = True,
     max_iterations: int = 10,
-) -> AgentExecutor:
+):
     """
-    Create a NATIVE LangChain writing agent using create_tool_calling_agent()
+    Create a NATIVE LangGraph writing agent using create_react_agent()
 
     The agent will:
     - Analyze the query and research data
@@ -43,11 +43,11 @@ def create_native_writing_agent(
         llm: Language model (defaults to GPT-4o-mini)
         enable_refinement: Whether to enable content refinement tool
         enable_seo: Whether to enable SEO optimization tool
-        verbose: Whether to log agent reasoning steps
-        max_iterations: Maximum reasoning iterations
+        verbose: Whether to log agent reasoning steps (not used)
+        max_iterations: Maximum reasoning iterations (not used)
 
     Returns:
-        AgentExecutor configured with writing tools
+        Compiled LangGraph agent
     """
     # Default LLM
     if llm is None:
@@ -65,9 +65,8 @@ def create_native_writing_agent(
     if enable_seo:
         tools.append(seo_optimization_tool)
 
-    # Create agent prompt with writing instructions
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert content writing agent specialized in creating high-quality casino reviews and articles.
+    # Create system message with writing instructions
+    system_message = SystemMessage(content="""You are an expert content writing agent specialized in creating high-quality casino reviews and articles.
 
 **Available Tools:**
 - template_selection_tool: Choose the appropriate content template based on query type
@@ -95,29 +94,17 @@ def create_native_writing_agent(
 - Include relevant information from research data
 - Optimize for readability and user experience
 
-You can iterate and call tools multiple times if needed to achieve high quality."""),
+You can iterate and call tools multiple times if needed to achieve high quality.""")
 
-        ("human", "{input}"),
-
-        # CRITICAL: Agent scratchpad for reasoning trace
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    # Create NATIVE agent using LangChain factory
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Wrap in AgentExecutor for execution loop
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=verbose,
-        max_iterations=max_iterations,
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,
+    # Create NATIVE agent using LangGraph factory
+    agent = create_react_agent(
+        llm,
+        tools,
+        prompt=system_message
     )
 
     logger.info(f"Created native writing agent with {len(tools)} tools")
-    return agent_executor
+    return agent
 
 
 async def native_writing_node(state: ArticleCMSState) -> ArticleCMSState:
@@ -159,16 +146,18 @@ Please create engaging, accurate content that incorporates the research findings
 """
 
         # Execute agent - LLM will decide which tools to call!
+        from langchain_core.messages import HumanMessage
         result = await agent.ainvoke({
-            "input": agent_input,
+            "messages": [HumanMessage(content=agent_input)]
         })
 
-        # Extract results
-        output = result.get("output", "")
-        intermediate_steps = result.get("intermediate_steps", [])
+        # Extract results from messages
+        messages = result.get("messages", [])
+        final_message = messages[-1] if messages else None
+        output = final_message.content if final_message and hasattr(final_message, 'content') else ""
 
-        # Parse intermediate steps to extract generated content and metadata
-        content_data = _extract_writing_data_from_steps(intermediate_steps)
+        # Parse messages to extract generated content and metadata
+        content_data = _extract_writing_data_from_messages(messages)
 
         # Update state
         state["draft_content"] = content_data.get("draft_content", output)
@@ -176,7 +165,7 @@ Please create engaging, accurate content that incorporates the research findings
         state["seo_metadata"] = content_data.get("seo_metadata", {})
         state["template_used"] = content_data.get("template_id", "default")
         state["writing_output"] = output
-        state["writing_intermediate_steps"] = intermediate_steps
+        state["writing_messages"] = messages
         state["workflow_step"] = state.get("workflow_step", 0) + 1
         state["agent_statuses"] = state.get("agent_statuses", {})
         state["agent_statuses"]["writing_agent"] = "completed"
@@ -214,12 +203,12 @@ def _summarize_research(research_data: Dict) -> str:
     return "\n".join(summary_parts)
 
 
-def _extract_writing_data_from_steps(intermediate_steps: list) -> Dict[str, Any]:
+def _extract_writing_data_from_messages(messages: list) -> Dict[str, Any]:
     """
-    Extract content and metadata from agent's intermediate steps
+    Extract content and metadata from agent's message history
 
     Args:
-        intermediate_steps: List of (AgentAction, observation) tuples
+        messages: List of messages from agent execution
 
     Returns:
         Dictionary with extracted writing data
@@ -232,33 +221,38 @@ def _extract_writing_data_from_steps(intermediate_steps: list) -> Dict[str, Any]
         "tool_calls": []
     }
 
-    for action, observation in intermediate_steps:
-        tool_name = action.tool
-        tool_input = action.tool_input
+    for message in messages:
+        # Check for tool calls
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.get('name', '')
+                tool_input = tool_call.get('args', {})
+                writing_data["tool_calls"].append({
+                    "tool": tool_name,
+                    "input": tool_input
+                })
 
-        # Track all tool calls
-        writing_data["tool_calls"].append({
-            "tool": tool_name,
-            "input": tool_input,
-            "output": observation
-        })
+        # Check for tool responses
+        if hasattr(message, 'name') and message.name:
+            tool_name = message.name
+            tool_output = message.content
 
-        # Extract by tool type
-        if tool_name == "template_selection_tool":
-            if isinstance(observation, dict):
-                writing_data["template_id"] = observation.get("template_id", "default")
+            # Extract by tool type
+            if tool_name == "template_selection_tool":
+                if isinstance(tool_output, dict):
+                    writing_data["template_id"] = tool_output.get("template_id", "default")
 
-        elif tool_name == "content_generation_tool":
-            if isinstance(observation, dict):
-                writing_data["draft_content"] = observation.get("content", "")
+            elif tool_name == "content_generation_tool":
+                if isinstance(tool_output, dict):
+                    writing_data["draft_content"] = tool_output.get("content", "")
 
-        elif tool_name == "content_refinement_tool":
-            if isinstance(observation, dict):
-                writing_data["refined_content"] = observation.get("refined_content", "")
+            elif tool_name == "content_refinement_tool":
+                if isinstance(tool_output, dict):
+                    writing_data["refined_content"] = tool_output.get("refined_content", "")
 
-        elif tool_name == "seo_optimization_tool":
-            if isinstance(observation, dict):
-                writing_data["seo_metadata"] = observation.get("seo_metadata", {})
+            elif tool_name == "seo_optimization_tool":
+                if isinstance(tool_output, dict):
+                    writing_data["seo_metadata"] = tool_output.get("seo_metadata", {})
 
     # If no refined content, use draft
     if not writing_data["refined_content"] and writing_data["draft_content"]:

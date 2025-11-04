@@ -28,9 +28,9 @@ def create_native_affiliate_agent(
     max_links_per_article: int = 5,
     verbose: bool = True,
     max_iterations: int = 10,
-) -> AgentExecutor:
+):
     """
-    Create a NATIVE LangChain affiliate agent using create_tool_calling_agent()
+    Create a NATIVE LangChain affiliate agent using create_react_agent()
 
     The agent will:
     - Analyze content for affiliate link opportunities
@@ -45,7 +45,7 @@ def create_native_affiliate_agent(
         max_iterations: Maximum reasoning iterations
 
     Returns:
-        AgentExecutor configured with affiliate tools
+        Compiled LangGraph agent affiliate tools
     """
     # Default LLM
     if llm is None:
@@ -109,7 +109,7 @@ You can iterate and refine link placement for optimal results."""),
     agent = create_tool_calling_agent(llm, tools, prompt)
 
     # Wrap in AgentExecutor for execution loop
-    agent_executor = AgentExecutor(
+    # REMOVED - using create_react_agent instead
         agent=agent,
         tools=tools,
         verbose=verbose,
@@ -119,7 +119,7 @@ You can iterate and refine link placement for optimal results."""),
     )
 
     logger.info(f"Created native affiliate agent with {len(tools)} tools (max {max_links_per_article} links/article)")
-    return agent_executor
+    return agent
 
 
 async def native_affiliate_node(state: ArticleCMSState) -> ArticleCMSState:

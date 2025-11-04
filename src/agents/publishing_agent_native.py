@@ -26,9 +26,9 @@ def create_native_publishing_agent(
     llm: Optional[ChatOpenAI] = None,
     verbose: bool = True,
     max_iterations: int = 15,  # Higher for multi-site publishing
-) -> AgentExecutor:
+):
     """
-    Create a NATIVE LangChain publishing agent using create_tool_calling_agent()
+    Create a NATIVE LangChain publishing agent using create_react_agent()
 
     The agent will:
     - Query site registry for target sites
@@ -42,7 +42,7 @@ def create_native_publishing_agent(
         max_iterations: Maximum reasoning iterations (higher for multi-site)
 
     Returns:
-        AgentExecutor configured with publishing tools
+        Compiled LangGraph agent publishing tools
     """
     # Default LLM
     if llm is None:
@@ -112,7 +112,7 @@ You should iterate through target sites and publish to each one."""),
     agent = create_tool_calling_agent(llm, tools, prompt)
 
     # Wrap in AgentExecutor for execution loop
-    agent_executor = AgentExecutor(
+    # REMOVED - using create_react_agent instead
         agent=agent,
         tools=tools,
         verbose=verbose,
@@ -122,7 +122,7 @@ You should iterate through target sites and publish to each one."""),
     )
 
     logger.info(f"Created native publishing agent with {len(tools)} tools")
-    return agent_executor
+    return agent
 
 
 async def native_publishing_node(state: ArticleCMSState) -> ArticleCMSState:
