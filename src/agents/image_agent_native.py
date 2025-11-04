@@ -64,9 +64,8 @@ def create_native_image_agent(
     if upload_to_wordpress:
         tools.append(wordpress_image_upload_tool)
 
-    # Create agent prompt with image strategy
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", f"""You are an expert image acquisition agent specialized in finding, selecting, and preparing images for casino content.
+    # Create system message with image strategy
+    system_message = SystemMessage(content=f"""You are an expert image acquisition agent specialized in finding, selecting, and preparing images for casino content.
 
 **Available Tools:**
 - image_search_tool: Search for images using DataForSEO (casino screenshots, logos, game images)
@@ -110,25 +109,13 @@ def create_native_image_agent(
 - Generate descriptive, keyword-rich alt text
 - Avoid generic or low-quality stock photos
 
-You can iterate to find the best images for the content."""),
+You can iterate to find the best images for the content.""")
 
-        ("human", "{input}"),
-
-        # CRITICAL: Agent scratchpad for reasoning trace
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    # Create NATIVE agent using LangChain factory
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Wrap in AgentExecutor for execution loop
-    # REMOVED - using create_react_agent instead
-        agent=agent,
-        tools=tools,
-        verbose=verbose,
-        max_iterations=max_iterations,
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,
+    # Create NATIVE agent using LangGraph factory
+    agent = create_react_agent(
+        llm,
+        tools,
+        prompt=system_message
     )
 
     logger.info(f"Created native image agent with {len(tools)} tools (max {max_images} images)")
@@ -191,23 +178,25 @@ Please acquire images that add value and enhance reader understanding.
 """
 
         # Execute agent - LLM will decide which tools to call!
+        from langchain_core.messages import HumanMessage
         result = await agent.ainvoke({
-            "input": agent_input,
+            "messages": [HumanMessage(content=agent_input)]
         })
 
-        # Extract results
-        output = result.get("output", "")
-        intermediate_steps = result.get("intermediate_steps", [])
+        # Extract results from messages
+        messages = result.get("messages", [])
+        final_message = messages[-1] if messages else None
+        output = final_message.content if final_message and hasattr(final_message, 'content') else ""
 
-        # Parse intermediate steps to extract images
-        image_data = _extract_image_data_from_steps(intermediate_steps)
+        # Parse messages to extract images
+        image_data = _extract_image_data_from_messages(messages)
 
         # Update state
         state["images"] = image_data.get("images", [])
         state["wordpress_media_ids"] = image_data.get("wordpress_media_ids", [])
         state["image_alt_texts"] = image_data.get("alt_texts", {})
         state["image_output"] = output
-        state["image_intermediate_steps"] = intermediate_steps
+        state["image_messages"] = messages
         state["workflow_step"] = state.get("workflow_step", 0) + 1
         state["agent_statuses"] = state.get("agent_statuses", {})
         state["agent_statuses"]["image_agent"] = "completed"
@@ -224,12 +213,12 @@ Please acquire images that add value and enhance reader understanding.
     return state
 
 
-def _extract_image_data_from_steps(intermediate_steps: list) -> Dict[str, Any]:
+def _extract_image_data_from_messages(messages: list) -> Dict[str, Any]:
     """
-    Extract images and metadata from agent's intermediate steps
+    Extract images and metadata from agent's message history
 
     Args:
-        intermediate_steps: List of (AgentAction, observation) tuples
+        messages: List of messages from agent execution
 
     Returns:
         Dictionary with image data
@@ -241,42 +230,47 @@ def _extract_image_data_from_steps(intermediate_steps: list) -> Dict[str, Any]:
         "tool_calls": []
     }
 
-    for action, observation in intermediate_steps:
-        tool_name = action.tool
-        tool_input = action.tool_input
+    for message in messages:
+        # Check for tool calls
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.get('name', '')
+                tool_input = tool_call.get('args', {})
+                image_data["tool_calls"].append({
+                    "tool": tool_name,
+                    "input": tool_input
+                })
 
-        # Track all tool calls
-        image_data["tool_calls"].append({
-            "tool": tool_name,
-            "input": tool_input,
-            "output": observation
-        })
+        # Check for tool responses
+        if hasattr(message, 'name') and message.name:
+            tool_name = message.name
+            tool_output = message.content
 
-        # Extract by tool type
-        if tool_name == "image_search_tool":
-            # Image search results
-            if isinstance(observation, dict):
-                search_results = observation.get("images", [])
-                logger.debug(f"Found {len(search_results)} images from search")
+            # Extract by tool type
+            if tool_name == "image_search_tool":
+                # Image search results
+                if isinstance(tool_output, dict):
+                    search_results = tool_output.get("images", [])
+                    logger.debug(f"Found {len(search_results)} images from search")
 
-        elif tool_name == "image_selection_tool":
-            # Selected images
-            if isinstance(observation, dict):
-                selected = observation.get("selected_images", [])
-                image_data["images"].extend(selected)
+            elif tool_name == "image_selection_tool":
+                # Selected images
+                if isinstance(tool_output, dict):
+                    selected = tool_output.get("selected_images", [])
+                    image_data["images"].extend(selected)
 
-        elif tool_name == "alt_text_generation_tool":
-            # Alt text for images
-            if isinstance(observation, dict):
-                alt_texts = observation.get("alt_texts", {})
-                image_data["alt_texts"].update(alt_texts)
+            elif tool_name == "alt_text_generation_tool":
+                # Alt text for images
+                if isinstance(tool_output, dict):
+                    alt_texts = tool_output.get("alt_texts", {})
+                    image_data["alt_texts"].update(alt_texts)
 
-        elif tool_name == "wordpress_image_upload_tool":
-            # WordPress media IDs
-            if isinstance(observation, dict):
-                media_id = observation.get("media_id")
-                if media_id:
-                    image_data["wordpress_media_ids"].append(media_id)
+            elif tool_name == "wordpress_image_upload_tool":
+                # WordPress media IDs
+                if isinstance(tool_output, dict):
+                    media_id = tool_output.get("media_id")
+                    if media_id:
+                        image_data["wordpress_media_ids"].append(media_id)
 
     return image_data
 

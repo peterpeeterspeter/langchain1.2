@@ -55,9 +55,8 @@ def create_native_publishing_agent(
         wordpress_publish_tool,
     ]
 
-    # Create agent prompt with publishing strategy
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert WordPress publishing agent specialized in multi-site content distribution.
+    # Create system message with publishing strategy
+    system_message = SystemMessage(content="""You are an expert WordPress publishing agent specialized in multi-site content distribution.
 
 **Available Tools:**
 - site_registry_tool: Query the WordPress site registry to get site configurations
@@ -100,25 +99,13 @@ def create_native_publishing_agent(
 - For sites with "content_adaptation: false": Publish original content directly
 - Assess each site's needs independently
 
-You should iterate through target sites and publish to each one."""),
+You should iterate through target sites and publish to each one.""")
 
-        ("human", "{input}"),
-
-        # CRITICAL: Agent scratchpad for reasoning trace
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    # Create NATIVE agent using LangChain factory
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Wrap in AgentExecutor for execution loop
-    # REMOVED - using create_react_agent instead
-        agent=agent,
-        tools=tools,
-        verbose=verbose,
-        max_iterations=max_iterations,
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,
+    # Create NATIVE agent using LangGraph factory
+    agent = create_react_agent(
+        llm,
+        tools,
+        prompt=system_message
     )
 
     logger.info(f"Created native publishing agent with {len(tools)} tools")
@@ -189,23 +176,25 @@ Please publish to all target sites, handling each independently.
 """
 
         # Execute agent - LLM will decide which tools to call!
+        from langchain_core.messages import HumanMessage
         result = await agent.ainvoke({
-            "input": agent_input,
+            "messages": [HumanMessage(content=agent_input)]
         })
 
-        # Extract results
-        output = result.get("output", "")
-        intermediate_steps = result.get("intermediate_steps", [])
+        # Extract results from messages
+        messages = result.get("messages", [])
+        final_message = messages[-1] if messages else None
+        output = final_message.content if final_message and hasattr(final_message, 'content') else ""
 
-        # Parse intermediate steps to extract publishing results
-        publishing_data = _extract_publishing_data_from_steps(intermediate_steps, target_sites)
+        # Parse messages to extract publishing results
+        publishing_data = _extract_publishing_data_from_messages(messages, target_sites)
 
         # Update state
         state["published_posts"] = publishing_data.get("published_posts", [])
         state["site_statuses"] = publishing_data.get("site_statuses", {})
         state["post_urls"] = publishing_data.get("post_urls", {})
         state["publishing_output"] = output
-        state["publishing_intermediate_steps"] = intermediate_steps
+        state["publishing_messages"] = messages
         state["workflow_step"] = state.get("workflow_step", 0) + 1
         state["agent_statuses"] = state.get("agent_statuses", {})
         state["agent_statuses"]["publishing_agent"] = "completed"
@@ -222,12 +211,12 @@ Please publish to all target sites, handling each independently.
     return state
 
 
-def _extract_publishing_data_from_steps(intermediate_steps: list, target_sites: List[str]) -> Dict[str, Any]:
+def _extract_publishing_data_from_messages(messages: list, target_sites: List[str]) -> Dict[str, Any]:
     """
-    Extract publishing results from agent's intermediate steps
+    Extract publishing results from agent's message history
 
     Args:
-        intermediate_steps: List of (AgentAction, observation) tuples
+        messages: List of messages from agent execution
         target_sites: List of target site IDs
 
     Returns:
@@ -245,61 +234,79 @@ def _extract_publishing_data_from_steps(intermediate_steps: list, target_sites: 
     for site_id in target_sites:
         publishing_data["site_statuses"][site_id] = "pending"
 
-    for action, observation in intermediate_steps:
-        tool_name = action.tool
-        tool_input = action.tool_input
+    # Track tool inputs for extracting site_id from responses
+    tool_inputs_by_id = {}
 
-        # Track all tool calls
-        publishing_data["tool_calls"].append({
-            "tool": tool_name,
-            "input": tool_input,
-            "output": observation
-        })
+    for message in messages:
+        # Check for tool calls
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.get('name', '')
+                tool_input = tool_call.get('args', {})
+                tool_call_id = tool_call.get('id', '')
 
-        # Extract by tool type
-        if tool_name == "site_registry_tool":
-            # Site configurations
-            if isinstance(observation, dict):
-                sites = observation.get("sites", [])
-                for site in sites:
-                    site_id = site.get("site_id")
+                publishing_data["tool_calls"].append({
+                    "tool": tool_name,
+                    "input": tool_input
+                })
+
+                # Store tool inputs for matching with responses
+                if tool_call_id:
+                    tool_inputs_by_id[tool_call_id] = {'name': tool_name, 'input': tool_input}
+
+        # Check for tool responses
+        if hasattr(message, 'name') and message.name:
+            tool_name = message.name
+            tool_output = message.content
+            tool_call_id = getattr(message, 'tool_call_id', None)
+
+            # Get the original tool input if available
+            tool_input = tool_inputs_by_id.get(tool_call_id, {}).get('input', {}) if tool_call_id else {}
+
+            # Extract by tool type
+            if tool_name == "site_registry_tool":
+                # Site configurations
+                if isinstance(tool_output, dict):
+                    sites = tool_output.get("sites", [])
+                    for site in sites:
+                        site_id = site.get("site_id")
+                        if site_id:
+                            publishing_data["site_configs"][site_id] = site
+
+            elif tool_name == "content_adaptation_tool":
+                # Content adapted for specific site
+                if isinstance(tool_output, dict):
+                    site_id = tool_input.get("site_config", {}).get("site_id")
                     if site_id:
-                        publishing_data["site_configs"][site_id] = site
+                        logger.debug(f"Content adapted for site: {site_id}")
 
-        elif tool_name == "content_adaptation_tool":
-            # Content adapted for specific site
-            if isinstance(observation, dict):
-                site_id = tool_input.get("site_config", {}).get("site_id")
-                if site_id:
-                    logger.debug(f"Content adapted for site: {site_id}")
+            elif tool_name == "wordpress_publish_tool":
+                # Publishing result
+                if isinstance(tool_output, dict):
+                    site_id = tool_input.get("site_id")
+                    success = tool_output.get("success", False)
+                    post_id = tool_output.get("post_id")
+                    post_url = tool_output.get("post_url")
+                    error = tool_output.get("error")
 
-        elif tool_name == "wordpress_publish_tool":
-            # Publishing result
-            if isinstance(observation, dict):
-                site_id = tool_input.get("site_id")
-                success = observation.get("success", False)
-                post_id = observation.get("post_id")
-                post_url = observation.get("post_url")
-                error = observation.get("error")
+                    if site_id:
+                        # Update site status
+                        publishing_data["site_statuses"][site_id] = "success" if success else "failed"
 
-                if site_id:
-                    # Update site status
-                    publishing_data["site_statuses"][site_id] = "success" if success else "failed"
+                        if success and post_id:
+                            # Add to published posts
+                            publishing_data["published_posts"].append({
+                                "site_id": site_id,
+                                "post_id": post_id,
+                                "post_url": post_url
+                            })
 
-                    if success and post_id:
-                        # Add to published posts
-                        publishing_data["published_posts"].append({
-                            "site_id": site_id,
-                            "post_id": post_id,
-                            "post_url": post_url
-                        })
+                            # Store post URL
+                            if post_url:
+                                publishing_data["post_urls"][site_id] = post_url
 
-                        # Store post URL
-                        if post_url:
-                            publishing_data["post_urls"][site_id] = post_url
-
-                    elif error:
-                        logger.error(f"Publishing failed for {site_id}: {error}")
+                        elif error:
+                            logger.error(f"Publishing failed for {site_id}: {error}")
 
     return publishing_data
 

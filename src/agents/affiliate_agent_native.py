@@ -59,9 +59,8 @@ def create_native_affiliate_agent(
         tracking_parameter_tool
     ]
 
-    # Create agent prompt with affiliate strategy
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", f"""You are an expert affiliate marketing agent specialized in inserting affiliate links contextually and naturally into content.
+    # Create system message with affiliate strategy
+    system_message = SystemMessage(content=f"""You are an expert affiliate marketing agent specialized in inserting affiliate links contextually and naturally into content.
 
 **Available Tools:**
 - affiliate_link_database_tool: Query the affiliate link database by category, casino name, or keywords
@@ -97,25 +96,13 @@ def create_native_affiliate_agent(
 - For informational content: Be selective, only add highly relevant links
 - Always assess if a link adds value before inserting
 
-You can iterate and refine link placement for optimal results."""),
+You can iterate and refine link placement for optimal results.""")
 
-        ("human", "{input}"),
-
-        # CRITICAL: Agent scratchpad for reasoning trace
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    # Create NATIVE agent using LangChain factory
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Wrap in AgentExecutor for execution loop
-    # REMOVED - using create_react_agent instead
-        agent=agent,
-        tools=tools,
-        verbose=verbose,
-        max_iterations=max_iterations,
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,
+    # Create NATIVE agent using LangGraph factory
+    agent = create_react_agent(
+        llm,
+        tools,
+        prompt=system_message
     )
 
     logger.info(f"Created native affiliate agent with {len(tools)} tools (max {max_links_per_article} links/article)")
@@ -165,23 +152,25 @@ Please:
 """
 
         # Execute agent - LLM will decide which tools to call!
+        from langchain_core.messages import HumanMessage
         result = await agent.ainvoke({
-            "input": agent_input,
+            "messages": [HumanMessage(content=agent_input)]
         })
 
-        # Extract results
-        output = result.get("output", "")
-        intermediate_steps = result.get("intermediate_steps", [])
+        # Extract results from messages
+        messages = result.get("messages", [])
+        final_message = messages[-1] if messages else None
+        output = final_message.content if final_message and hasattr(final_message, 'content') else ""
 
-        # Parse intermediate steps to extract enhanced content and links
-        affiliate_data = _extract_affiliate_data_from_steps(intermediate_steps, content)
+        # Parse messages to extract enhanced content and links
+        affiliate_data = _extract_affiliate_data_from_messages(messages, content)
 
         # Update state
         state["final_content"] = affiliate_data.get("enhanced_content", content)
         state["affiliate_links"] = affiliate_data.get("affiliate_links", [])
         state["tracking_codes"] = affiliate_data.get("tracking_codes", {})
         state["affiliate_output"] = output
-        state["affiliate_intermediate_steps"] = intermediate_steps
+        state["affiliate_messages"] = messages
         state["workflow_step"] = state.get("workflow_step", 0) + 1
         state["agent_statuses"] = state.get("agent_statuses", {})
         state["agent_statuses"]["affiliate_agent"] = "completed"
@@ -198,12 +187,12 @@ Please:
     return state
 
 
-def _extract_affiliate_data_from_steps(intermediate_steps: list, original_content: str) -> Dict[str, Any]:
+def _extract_affiliate_data_from_messages(messages: list, original_content: str) -> Dict[str, Any]:
     """
-    Extract affiliate links and enhanced content from agent's intermediate steps
+    Extract affiliate links and enhanced content from agent's message history
 
     Args:
-        intermediate_steps: List of (AgentAction, observation) tuples
+        messages: List of messages from agent execution
         original_content: Original content before link insertion
 
     Returns:
@@ -216,50 +205,55 @@ def _extract_affiliate_data_from_steps(intermediate_steps: list, original_conten
         "tool_calls": []
     }
 
-    for action, observation in intermediate_steps:
-        tool_name = action.tool
-        tool_input = action.tool_input
+    for message in messages:
+        # Check for tool calls
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.get('name', '')
+                tool_input = tool_call.get('args', {})
+                affiliate_data["tool_calls"].append({
+                    "tool": tool_name,
+                    "input": tool_input
+                })
 
-        # Track all tool calls
-        affiliate_data["tool_calls"].append({
-            "tool": tool_name,
-            "input": tool_input,
-            "output": observation
-        })
+        # Check for tool responses
+        if hasattr(message, 'name') and message.name:
+            tool_name = message.name
+            tool_output = message.content
 
-        # Extract by tool type
-        if tool_name == "affiliate_link_database_tool":
-            # Database query - links available for insertion
-            if isinstance(observation, dict):
-                available_links = observation.get("links", [])
-                logger.debug(f"Found {len(available_links)} affiliate links in database")
+            # Extract by tool type
+            if tool_name == "affiliate_link_database_tool":
+                # Database query - links available for insertion
+                if isinstance(tool_output, dict):
+                    available_links = tool_output.get("links", [])
+                    logger.debug(f"Found {len(available_links)} affiliate links in database")
 
-        elif tool_name == "link_insertion_tool":
-            # Link insertion - get enhanced content and insertions
-            if isinstance(observation, dict):
-                affiliate_data["enhanced_content"] = observation.get("enhanced_content", original_content)
-                insertions = observation.get("insertions", [])
+            elif tool_name == "link_insertion_tool":
+                # Link insertion - get enhanced content and insertions
+                if isinstance(tool_output, dict):
+                    affiliate_data["enhanced_content"] = tool_output.get("enhanced_content", original_content)
+                    insertions = tool_output.get("insertions", [])
 
-                # Extract affiliate link details
-                for insertion in insertions:
-                    affiliate_data["affiliate_links"].append({
-                        "link_id": insertion.get("link_id"),
-                        "url": insertion.get("final_url"),
-                        "anchor_text": insertion.get("anchor_text"),
-                        "position": insertion.get("position", 0)
-                    })
+                    # Extract affiliate link details
+                    for insertion in insertions:
+                        affiliate_data["affiliate_links"].append({
+                            "link_id": insertion.get("link_id"),
+                            "url": insertion.get("final_url"),
+                            "anchor_text": insertion.get("anchor_text"),
+                            "position": insertion.get("position", 0)
+                        })
 
-                    # Store tracking codes
-                    link_id = insertion.get("link_id")
-                    final_url = insertion.get("final_url")
-                    if link_id and final_url:
-                        affiliate_data["tracking_codes"][link_id] = final_url
+                        # Store tracking codes
+                        link_id = insertion.get("link_id")
+                        final_url = insertion.get("final_url")
+                        if link_id and final_url:
+                            affiliate_data["tracking_codes"][link_id] = final_url
 
-        elif tool_name == "tracking_parameter_tool":
-            # Tracking parameters added
-            if isinstance(observation, dict):
-                tracked_urls = observation.get("tracked_urls", {})
-                affiliate_data["tracking_codes"].update(tracked_urls)
+            elif tool_name == "tracking_parameter_tool":
+                # Tracking parameters added
+                if isinstance(tool_output, dict):
+                    tracked_urls = tool_output.get("tracked_urls", {})
+                    affiliate_data["tracking_codes"].update(tracked_urls)
 
     return affiliate_data
 
