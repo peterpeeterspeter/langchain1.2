@@ -1,0 +1,94 @@
+[
+  {
+    "test_case": "Simple Query",
+    "custom": {
+      "agent_type": "custom",
+      "query": "Quick overview of Betway Casino",
+      "tool_calls": 4,
+      "tools_used": [
+        "web_search_tool",
+        "comprehensive_research_tool",
+        "casino_intelligence_tool",
+        "screenshot_tool"
+      ],
+      "total_cost": 1.0999999999999999,
+      "total_duration": 11.002352237701416,
+      "reasoning": "NONE - Hardcoded sequence, no LLM decision making"
+    },
+    "native": {
+      "agent_type": "native",
+      "query": "Quick overview of Betway Casino",
+      "tool_calls": 1,
+      "tools_used": [
+        "web_search_tool"
+      ],
+      "total_cost": 0.1,
+      "total_duration": 1.0004761219024658,
+      "reasoning": "\ud83d\udcad Thought: This is a quick overview query\n\ud83d\udcad Decision: web_search_tool should be sufficient\n\ud83d\udd27 Action: web_search_tool\n\ud83d\udcca Observation: Received web_search_tool results\n\u2705 Final: Gathered sufficient information with 1 tool calls"
+    },
+    "savings_percent": 90.9090909090909,
+    "speedup_percent": 90.90670703602667
+  },
+  {
+    "test_case": "License Query",
+    "custom": {
+      "agent_type": "custom",
+      "query": "Betway Casino licensing information",
+      "tool_calls": 4,
+      "tools_used": [
+        "web_search_tool",
+        "comprehensive_research_tool",
+        "casino_intelligence_tool",
+        "screenshot_tool"
+      ],
+      "total_cost": 1.0999999999999999,
+      "total_duration": 11.003262281417847,
+      "reasoning": "NONE - Hardcoded sequence, no LLM decision making"
+    },
+    "native": {
+      "agent_type": "native",
+      "query": "Betway Casino licensing information",
+      "tool_calls": 2,
+      "tools_used": [
+        "web_search_tool",
+        "casino_intelligence_tool"
+      ],
+      "total_cost": 0.4,
+      "total_duration": 4.001809120178223,
+      "reasoning": "\ud83d\udcad Thought: Standard review query\n\ud83d\udcad Decision: web_search + casino_intelligence\n\ud83d\udd27 Action: web_search_tool\n\ud83d\udcca Observation: Received web_search_tool results\n\ud83d\udd27 Action: casino_intelligence_tool\n\ud83d\udcca Observation: Received casino_intelligence_tool results\n\u2705 Final: Gathered sufficient information with 2 tool calls"
+    },
+    "savings_percent": 63.63636363636363,
+    "speedup_percent": 63.63070316940076
+  },
+  {
+    "test_case": "Comprehensive Query",
+    "custom": {
+      "agent_type": "custom",
+      "query": "Comprehensive full analysis of Betway Casino",
+      "tool_calls": 4,
+      "tools_used": [
+        "web_search_tool",
+        "comprehensive_research_tool",
+        "casino_intelligence_tool",
+        "screenshot_tool"
+      ],
+      "total_cost": 1.0999999999999999,
+      "total_duration": 11.003316164016724,
+      "reasoning": "NONE - Hardcoded sequence, no LLM decision making"
+    },
+    "native": {
+      "agent_type": "native",
+      "query": "Comprehensive full analysis of Betway Casino",
+      "tool_calls": 2,
+      "tools_used": [
+        "comprehensive_research_tool",
+        "casino_intelligence_tool"
+      ],
+      "total_cost": 0.8,
+      "total_duration": 8.001607656478882,
+      "reasoning": "\ud83d\udcad Thought: This needs comprehensive coverage\n\ud83d\udcad Decision: Need comprehensive_research + casino_intelligence\n\ud83d\udd27 Action: comprehensive_research_tool\n\ud83d\udcca Observation: Received comprehensive_research_tool results\n\ud83d\udd27 Action: casino_intelligence_tool\n\ud83d\udcca Observation: Received casino_intelligence_tool results\n\u2705 Final: Gathered sufficient information with 2 tool calls"
+    },
+    "savings_percent": 27.27272727272726,
+    "speedup_percent": 27.2800350621033
+  }
+]
