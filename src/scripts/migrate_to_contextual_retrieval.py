@@ -16,10 +16,8 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from pathlib import Path
 
-# Add src to path for imports
-sys.path.append(str(Path(__file__).parent.parent))
-
-from config.retrieval_settings import (
+# Import from parent package
+from ..config.retrieval_settings import (
     RetrievalSettings,
     ConfigurationManager,
     create_retrieval_settings

@@ -48,11 +48,7 @@ def get_logger(name, supabase_client=None):
     return MockLogger(name, supabase_client)
 
 # Import QueryType
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from config.prompt_config import QueryType
+from ..config.prompt_config import QueryType
 
 
 class MetricType(str, Enum):
