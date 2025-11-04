@@ -14,15 +14,17 @@ try:
     AFFILIATE_AVAILABLE = True
 except ImportError as e:
     AFFILIATE_AVAILABLE = False
+    AffiliateLinkManager = None  # type: ignore
+    AffiliateLinkCategory = None  # type: ignore
     logging.warning(f"Affiliate components not available: {e}")
 
 logger = logging.getLogger(__name__)
 
 # Global manager instance
-_affiliate_manager: Optional[AffiliateLinkManager] = None
+_affiliate_manager: Optional["AffiliateLinkManager"] = None
 
 
-def _get_affiliate_manager() -> Optional[AffiliateLinkManager]:
+def _get_affiliate_manager() -> Optional["AffiliateLinkManager"]:
     """Get or create AffiliateLinkManager instance"""
     global _affiliate_manager
     if _affiliate_manager is None and AFFILIATE_AVAILABLE:

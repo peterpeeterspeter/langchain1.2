@@ -8,8 +8,8 @@ This is the CORRECT way to implement the Image Agent using native LangChain comp
 import logging
 from typing import Any, Dict, List, Optional
 
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
 from .tools.image_tools import (

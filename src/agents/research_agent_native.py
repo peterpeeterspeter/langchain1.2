@@ -3,19 +3,20 @@ Native LangChain Research Agent - PROOF OF CONCEPT
 This is the CORRECT way to implement agents using native LangChain components.
 
 Key differences from custom implementation:
-1. Uses create_tool_calling_agent() - native LangChain agent factory
-2. Uses AgentExecutor - native execution loop with reasoning
+1. Uses create_react_agent() - native LangGraph agent factory
+2. Uses ReAct pattern - native execution loop with reasoning
 3. LLM decides which tools to call and in what order
 4. Supports multi-step reasoning and tool iteration
 5. Built-in error handling and retries
-6. Agent scratchpad for chain-of-thought reasoning
+6. Full reasoning traces available
 """
 
 import logging
 from typing import Any, Dict, List, Optional
 
-from langchain.agents import AgentExecutor, create_tool_calling_agent
+from langgraph.prebuilt import create_react_agent
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
 from .tools.research_tools import (
@@ -38,25 +39,25 @@ def create_native_research_agent(
     enable_screenshots: bool = True,
     verbose: bool = True,
     max_iterations: int = 10,
-) -> AgentExecutor:
+):
     """
-    Create a NATIVE LangChain research agent using create_tool_calling_agent()
+    Create a NATIVE LangGraph research agent using create_react_agent()
 
     This is the CORRECT implementation that:
     - Lets the LLM decide which tools to call
     - Supports iterative reasoning (call tool → analyze → call another tool)
-    - Uses AgentExecutor for execution loop
-    - Includes agent scratchpad for reasoning trace
+    - Uses ReAct pattern for execution loop
+    - Includes full reasoning traces
     - Has built-in error handling and retries
 
     Args:
         llm: Language model (defaults to GPT-4o-mini)
         enable_screenshots: Whether to enable screenshot tool
-        verbose: Whether to log agent reasoning steps
-        max_iterations: Maximum reasoning iterations
+        verbose: Whether to log agent reasoning steps (not used in create_react_agent)
+        max_iterations: Maximum reasoning iterations (not used in create_react_agent)
 
     Returns:
-        AgentExecutor configured with research tools
+        Compiled LangGraph agent
     """
     # Default LLM if not provided
     if llm is None:
@@ -72,10 +73,8 @@ def create_native_research_agent(
     if enable_screenshots:
         tools.append(screenshot_tool)
 
-    # Create agent prompt with system instructions
-    # The {agent_scratchpad} placeholder is CRITICAL - it contains the agent's reasoning trace
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", """You are an expert research agent specialized in gathering comprehensive information about online casinos.
+    # Create system message with agent strategy
+    system_message = SystemMessage(content="""You are an expert research agent specialized in gathering comprehensive information about online casinos.
 
 Your goal is to research casinos thoroughly by gathering information from multiple sources.
 
@@ -101,30 +100,18 @@ Your goal is to research casinos thoroughly by gathering information from multip
 **Decision Making:**
 - For simple queries, comprehensive_research_tool alone may be sufficient
 - For detailed casino reviews, use multiple tools to gather complete information
-- Screenshots are valuable but not always necessary"""),
+- Screenshots are valuable but not always necessary""")
 
-        ("human", "{input}"),
-
-        # CRITICAL: Agent scratchpad holds the reasoning trace
-        # Format: Thought → Action → Action Input → Observation → (repeat)
-        ("placeholder", "{agent_scratchpad}"),
-    ])
-
-    # Create the NATIVE agent using LangChain's factory function
-    agent = create_tool_calling_agent(llm, tools, prompt)
-
-    # Wrap in AgentExecutor for execution loop
-    agent_executor = AgentExecutor(
-        agent=agent,
-        tools=tools,
-        verbose=verbose,
-        max_iterations=max_iterations,
-        handle_parsing_errors=True,
-        return_intermediate_steps=True,  # Return reasoning trace
+    # Create the NATIVE agent using LangGraph's factory function
+    # This returns a compiled graph that implements the ReAct pattern
+    agent = create_react_agent(
+        llm,
+        tools,
+        prompt=system_message
     )
 
     logger.info(f"Created native research agent with {len(tools)} tools")
-    return agent_executor
+    return agent
 
 
 # ============================================================================
@@ -151,7 +138,7 @@ async def native_research_node(state: ArticleCMSState) -> ArticleCMSState:
         return state
 
     # Create native agent
-    agent_executor = create_native_research_agent(
+    agent = create_native_research_agent(
         verbose=True,  # Show reasoning in logs
         max_iterations=10,
     )
@@ -160,26 +147,32 @@ async def native_research_node(state: ArticleCMSState) -> ArticleCMSState:
         logger.info(f"Native Research Agent starting for query: {query}")
 
         # Execute agent - LLM will decide which tools to call!
-        result = await agent_executor.ainvoke({
-            "input": query,
+        # create_react_agent returns a graph that takes/returns messages in state
+        from langchain_core.messages import HumanMessage
+        result = await agent.ainvoke({
+            "messages": [HumanMessage(content=query)]
         })
 
-        # Extract results
-        output = result.get("output", "")
-        intermediate_steps = result.get("intermediate_steps", [])
+        # Extract results from messages
+        messages = result.get("messages", [])
 
-        # Parse intermediate steps to extract tool results
-        research_data = _extract_research_data_from_steps(intermediate_steps)
+        # The last message should be the agent's final response
+        final_message = messages[-1] if messages else None
+        output = final_message.content if final_message else ""
+
+        # Parse messages to extract tool results
+        research_data = _extract_research_data_from_messages(messages)
 
         # Update state
         state["research_data"] = research_data
         state["research_output"] = output
-        state["research_intermediate_steps"] = intermediate_steps
+        state["research_messages"] = messages
         state["workflow_step"] = state.get("workflow_step", 0) + 1
         state["agent_statuses"] = state.get("agent_statuses", {})
         state["agent_statuses"]["research_agent"] = "completed"
 
-        logger.info(f"Native Research Agent completed - {len(intermediate_steps)} tool calls")
+        tool_calls_count = len([m for m in messages if hasattr(m, 'tool_calls') and m.tool_calls])
+        logger.info(f"Native Research Agent completed - {tool_calls_count} tool invocations")
 
     except Exception as e:
         logger.error(f"Native Research Agent failed: {e}", exc_info=True)
@@ -190,12 +183,12 @@ async def native_research_node(state: ArticleCMSState) -> ArticleCMSState:
     return state
 
 
-def _extract_research_data_from_steps(intermediate_steps: List) -> Dict[str, Any]:
+def _extract_research_data_from_messages(messages: List) -> Dict[str, Any]:
     """
-    Extract structured research data from agent's intermediate steps
+    Extract structured research data from agent's message history
 
     Args:
-        intermediate_steps: List of (AgentAction, observation) tuples
+        messages: List of messages from the agent execution
 
     Returns:
         Structured research data dictionary
@@ -208,32 +201,38 @@ def _extract_research_data_from_steps(intermediate_steps: List) -> Dict[str, Any
         "tool_calls": []
     }
 
-    for action, observation in intermediate_steps:
-        tool_name = action.tool
-        tool_input = action.tool_input
+    for message in messages:
+        # Check for tool calls in AI messages
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            for tool_call in message.tool_calls:
+                tool_name = tool_call.get('name', '')
+                tool_input = tool_call.get('args', {})
 
-        # Track all tool calls
-        research_data["tool_calls"].append({
-            "tool": tool_name,
-            "input": tool_input,
-            "output": observation
-        })
+                research_data["tool_calls"].append({
+                    "tool": tool_name,
+                    "input": tool_input
+                })
 
-        # Organize by tool type
-        if tool_name == "web_search_tool":
-            research_data["web_search_results"] = observation or []
+        # Check for tool responses
+        if hasattr(message, 'name') and message.name:
+            tool_name = message.name
+            tool_output = message.content
 
-        elif tool_name == "comprehensive_research_tool":
-            if isinstance(observation, dict):
-                research_data["comprehensive_research"] = observation.get("research_data", {})
+            # Organize by tool type
+            if tool_name == "web_search_tool":
+                research_data["web_search_results"] = tool_output or []
 
-        elif tool_name == "casino_intelligence_tool":
-            if isinstance(observation, dict):
-                research_data["structured_intelligence"] = observation.get("data", {})
+            elif tool_name == "comprehensive_research_tool":
+                if isinstance(tool_output, dict):
+                    research_data["comprehensive_research"] = tool_output.get("research_data", {})
 
-        elif tool_name == "screenshot_tool":
-            if isinstance(observation, dict) and observation.get("success"):
-                research_data["screenshots"].append(observation)
+            elif tool_name == "casino_intelligence_tool":
+                if isinstance(tool_output, dict):
+                    research_data["structured_intelligence"] = tool_output.get("data", {})
+
+            elif tool_name == "screenshot_tool":
+                if isinstance(tool_output, dict) and tool_output.get("success"):
+                    research_data["screenshots"].append(tool_output)
 
     return research_data
 

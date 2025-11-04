@@ -8,8 +8,8 @@ This is the CORRECT way to implement the Affiliate Agent using native LangChain 
 import logging
 from typing import Any, Dict, Optional
 
-from langchain.agents import AgentExecutor, create_tool_calling_agent
-from langchain_core.prompts import ChatPromptTemplate
+from langgraph.prebuilt import create_react_agent
+from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
 
 from .tools.affiliate_tools import (
