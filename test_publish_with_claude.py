@@ -45,11 +45,11 @@ async def main():
     # Create Claude LLM
     try:
         llm = ChatAnthropic(
-            model="claude-3-sonnet-20240229",  # Use Claude 3 Sonnet
+            model="claude-haiku-4-5-20251001",  # Use Claude 3.5 Haiku
             temperature=0.7,
             max_tokens=4096
         )
-        logger.info("✅ Created Claude 3 Sonnet LLM")
+        logger.info("✅ Created Claude 3.5 Haiku LLM")
     except Exception as e:
         logger.error(f"Failed to create Claude LLM: {e}")
         return
