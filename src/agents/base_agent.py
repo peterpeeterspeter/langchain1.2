@@ -90,9 +90,11 @@ class BaseAgent(ABC):
         """
         self.agent_state.status = AgentStatus.IN_PROGRESS
         self.agent_state.started_at = datetime.now()
-        # Don't update current_agent in parallel nodes - only update agent_statuses
-        # state["current_agent"] = self.name  # Commented out to avoid parallel update conflicts
-        state["agent_statuses"][self.name] = AgentStatus.IN_PROGRESS.value
+        # Don't update shared state in parallel nodes to avoid LangGraph conflicts
+        # Parallel agents (affiliate, image) should not update current_agent or agent_statuses
+        if self.name not in ["affiliate_agent", "image_agent"]:
+            state["current_agent"] = self.name
+            state["agent_statuses"][self.name] = AgentStatus.IN_PROGRESS.value
         
         start_time = time.time()
         retry_count = 0
@@ -109,7 +111,9 @@ class BaseAgent(ABC):
                 if result.success:
                     self.agent_state.status = AgentStatus.COMPLETED
                     self.agent_state.completed_at = datetime.now()
-                    state["agent_statuses"][self.name] = AgentStatus.COMPLETED.value
+                    # Don't update shared state for parallel agents
+                    if self.name not in ["affiliate_agent", "image_agent"]:
+                        state["agent_statuses"][self.name] = AgentStatus.COMPLETED.value
                     
                     # Apply state updates (skip immutable fields like 'query')
                     immutable_fields = {'query', 'target_sites'}  # Fields that shouldn't be updated
@@ -140,7 +144,9 @@ class BaseAgent(ABC):
                 if retry_count > self.max_retries:
                     self.agent_state.status = AgentStatus.FAILED
                     self.agent_state.error_message = error_msg
-                    state["agent_statuses"][self.name] = AgentStatus.FAILED.value
+                    # Don't update shared state for parallel agents
+                    if self.name not in ["affiliate_agent", "image_agent"]:
+                        state["agent_statuses"][self.name] = AgentStatus.FAILED.value
                     state["errors"].append(f"{self.name}: {error_msg}")
                     
                     logger.error(f"{self.name} failed after {retry_count} attempts")

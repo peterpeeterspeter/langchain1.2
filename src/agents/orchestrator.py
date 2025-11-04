@@ -13,6 +13,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from .state import ArticleCMSState, create_initial_state
 from .base_agent import BaseAgent
+from src.utils.langsmith_utils import get_langsmith_callbacks, get_langsmith_config
 
 logger = logging.getLogger(__name__)
 
@@ -118,22 +119,20 @@ class ArticleCMSOrchestrator:
         """Build LCEL chain for affiliate link phase"""
         if not self.affiliate_agent:
             return RunnablePassthrough()
-        
+
         async def run_affiliate(state: ArticleCMSState) -> Dict[str, Any]:
             """LCEL compatible async affiliate runner - returns updates only"""
             updated_state = await self.affiliate_agent.run(state)
             # Return only fields that affiliate agent modifies
             updates = {}
             affiliate_fields = {
-                'final_content', 'affiliate_links', 'affiliate_opportunities',
-                'tracking_codes', 'agent_statuses', 'errors', 'warnings', 'metadata'
-            }
+                'affiliate_links', 'affiliate_opportunities',
+                'tracking_codes',             }
             for key in affiliate_fields:
                 if key in updated_state:
-                    if key not in state or updated_state[key] != state.get(key):
-                        updates[key] = updated_state[key]
+                    updates[key] = updated_state[key]
             return updates
-        
+
         return RunnableLambda(run_affiliate)
     
     def _build_image_lcel_chain(self):
@@ -148,14 +147,12 @@ class ArticleCMSOrchestrator:
             updates = {}
             image_fields = {
                 'images', 'wordpress_media_ids', 'image_alt_texts',
-                'final_content', 'agent_statuses', 'errors', 'warnings', 'metadata'
-            }
+                'final_content',             }
             for key in image_fields:
                 if key in updated_state:
-                    if key not in state or updated_state[key] != state.get(key):
-                        updates[key] = updated_state[key]
+                    updates[key] = updated_state[key]
             return updates
-        
+
         return RunnableLambda(run_image)
     
     def _build_publishing_lcel_chain(self):
@@ -330,15 +327,35 @@ class ArticleCMSOrchestrator:
     async def _run_affiliate_agent(self, state: ArticleCMSState) -> Dict[str, Any]:
         """Run affiliate link agent node using LCEL chain - returns only updates"""
         try:
-            return await self.affiliate_chain.ainvoke(state)
+            result = await self.affiliate_chain.ainvoke(state)
+            # Return only fields that affiliate agent modifies
+            updates = {}
+            affiliate_fields = {
+                'affiliate_links', 'affiliate_opportunities',
+                'tracking_codes',             }
+            for key in affiliate_fields:
+                if key in result:
+                    updates[key] = result[key]
+            logger.info(f"🔗 Affiliate node: Completed - {len(result.get('affiliate_links', []))} links found")
+            return updates
         except Exception as e:
             logger.error(f"Affiliate LCEL chain failed: {e}", exc_info=True)
             return {"errors": [f"Affiliate failed: {str(e)}"]}
-    
+
     async def _run_image_agent(self, state: ArticleCMSState) -> Dict[str, Any]:
         """Run image agent node using LCEL chain - returns only updates"""
         try:
-            return await self.image_chain.ainvoke(state)
+            result = await self.image_chain.ainvoke(state)
+            # Return only fields that image agent modifies
+            updates = {}
+            image_fields = {
+                'images', 'wordpress_media_ids', 'image_alt_texts',
+                'final_content',             }
+            for key in image_fields:
+                if key in result:
+                    updates[key] = result[key]
+            logger.info(f"🖼️ Image node: Completed - {len(result.get('images', []))} images found")
+            return updates
         except Exception as e:
             logger.error(f"Image LCEL chain failed: {e}", exc_info=True)
             return {"errors": [f"Image failed: {str(e)}"]}
@@ -381,7 +398,26 @@ class ArticleCMSOrchestrator:
         logger.info(f"Starting LCEL+LangGraph workflow for query: {query[:100]}...")
         
         try:
-            # Run the LangGraph workflow with LCEL chains
+            # Add LangSmith tracing to workflow config
+            langsmith_config = get_langsmith_config(metadata={
+                "query": query,
+                "target_sites": target_sites or [],
+                "workflow_type": "cms_orchestrator",
+                "checkpoints_enabled": self.enable_checkpoints,
+            })
+            
+            # Merge LangSmith config with workflow config
+            if langsmith_config.get("callbacks"):
+                if "callbacks" not in workflow_config:
+                    workflow_config["callbacks"] = []
+                workflow_config["callbacks"].extend(langsmith_config["callbacks"])
+            
+            if langsmith_config.get("metadata"):
+                if "metadata" not in workflow_config:
+                    workflow_config["metadata"] = {}
+                workflow_config["metadata"].update(langsmith_config["metadata"])
+            
+            # Run the LangGraph workflow with LCEL chains and LangSmith tracing
             final_state = await self.app.ainvoke(initial_state, config=workflow_config)
             
             logger.info("LCEL+LangGraph workflow completed successfully")

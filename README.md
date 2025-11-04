@@ -2493,12 +2493,31 @@ langchain/
    # Edit .env with your API keys
    ```
 
-4. **Run the web interface:**
+4. **Configure LangSmith (Optional but Recommended):**
+   ```bash
+   # Add to .env file:
+   LANGSMITH_TRACING=true
+   LANGSMITH_API_KEY=your_langsmith_api_key
+   LANGSMITH_PROJECT=universal-rag-cms
+   ```
+   
+   **Getting your LangSmith API key:**
+   - Sign up at [smith.langchain.com](https://smith.langchain.com) (free account)
+   - Go to Settings → API Keys → Create API Key
+   - Copy the key to your `.env` file
+   
+   **Benefits of LangSmith:**
+   - 🔍 **Visual debugging** of complex chain executions
+   - 📊 **Systematic evaluation** with datasets and metrics
+   - 🚀 **Production monitoring** with automatic tracing
+   - 🔄 **Prompt testing** and versioning
+
+5. **Run the web interface:**
    ```bash
    streamlit run streamlit_universal_rag.py
    ```
 
-5. **Or use programmatically:**
+6. **Or use programmatically:**
    ```bash
    cd src
    python -c "

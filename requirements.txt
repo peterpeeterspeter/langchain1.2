@@ -11,6 +11,7 @@ langgraph>=0.2.0
 supabase>=2.7.0
 vecs>=0.4.0
 pgvector>=0.2.0
+faiss-cpu>=1.7.4  # For FAISS vector store in authoritative hyperlink engine
 
 # AI Models and APIs
 openai>=1.45.0
@@ -64,4 +65,7 @@ mkdocs-material>=9.5.0
 # Production deployment
 uvicorn>=0.30.0
 fastapi>=0.114.0
-gunicorn>=23.0.0 
+gunicorn>=23.0.0
+
+# LangSmith Observability & Evaluation
+langsmith>=0.1.0 

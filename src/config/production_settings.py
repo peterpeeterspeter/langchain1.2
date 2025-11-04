@@ -175,6 +175,24 @@ class ProductionSettings(BaseSettings):
         description="MMR diversity parameter"
     )
     
+    # LangSmith Configuration
+    langsmith_tracing: bool = Field(
+        default=False,
+        description="Enable LangSmith tracing for observability"
+    )
+    langsmith_api_key: Optional[str] = Field(
+        default=None,
+        description="LangSmith API key for tracing and evaluation"
+    )
+    langsmith_project: str = Field(
+        default="universal-rag-cms",
+        description="LangSmith project name for organizing traces"
+    )
+    langsmith_endpoint: Optional[str] = Field(
+        default=None,
+        description="Custom LangSmith endpoint (optional)"
+    )
+    
     # Monitoring Configuration
     enable_metrics: bool = Field(
         default=True,
@@ -288,6 +306,10 @@ class ProductionSettings(BaseSettings):
             "openai_api_key": {"env": ["RAG_CMS_OPENAI_API_KEY", "OPENAI_API_KEY"]},
             "anthropic_api_key": {"env": ["RAG_CMS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY"]},
             "secret_key": {"env": ["RAG_CMS_SECRET_KEY", "SECRET_KEY"]},
+            "langsmith_tracing": {"env": ["LANGSMITH_TRACING"]},
+            "langsmith_api_key": {"env": ["LANGSMITH_API_KEY"]},
+            "langsmith_project": {"env": ["LANGSMITH_PROJECT"]},
+            "langsmith_endpoint": {"env": ["LANGSMITH_ENDPOINT"]},
         }
     
     def get_database_url(self) -> str:
@@ -381,6 +403,25 @@ class ProductionSettings(BaseSettings):
             "performance_optimization": self.enable_performance_optimization,
             "real_time_monitoring": self.enable_real_time_monitoring,
         }
+    
+    def get_langsmith_config(self) -> Dict[str, Any]:
+        """Get LangSmith configuration for tracing and evaluation."""
+        config = {
+            "tracing": self.langsmith_tracing,
+            "project": self.langsmith_project,
+        }
+        
+        if self.langsmith_api_key:
+            config["api_key"] = self.langsmith_api_key
+        
+        if self.langsmith_endpoint:
+            config["endpoint"] = self.langsmith_endpoint
+        
+        return config
+    
+    def is_langsmith_enabled(self) -> bool:
+        """Check if LangSmith tracing is enabled and configured."""
+        return self.langsmith_tracing and self.langsmith_api_key is not None
     
     def is_production(self) -> bool:
         """Check if running in production."""

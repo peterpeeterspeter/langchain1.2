@@ -10,12 +10,21 @@ from typing import Any, Dict, List, Optional
 from langchain_core.tools import tool
 
 # Try to import Tavily (optional)
+TAVILY_AVAILABLE = False
+TavilySearchResults = None
 try:
-    from langchain_tavily import TavilySearchResults
+    # ✅ FIXED: Correct import path for TavilySearchResults
+    from langchain_community.tools.tavily_search import TavilySearchResults
     TAVILY_AVAILABLE = True
 except ImportError:
-    TAVILY_AVAILABLE = False
-    TavilySearchResults = None
+    # Fallback: try alternative import
+    try:
+        from langchain_tavily import TavilySearch  # New API
+        TavilySearchResults = TavilySearch  # Alias for compatibility
+        TAVILY_AVAILABLE = True
+    except ImportError:
+        TAVILY_AVAILABLE = False
+        TavilySearchResults = None
 
 # Import existing research components
 # Import directly from modules to avoid chain import issues
@@ -91,19 +100,99 @@ async def web_search_tool(query: str) -> List[Dict[str, Any]]:
             logger.warning("TAVILY_API_KEY not found, skipping web search")
             return []
         
-        tavily = TavilySearchResults(max_results=5, api_key=tavily_api_key)
-        results = await tavily.ainvoke({"query": query})
+        # ✅ FIXED: Use tavily_api_key parameter name (not api_key)
+        # Also disable SSL verification for Tavily (common issue)
+        import ssl
+        import certifi
+        tavily = TavilySearchResults(
+            max_results=10, 
+            tavily_api_key=tavily_api_key
+        )
+        # Wrap in try-except to handle SSL errors gracefully
+        try:
+            results = await tavily.ainvoke({"query": query})
+        except Exception as tavily_error:
+            # If Tavily fails (SSL, network, etc.), log and return empty
+            logger.warning(f"Tavily API call failed: {tavily_error}, returning empty results")
+            return []
         
         # Format results
         formatted_results = []
+        documents_for_storage = []  # ✅ NEW: Collect documents for Supabase storage
+        
+        # ✅ FIXED: Handle different result formats from Tavily
+        # Tavily can return: list of dicts, list of strings, or other formats
+        if not results:
+            logger.warning("Tavily returned no results")
+            return []
+        
+        # Handle case where results might be a single string or other type
+        if isinstance(results, str):
+            logger.warning(f"Tavily returned string instead of list: {results[:100]}")
+            return []
+        
         for result in results:
-            formatted_results.append({
-                "title": result.get("title", ""),
-                "url": result.get("url", ""),
-                "content": result.get("content", ""),
-                "snippet": result.get("snippet", ""),
-                "score": result.get("score", 0.0)
-            })
+            try:
+                # Handle dict results (most common)
+                if isinstance(result, dict):
+                    formatted_result = {
+                        "title": result.get("title", ""),
+                        "url": result.get("url", ""),
+                        "content": result.get("content", result.get("snippet", "")),
+                        "snippet": result.get("snippet", result.get("content", "")[:200]),
+                        "score": result.get("score", 0.0)
+                    }
+                # Handle string results (fallback)
+                elif isinstance(result, str):
+                    logger.warning(f"Tavily returned string result: {result[:100]}")
+                    formatted_result = {
+                        "title": "",
+                        "url": "",
+                        "content": result,
+                        "snippet": result[:200],
+                        "score": 0.0
+                    }
+                # Handle object results (has attributes)
+                else:
+                    formatted_result = {
+                        "title": getattr(result, "title", "") if hasattr(result, "title") else "",
+                        "url": getattr(result, "url", "") if hasattr(result, "url") else "",
+                        "content": getattr(result, "content", getattr(result, "snippet", "")) if hasattr(result, "content") or hasattr(result, "snippet") else "",
+                        "snippet": getattr(result, "snippet", "")[:200] if hasattr(result, "snippet") else (getattr(result, "content", "")[:200] if hasattr(result, "content") else ""),
+                        "score": getattr(result, "score", 0.0) if hasattr(result, "score") else 0.0
+                    }
+                
+                # Only add if we have meaningful content
+                if formatted_result.get("content") or formatted_result.get("url"):
+                    formatted_results.append(formatted_result)
+                else:
+                    logger.debug(f"Skipping empty Tavily result: {result}")
+            except Exception as e:
+                logger.warning(f"Failed to format Tavily result: {e}, result type: {type(result)}")
+                continue
+            
+            # ✅ NEW: Create Document for Supabase storage
+            if formatted_result.get("content"):
+                from langchain_core.documents import Document
+                doc = Document(
+                    page_content=formatted_result["content"],
+                    metadata={
+                        "source": formatted_result["url"],
+                        "title": formatted_result["title"],
+                        "source_type": "tavily_web_search",
+                        "query": query
+                    }
+                )
+                documents_for_storage.append(doc)
+        
+        # ✅ NEW: Store Tavily results in Supabase for RAG retrieval
+        if documents_for_storage:
+            try:
+                stored = await _store_web_search_results_in_supabase(query, documents_for_storage)
+                if stored:
+                    logger.info(f"✅ Stored {len(documents_for_storage)} Tavily search results in Supabase for RAG")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to store Tavily results in Supabase: {e}")
         
         logger.info(f"Web search found {len(formatted_results)} results for: {query}")
         return formatted_results
@@ -152,6 +241,11 @@ async def comprehensive_research_tool(
             "error": "Research components not available"
         }
     
+    # ✅ FIXED: Use module-level logger (defined at line 79)
+    # Don't shadow it with local variable
+    import logging
+    _logger = logging.getLogger(__name__) if 'logger' not in globals() else logger
+    
     try:
         # Extract casino name/domain from query
         import re
@@ -176,7 +270,7 @@ async def comprehensive_research_tool(
                     casino_name = "casino"
                     base_domain = "casino.org"
         
-        logger.info(f"🔍 Starting comprehensive research for: {casino_name} ({base_domain})")
+        _logger.info(f"🔍 Starting comprehensive research for: {casino_name} ({base_domain})")
         
         # Import comprehensive web research chain (already imported at module level)
         if not RESEARCH_AVAILABLE:
@@ -230,7 +324,7 @@ async def comprehensive_research_tool(
         )
         
         # Run comprehensive research (use ainvoke if available, otherwise invoke)
-        logger.info(f"🔄 Running 95-field extraction across {len(categories)} categories...")
+        _logger.info(f"🔄 Running 95-field extraction across {len(categories)} categories...")
         if hasattr(research_chain, 'ainvoke'):
             research_results = await research_chain.ainvoke({
                 'casino_domain': base_domain,
@@ -288,11 +382,11 @@ async def comprehensive_research_tool(
                     raw_documents=raw_documents  # Pass raw documents for chunking
                 )
                 if stored_in_supabase:
-                    logger.info(f"✅ Stored {fields_extracted} fields + {len(raw_documents)} documents (chunked) in Supabase for {casino_name}")
+                    _logger.info(f"✅ Stored {fields_extracted} fields + {len(raw_documents)} documents (chunked) in Supabase for {casino_name}")
             except Exception as e:
-                logger.warning(f"⚠️ Failed to store in Supabase: {e}")
+                _logger.warning(f"⚠️ Failed to store in Supabase: {e}")
         
-        logger.info(f"✅ Comprehensive research completed: {fields_extracted} fields extracted, quality: {quality_score:.2f}")
+        _logger.info(f"✅ Comprehensive research completed: {fields_extracted} fields extracted, quality: {quality_score:.2f}")
         
         return {
             "research_data": research_data,
@@ -306,7 +400,10 @@ async def comprehensive_research_tool(
         }
         
     except Exception as e:
-        logger.error(f"Comprehensive research failed: {e}", exc_info=True)
+        # ✅ FIXED: Use module-level logger
+        import logging
+        _logger = logging.getLogger(__name__)
+        _logger.error(f"Comprehensive research failed: {e}", exc_info=True)
         return {
             "research_data": {},
             "documents": [],
@@ -316,6 +413,81 @@ async def comprehensive_research_tool(
             "stored_in_supabase": False,
             "error": str(e)
         }
+
+
+async def _store_web_search_results_in_supabase(
+    query: str,
+    documents: List[Any]
+) -> bool:
+    """
+    Store Tavily web search results in Supabase for RAG retrieval
+    
+    ✅ OPTIMIZATION: Chunks search results for fast RAG retrieval
+    """
+    try:
+        import os
+        from supabase import create_client
+        from datetime import datetime
+        from langchain_core.documents import Document
+        from langchain_openai import OpenAIEmbeddings
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        
+        supabase_url = os.getenv("SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
+        
+        if not supabase_url or not supabase_key:
+            logger.warning("Supabase credentials not available for Tavily storage")
+            return False
+        
+        client = create_client(supabase_url, supabase_key)
+        
+        # Initialize text splitter
+        text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=1000,
+            chunk_overlap=200,
+            length_function=len
+        )
+        
+        embeddings = OpenAIEmbeddings()
+        
+        try:
+            from langchain_community.vectorstores import SupabaseVectorStore
+            vector_store = SupabaseVectorStore(
+                client=client,
+                embedding=embeddings,
+                table_name="documents",
+                query_name="match_documents"
+            )
+        except Exception as e:
+            logger.error(f"Failed to initialize vector store for Tavily: {e}")
+            return False
+        
+        # Chunk and store documents
+        all_chunks = []
+        for doc in documents:
+            chunks = text_splitter.split_documents([doc])
+            for chunk in chunks:
+                chunk.metadata.update({
+                    "source_type": "tavily_web_search",
+                    "query": query,
+                    "research_timestamp": datetime.now().isoformat()
+                })
+            all_chunks.extend(chunks)
+        
+        if all_chunks:
+            try:
+                vector_store.add_documents(all_chunks)
+                logger.info(f"✅ Stored {len(all_chunks)} Tavily search chunks in Supabase")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to store Tavily chunks: {e}")
+                return False
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"Failed to store Tavily results: {e}", exc_info=True)
+        return False
 
 
 async def _store_casino_intelligence_in_supabase(
@@ -385,11 +557,24 @@ async def _store_casino_intelligence_in_supabase(
                 # Extract URL from document metadata if available
                 doc_url = doc.metadata.get("source", "") if hasattr(doc, "metadata") else ""
                 
+                # ✅ FIXED: Sanitize document content - remove null bytes and invalid Unicode
+                if hasattr(doc, "page_content"):
+                    # Remove null bytes and other problematic characters
+                    doc.page_content = doc.page_content.replace('\x00', '').replace('\u0000', '')
+                    # Remove other control characters except newlines and tabs
+                    import re
+                    doc.page_content = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', doc.page_content)
+                
                 # Split document into chunks
                 chunks = text_splitter.split_documents([doc])
                 
                 # Add casino-specific metadata to each chunk
                 for i, chunk in enumerate(chunks):
+                    # ✅ FIXED: Sanitize chunk content as well
+                    if hasattr(chunk, "page_content"):
+                        chunk.page_content = chunk.page_content.replace('\x00', '').replace('\u0000', '')
+                        chunk.page_content = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', chunk.page_content)
+                    
                     chunk.metadata.update({
                         "casino_name": casino_name.strip(),
                         "source": "comprehensive_web_research",
@@ -438,11 +623,21 @@ STRUCTURED DATA (95 FIELDS):
 {json.dumps(research_data, ensure_ascii=False, indent=2)}
 """
         
+        # ✅ FIXED: Sanitize structured content
+        import re
+        structured_content = structured_content.replace('\x00', '').replace('\u0000', '')
+        structured_content = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', structured_content)
+        
         structured_doc = Document(page_content=structured_content, metadata=base_metadata)
         
         # Chunk structured content as well
         structured_chunks = text_splitter.split_documents([structured_doc])
         for i, chunk in enumerate(structured_chunks):
+            # ✅ FIXED: Sanitize chunk content
+            if hasattr(chunk, "page_content"):
+                chunk.page_content = chunk.page_content.replace('\x00', '').replace('\u0000', '')
+                chunk.page_content = re.sub(r'[\x00-\x08\x0B-\x0C\x0E-\x1F\x7F]', '', chunk.page_content)
+            
             chunk.metadata.update({
                 "chunk_index": i,
                 "total_chunks": len(structured_chunks),
@@ -548,15 +743,23 @@ async def screenshot_tool(
                 }
             
             if result.success:
+                # ✅ FIXED: ScreenshotResult doesn't have width/height directly, extract from viewport_size
+                width = None
+                height = None
+                if result.viewport_size and isinstance(result.viewport_size, dict):
+                    width = result.viewport_size.get('width')
+                    height = result.viewport_size.get('height')
+
                 return {
                     "success": True,
-                    "screenshot_id": result.screenshot_id,
+                    "screenshot_data": result.screenshot_data,  # Base64 encoded bytes
                     "file_size": result.file_size,
-                    "format": result.format,
                     "url": url,
-                    "width": result.width,
-                    "height": result.height,
-                    "storage_path": result.storage_path
+                    "timestamp": result.timestamp,
+                    "width": width,
+                    "height": height,
+                    "viewport_size": result.viewport_size,
+                    "element_info": result.element_info if hasattr(result, 'element_info') else None
                 }
             else:
                 return {

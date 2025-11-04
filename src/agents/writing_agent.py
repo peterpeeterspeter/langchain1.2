@@ -138,19 +138,37 @@ class WritingAgent(BaseAgent):
             # Step 5: Add authoritative links (non-competitor organizations)
             content_with_links = refined_content
             try:
-                from src.chains.authoritative_hyperlink_engine import AuthoritativeHyperlinkEngine
-                hyperlink_engine = AuthoritativeHyperlinkEngine()
-                link_result = await hyperlink_engine.generate_links_async(refined_content)
-                if link_result and link_result.get("linked_content"):
-                    content_with_links = link_result.get("linked_content", refined_content)
-                    logger.info(f"Writing Agent: Added {len(link_result.get('links_placed', []))} authoritative links")
+                from src.chains.authoritative_hyperlink_engine import (
+                    AuthoritativeHyperlinkEngine,
+                    LinkGenerationConfig
+                )
+                # ✅ FIXED: Create config first, then engine
+                config = LinkGenerationConfig(
+                    max_links_per_content=8,
+                    max_links_per_category=3,
+                    min_confidence_score=0.7
+                )
+                hyperlink_engine = AuthoritativeHyperlinkEngine(config=config)
+                link_result = await hyperlink_engine.generate_hyperlinks(
+                    content=refined_content,
+                    query=query
+                )
+                if link_result and link_result.get("enhanced_content"):
+                    content_with_links = link_result.get("enhanced_content", refined_content)
+                    links_added = link_result.get("links_added", 0)
+                    logger.info(f"Writing Agent: Added {links_added} authoritative links")
             except Exception as e:
                 logger.warning(f"Writing Agent: Failed to add authoritative links: {e}")
                 # Continue without links
             
             # Step 6: Ensure content is HTML formatted (if not already)
             final_html_content = self._ensure_html_format(content_with_links)
-            
+
+            # ✅ FIXED: Force fallback - if final_content is empty, use draft_content
+            if not final_html_content or final_html_content.strip() == "":
+                logger.warning(f"Writing Agent: Final content empty, falling back to draft content")
+                final_html_content = self._ensure_html_format(draft_content)
+
             # Prepare state updates
             state_updates = {
                 "draft_content": draft_content,

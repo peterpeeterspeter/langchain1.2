@@ -19,6 +19,13 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import json
 
+# LangSmith prompt testing integration
+try:
+    from src.prompts.langsmith_prompt_tester import LangSmithPromptTester, PromptTestConfig
+    LANGSMITH_PROMPT_TESTING_AVAILABLE = True
+except ImportError:
+    LANGSMITH_PROMPT_TESTING_AVAILABLE = False
+
 
 # Core enums for classification
 class QueryType(Enum):
@@ -1263,13 +1270,30 @@ Please ensure your response is accurate, well-structured, and addresses the spec
 
 
 class OptimizedPromptManager:
-    """Central orchestration with confidence scoring and fallback mechanisms"""
+    """
+    Central prompt optimization manager with LangSmith integration
     
-    def __init__(self):
+    Features:
+    - Query analysis and classification
+    - Domain-specific prompt generation
+    - LangSmith prompt testing and versioning
+    - Performance tracking and optimization
+    """
+    
+    def __init__(self, enable_langsmith_testing: bool = True):
         self.classifier = QueryClassifier()
         self.context_formatter = AdvancedContextFormatter()
         self.source_formatter = EnhancedSourceFormatter()
         self.domain_prompts = DomainSpecificPrompts()
+        
+        # LangSmith prompt testing integration
+        self.langsmith_tester = None
+        if enable_langsmith_testing and LANGSMITH_PROMPT_TESTING_AVAILABLE:
+            try:
+                self.langsmith_tester = LangSmithPromptTester()
+                logging.info("✅ LangSmith prompt testing enabled")
+            except Exception as e:
+                logging.warning(f"⚠️ LangSmith prompt testing not available: {e}")
         
         # Performance tracking
         self.usage_stats = {
@@ -1308,7 +1332,7 @@ class OptimizedPromptManager:
         context: str, 
         query_analysis: QueryAnalysis
     ) -> str:
-        """Generate optimized prompt based on analysis"""
+        """Generate optimized prompt based on analysis with LangSmith tracking"""
         
         try:
             self.usage_stats["optimization_enabled"] += 1
@@ -1320,6 +1344,23 @@ class OptimizedPromptManager:
             format_guidance = self._get_format_guidance(query_analysis.response_format)
             if format_guidance:
                 optimized_prompt += f"\n\n{format_guidance}"
+            
+            # Track prompt with LangSmith if enabled
+            if self.langsmith_tester:
+                try:
+                    self.langsmith_tester.track_prompt_performance(
+                        prompt_name=f"{query_analysis.query_type.value}_prompt",
+                        prompt_version="current",
+                        query=query,
+                        response="",  # Response will be tracked separately
+                        metrics={
+                            "expertise_level": query_analysis.expertise_level.value,
+                            "response_format": query_analysis.response_format.value,
+                            "confidence_score": query_analysis.confidence_score,
+                        }
+                    )
+                except Exception as e:
+                    logging.debug(f"LangSmith prompt tracking failed: {e}")
             
             return optimized_prompt
             
@@ -1338,6 +1379,39 @@ Question: {query}
 
 Answer:
             """.strip()
+    
+    def test_prompt_variation(
+        self,
+        test_queries: List[str],
+        prompt_version: str = "test",
+        tags: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
+        """
+        Test current prompt system with LangSmith
+        
+        Args:
+            test_queries: List of test queries
+            prompt_version: Version identifier for testing
+            tags: Optional tags
+            
+        Returns:
+            Test results
+        """
+        if not self.langsmith_tester:
+            raise ValueError("LangSmith prompt testing not enabled")
+        
+        def prompt_func(query: str) -> str:
+            """Generate prompt for testing"""
+            analysis = self.get_query_analysis(query)
+            return self.optimize_prompt(query, "test context", analysis)
+        
+        return self.langsmith_tester.test_prompt_variation(
+            prompt_func=prompt_func,
+            test_queries=test_queries,
+            prompt_name="optimized_prompt_manager",
+            prompt_version=prompt_version,
+            tags=tags,
+        )
     
     def _get_format_guidance(self, response_format: ResponseFormat) -> str:
         """Get format-specific guidance for response structure"""

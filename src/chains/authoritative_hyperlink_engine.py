@@ -12,10 +12,10 @@ from langchain_core.runnables import (
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser, StrOutputParser
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.schema import Document
-from typing import Dict, Any, List, Optional, Tuple
+from langchain_core.documents import Document
+from typing import Dict, Any, List, Optional, Tuple, Union
 from pydantic import BaseModel, Field
 import logging
 import re
@@ -72,7 +72,7 @@ class AuthorityLinkDatabase:
     def __init__(self, embeddings_model: Optional[OpenAIEmbeddings] = None):
         self.embeddings = embeddings_model or OpenAIEmbeddings()
         self.links = self._initialize_links()
-        self.vector_store = self._create_vector_store()
+        self.vector_store = self._create_vector_store()  # May be None if FAISS unavailable
     
     def _initialize_links(self) -> List[AuthorityLink]:
         """Initialize the authority link database"""
@@ -166,9 +166,16 @@ class AuthorityLinkDatabase:
             )
         ]
     
-    def _create_vector_store(self) -> FAISS:
+    def _create_vector_store(self) -> Optional[FAISS]:
         """Create vector store for semantic matching"""
         try:
+            # ✅ FIXED: Try to import FAISS, gracefully handle if not available
+            try:
+                import faiss
+            except ImportError:
+                logger.warning("FAISS not available - authoritative links will use keyword matching only")
+                return None
+            
             documents = []
             for link in self.links:
                 # Create searchable content from link metadata
@@ -188,19 +195,30 @@ class AuthorityLinkDatabase:
                 )
                 documents.append(doc)
             
-            if documents:
-                return FAISS.from_documents(documents, self.embeddings)
-            else:
-                # Create empty vector store
-                return FAISS.from_texts(["empty"], self.embeddings)
+            # ✅ FIXED: Wrap FAISS.from_documents call in try-except to catch C++ binding errors
+            try:
+                if documents:
+                    return FAISS.from_documents(documents, self.embeddings)
+                else:
+                    # Create empty vector store
+                    return FAISS.from_texts(["empty"], self.embeddings)
+            except Exception as faiss_error:
+                # FAISS C++ bindings may fail even if Python import succeeds
+                logger.warning(f"FAISS initialization failed (C++ bindings): {faiss_error}. Using keyword matching fallback.")
+                return None
         except Exception as e:
             logger.warning(f"Failed to create vector store: {e}")
-            # Fallback to empty vector store
-            return FAISS.from_texts(["empty"], self.embeddings)
+            # Fallback: return None, will use keyword matching instead
+            return None
     
     async def find_relevant_links(self, content: str, query: str = "", max_links: int = 10) -> List[AuthorityLink]:
         """Find relevant links using semantic search"""
         try:
+            # ✅ FIXED: Handle case where vector_store is None (FAISS not available)
+            if self.vector_store is None:
+                # Fallback to keyword-based matching
+                return self._find_links_by_keywords(content, query, max_links)
+            
             search_text = f"{content} {query}"
             similar_docs = await asyncio.to_thread(
                 self.vector_store.similarity_search,
@@ -222,7 +240,27 @@ class AuthorityLinkDatabase:
             return relevant_links
         except Exception as e:
             logger.error(f"Error in semantic search: {e}")
-            return []
+            # Fallback to keyword matching
+            return self._find_links_by_keywords(content, query, max_links)
+    
+    def _find_links_by_keywords(self, content: str, query: str = "", max_links: int = 10) -> List[AuthorityLink]:
+        """Fallback: Find relevant links using keyword matching"""
+        content_lower = f"{content} {query}".lower()
+        relevant_links = []
+        
+        for link in self.links:
+            # Check if any keywords match
+            for keyword in link.keywords:
+                if keyword.lower() in content_lower:
+                    relevant_links.append(link)
+                    break
+            
+            if len(relevant_links) >= max_links:
+                break
+        
+        # Sort by authority score
+        relevant_links.sort(key=lambda x: x.authority_score, reverse=True)
+        return relevant_links[:max_links]
 
 # ============= MAIN HYPERLINK ENGINE =============
 

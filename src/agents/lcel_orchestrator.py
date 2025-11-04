@@ -14,6 +14,7 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from .state import ArticleCMSState, create_initial_state
 from .base_agent import BaseAgent
+from src.utils.langsmith_utils import get_langsmith_callbacks, get_langsmith_config
 
 logger = logging.getLogger(__name__)
 
@@ -362,7 +363,26 @@ class LCELOrchestrator:
         logger.info(f"Starting LCEL+LangGraph workflow for query: {query[:100]}...")
         
         try:
-            # Run the graph with LCEL chains
+            # Add LangSmith tracing to workflow config
+            langsmith_config = get_langsmith_config(metadata={
+                "query": query,
+                "target_sites": target_sites or [],
+                "workflow_type": "lcel_orchestrator",
+                "checkpoints_enabled": self.enable_checkpoints,
+            })
+            
+            # Merge LangSmith config with workflow config
+            if langsmith_config.get("callbacks"):
+                if "callbacks" not in workflow_config:
+                    workflow_config["callbacks"] = []
+                workflow_config["callbacks"].extend(langsmith_config["callbacks"])
+            
+            if langsmith_config.get("metadata"):
+                if "metadata" not in workflow_config:
+                    workflow_config["metadata"] = {}
+                workflow_config["metadata"].update(langsmith_config["metadata"])
+            
+            # Run the graph with LCEL chains and LangSmith tracing
             final_state = await self.app.ainvoke(initial_state, config=workflow_config)
             
             logger.info("LCEL+LangGraph workflow completed successfully")

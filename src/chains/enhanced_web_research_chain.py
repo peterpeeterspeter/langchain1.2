@@ -17,6 +17,7 @@ Advanced implementation for collecting 95+ casino data points with geo-restricti
 - Archive.org fallback for blocked content
 """
 
+import logging
 from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass, field
 from urllib.parse import urljoin, urlparse
@@ -24,6 +25,8 @@ import asyncio
 import time
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+logger = logging.getLogger(__name__)
 
 from langchain_core.runnables import RunnablePassthrough, RunnableLambda, RunnableParallel
 from langchain_core.output_parsers import PydanticOutputParser
@@ -155,6 +158,7 @@ class EnhancedWebBaseLoader:
         }
     
     def generate_urls(self, categories: Optional[List[str]] = None) -> Dict[str, List[str]]:
+        """Generate URLs for categories with logging"""
         """Generate comprehensive URL lists for data collection"""
         
         if categories is None:
@@ -204,17 +208,28 @@ class EnhancedWebBaseLoader:
             # Filter successful vs failed loads
             for doc in docs:
                 content_length = len(doc.page_content.strip())
+                content_lower = doc.page_content.lower()
                 
-                # Check for common failure indicators
-                if (content_length > 100 and 
-                    not any(failure_term in doc.page_content.lower() for failure_term in [
-                        'connection timed out', '502 bad gateway', '503 service unavailable',
-                        'access denied', 'forbidden', 'not available in your region',
-                        'cease trading in your region'
-                    ])):
+                # ✅ FIXED: Lower threshold and better failure detection
+                # Check for common failure indicators (more comprehensive)
+                failure_indicators = [
+                    'connection timed out', '502 bad gateway', '503 service unavailable',
+                    'access denied', 'forbidden', 'not available in your region',
+                    'cease trading in your region', 'cloudflare', 'checking your browser',
+                    'please enable javascript', 'access blocked', '403 forbidden'
+                ]
+                
+                has_failure = any(indicator in content_lower for indicator in failure_indicators)
+                
+                # ✅ FIXED: Accept documents with > 50 chars (was 100) OR if content looks valid
+                # Many casino sites return minimal HTML that's still useful
+                if content_length > 50 and not has_failure:
                     successful_docs.append(doc)
+                    logger.info(f"✅ Loaded document from {doc.metadata.get('source', 'unknown')}: {content_length} chars")
                 else:
-                    failed_urls.append(doc.metadata.get('source', ''))
+                    source_url = doc.metadata.get('source', '')
+                    failed_urls.append(source_url)
+                    logger.warning(f"⚠️ Filtered out document from {source_url}: {content_length} chars, has_failure={has_failure}")
                     
         except Exception as e:
             print(f"Primary loading failed: {e}")
@@ -545,14 +560,16 @@ class ComprehensiveWebResearchChain:
     def _process_category(self, category: str, urls: List[str]) -> Dict[str, Any]:
         """Process a single category with its URLs"""
         
+        logger.info(f"Processing category: {category}")
         print(f"Processing category: {category}")
         
         try:
             documents = self.loader.load_with_fallback(urls)
+            logger.info(f"Found {len(documents)} documents for category '{category}'")
             print(f"Found {len(documents)} documents for category '{category}'")
 
             if not documents:
-                return {category: {}}
+                return {category: {'documents': [], 'sources': []}}
 
             if category in ['trustworthiness', 'compliance', 'terms_and_conditions', 'affiliate_program']:
                 # Use specialized T&C intelligence extractor
@@ -560,17 +577,41 @@ class ComprehensiveWebResearchChain:
             else:
                 # Use general extractor for other categories
                 extracted_data = self.extractor.extract_category_data(documents, category)
+            
+            # ✅ CRITICAL FIX: Include documents in the return value for Supabase storage
+            # Make sure extracted_data is a dict (it should be from extract_category_data)
+            if not isinstance(extracted_data, dict):
+                extracted_data = {}
+            
+            extracted_data['documents'] = documents
+            # Update sources list with actual document sources
+            doc_sources = [doc.metadata.get('source', '') for doc in documents if doc.metadata.get('source')]
+            if doc_sources:
+                extracted_data['sources'] = list(set(extracted_data.get('sources', []) + doc_sources))
+            elif 'sources' not in extracted_data:
+                extracted_data['sources'] = []
                 
             return {category: extracted_data}
         
         except Exception as e:
+            logger.error(f"Failed to process {category}: {e}", exc_info=True)
             print(f"❌ Failed to process {category}: {e}")
             return {category: {'error': str(e)}}
 
     def invoke(self, input_dict: Dict[str, Any]) -> Dict[str, Any]:
         """Invoke the chain with input and format results"""
         chain = self._build_chain()
-        extracted_data = chain.invoke(input_dict)
+        chain_result = chain.invoke(input_dict)
+        
+        # ✅ CRITICAL FIX: LCEL chain wraps result in 'extracted_data' key
+        # Extract the actual category data from the chain result
+        if isinstance(chain_result, dict) and 'extracted_data' in chain_result:
+            extracted_data = chain_result['extracted_data']
+        else:
+            # Fallback: use chain_result directly if structure is different
+            extracted_data = chain_result
+        
+        logger.info(f"✅ Chain invocation complete: {len(extracted_data) if isinstance(extracted_data, dict) else 0} categories processed")
         
         # Format results to match expected structure
         return self._format_results(extracted_data, input_dict)
@@ -584,16 +625,29 @@ class ComprehensiveWebResearchChain:
         research_summary = {}
         total_urls_attempted = 0
         total_fields = 0
+        all_documents = []  # ✅ FIXED: Collect all documents from all categories
+        all_urls = []  # ✅ FIXED: Collect all URLs from all categories
         
         for category in categories:
             category_data = extracted_data.get(category, {})
             if isinstance(category_data, dict) and 'error' not in category_data:
+                # ✅ FIXED: Collect documents from this category
+                category_docs = category_data.get('documents', [])
+                if category_docs:
+                    all_documents.extend(category_docs)
+                    logger.info(f"📄 Collected {len(category_docs)} documents from category '{category}'")
+                
+                # ✅ FIXED: Collect URLs from this category
+                category_urls = category_data.get('sources', [])
+                if category_urls:
+                    all_urls.extend(category_urls)
+                
                 # Count fields
-                fields_count = len([k for k, v in category_data.items() if v])
+                fields_count = len([k for k, v in category_data.items() if v and k not in ['documents', 'sources', 'error']])
                 total_fields += fields_count
                 
                 research_summary[category] = {
-                    'urls_successful': category_data.get('urls_researched', 0),
+                    'urls_successful': len(category_urls) or category_data.get('urls_researched', 0),
                     'confidence_score': category_data.get('confidence_score', 0.5),
                     'data_quality': 'good' if fields_count > 5 else 'fair' if fields_count > 0 else 'poor',
                     'fields_extracted': fields_count
@@ -621,6 +675,9 @@ class ComprehensiveWebResearchChain:
         else:
             grade = 'D'
         
+        # ✅ FIXED: Return actual documents and URLs
+        logger.info(f"✅ Collected {len(all_documents)} total documents across {len(categories)} categories")
+        
         return {
             'research_summary': research_summary,
             'overall_quality': {
@@ -630,8 +687,8 @@ class ComprehensiveWebResearchChain:
                 'total_fields_populated': total_fields
             },
             'total_urls_attempted': total_urls_attempted,
-            'urls_researched': [f"https://{casino_domain}"],  # Simplified
-            'documents': [],
+            'urls_researched': list(set(all_urls)) if all_urls else [f"https://{casino_domain}"],  # Use actual URLs or fallback
+            'documents': all_documents,  # ✅ FIXED: Return actual documents, not empty list
             'casino_domain': casino_domain
         }
 

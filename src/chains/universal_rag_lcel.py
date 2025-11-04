@@ -76,12 +76,26 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from pydantic import BaseModel, Field, validator
 from tenacity import retry, stop_after_attempt, wait_exponential
 
-# Load environment variables
-load_dotenv()
-
-# Configure logging
+# Initialize logger BEFORE LangSmith imports
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# LangSmith integration for observability
+try:
+    from src.utils.langsmith_utils import get_langsmith_callbacks, is_langsmith_enabled
+    try:
+        from langsmith import traceable
+        from langchain_core.tracers.langchain import LangChainTracer
+        LANGSMITH_AVAILABLE = True
+    except ImportError:
+        LANGSMITH_AVAILABLE = False
+        logger.warning("LangSmith not available. Install with: pip install langsmith")
+except ImportError:
+    LANGSMITH_AVAILABLE = False
+    logger.warning("LangSmith utils not available")
+
+# Load environment variables
+load_dotenv()
 
 
 # ============================================================================
@@ -323,7 +337,7 @@ class RAGResponse(BaseModel):
 # ============================================================================
 
 class RAGMetricsCallback(BaseCallbackHandler):
-    """Callback for tracking RAG metrics"""
+    """Callback for tracking RAG metrics (kept for backward compatibility)"""
     
     def __init__(self):
         self.metrics = {
@@ -357,6 +371,9 @@ class RAGMetricsCallback(BaseCallbackHandler):
         if self.start_time:
             self.metrics["total_time"] = time.time() - self.start_time
         return self.metrics.copy()
+
+
+# LangSmith callbacks now imported from utils.langsmith_utils
 
 
 # ============================================================================
@@ -441,21 +458,30 @@ class RetrievalComponent:
     async def retrieve_documents(self, query: str, k: int = None) -> List[Document]:
         """Retrieve relevant documents"""
         if not self.vector_store:
+            logger.debug("No vector store available for document retrieval")
             return []
         
         try:
             k = k or self.config.retrieval_k
             results = await self.vector_store.asimilarity_search_with_score(query, k=k)
             
-            # Filter by similarity threshold
+            if not results:
+                logger.debug(f"No documents found for query: {query}")
+                return []
+            
+            # ✅ FIXED: SupabaseVectorStore returns cosine distance (lower = more similar)
+            # Filter for documents that are MORE similar (i.e., have LOWER distance)
+            max_distance = 1.0 - self.config.similarity_threshold
             filtered_results = [
                 doc for doc, score in results 
-                if score >= self.config.similarity_threshold
+                if score <= max_distance  # Lower score = higher similarity
             ]
             
+            logger.info(f"✅ Retrieved {len(filtered_results)}/{len(results)} documents (threshold: {self.config.similarity_threshold})")
             return filtered_results
         except Exception as e:
-            logger.error(f"Document retrieval failed: {e}")
+            error_msg = str(e) if e else "Unknown error"
+            logger.error(f"Document retrieval failed: {error_msg}", exc_info=True)
             return []
 
 
@@ -718,15 +744,27 @@ class UniversalRAGChain:
         
         # Create main prompt template
         prompt_template = ChatPromptTemplate.from_template(
-            """You are a helpful AI assistant with expertise in casino and gambling content. 
-Answer the following question based on the provided context and research data.
+            """You are an expert casino content writer creating detailed casino reviews. 
+Write comprehensive, engaging content based on the provided research context.
 
-Context: {context}
-Research Data: {research_data}
+IMPORTANT: Use SPECIFIC DETAILS from the research context below. Include actual facts, numbers, and specific information about the casino.
 
-Question: {query}
+Research Context (from comprehensive web research):
+{context}
 
-Provide a comprehensive, well-structured answer:"""
+Additional Research Data:
+{research_data}
+
+Query/Topic: {query}
+
+Write a detailed, informative casino review that:
+1. Uses SPECIFIC details from the research context above
+2. Includes actual information about games, bonuses, payments, and features
+3. Mentions specific URLs and sources when relevant
+4. Is written in rich HTML format with proper headings, lists, and formatting
+5. Is engaging and informative for readers
+
+Content:"""
         )
         
         # Create output parser
@@ -736,12 +774,25 @@ Provide a comprehensive, well-structured answer:"""
         retriever = self._create_simple_retriever()
         
         # Build enhanced LCEL chain with native patterns
+        # ✅ FIXED: Properly structure the chain - extract query and pass to retriever
+        from langchain_core.runnables import RunnablePassthrough
+        
+        # Create a lambda to extract query from inputs
+        extract_query_lambda = RunnableLambda(
+            lambda inputs: inputs.get("query", "") if isinstance(inputs, dict) else str(inputs)
+        )
+        
+        # ✅ FIXED: Use proper async-aware chain structure
+        # The retriever RunnableLambda already handles async properly
         chain = (
-            {
-                "query": RunnablePassthrough(),
-                "context": retriever,
-                "research_data": research_chain
-            }
+            RunnablePassthrough.assign(
+                query=extract_query_lambda,
+                context=(
+                    extract_query_lambda
+                    | retriever
+                ),
+                research_data=lambda x: ""  # Research data already in vector store, empty string is fine
+            )
             | prompt_template
             | self.llm
             | output_parser
@@ -802,8 +853,14 @@ Provide a comprehensive, well-structured answer:"""
     def _create_simple_retriever(self) -> Runnable:
         """Create simple retriever for LCEL chain"""
         if self.vector_store:
-            return RunnableLambda(self._retrieve_documents)
+            # ✅ FIXED: Input is already the query string from extract_query_lambda
+            async def retrieve_async(query_str: str):
+                logger.info(f"🔍 Retriever called with query: {query_str[:100]}")
+                return await self._retrieve_documents({"query": query_str})
+            
+            return RunnableLambda(retrieve_async)
         else:
+            logger.warning("⚠️ No vector store available - retriever will return empty context")
             return RunnableLambda(lambda x: "No context available")
     
     async def _retrieve_documents(self, inputs: Dict[str, Any]) -> str:
@@ -811,22 +868,73 @@ Provide a comprehensive, well-structured answer:"""
         try:
             query = inputs.get("query", "")
             if not query:
+                logger.debug("No query provided for document retrieval")
                 return "No query provided"
             
             # Use vector store if available
-            if self.vector_store:
-                results = await self.vector_store.asimilarity_search_with_score(query, k=4)
-                if results:
-                    context_parts = []
-                    for doc, score in results:
-                        context_parts.append(f"Source (relevance: {score:.2f}): {doc.page_content}")
-                    return "\n\n".join(context_parts)
+            if not self.vector_store:
+                logger.warning("⚠️ No vector store available for document retrieval")
+                return "No vector store available"
             
-            return "No relevant documents found"
+            logger.info(f"🔍 Retrieving documents for query: '{query[:100]}' (k={self.config.retrieval_k})")
+            # ✅ FIXED: Use retrieval_k from config instead of hardcoded k=4
+            k = self.config.retrieval_k
+            
+            # ✅ FIXED: Add timeout and better error handling
+            import asyncio
+            try:
+                logger.info(f"📊 Calling vector store with k={k}")
+                results = await asyncio.wait_for(
+                    self.vector_store.asimilarity_search_with_score(query, k=k),
+                    timeout=30.0
+                )
+                logger.info(f"✅ Vector store query completed: {len(results)} results")
+            except asyncio.TimeoutError:
+                logger.error(f"⏱️ Vector store query timed out after 30s - returning empty context")
+                return "Vector store query timed out - no context available"
+            except Exception as e:
+                error_msg = str(e) if e else "Unknown error"
+                logger.error(f"❌ Vector store query failed: '{error_msg}' (type: {type(e).__name__})")
+                # Don't fail completely - return empty context
+                logger.warning("⚠️ Continuing with empty context")
+                return "No relevant documents found"
+            
+            if not results:
+                logger.warning(f"⚠️ Vector store returned no results for query: {query[:100]}")
+                return "No relevant documents found"
+            
+            logger.info(f"📊 Vector store returned {len(results)} results (before filtering)")
+            
+            # ✅ FIXED: Filter by similarity threshold (cosine distance - lower = more similar)
+            max_distance = 1.0 - self.config.similarity_threshold
+            filtered_results = [
+                doc for doc, score in results 
+                if score <= max_distance
+            ]
+            
+            logger.info(f"📊 Filtered to {len(filtered_results)}/{len(results)} documents (threshold: {self.config.similarity_threshold}, max_distance: {max_distance:.3f})")
+            
+            if filtered_results:
+                context_parts = []
+                for doc, score in filtered_results:
+                    source = doc.metadata.get('source', doc.metadata.get('url', 'Unknown'))
+                    casino_name = doc.metadata.get('casino_name', 'Unknown')
+                    content = doc.page_content[:500]
+                    relevance = 1.0 - score
+                    context_parts.append(f"Source: {source} | Casino: {casino_name} | Relevance: {relevance:.2f}\n{content}")
+                logger.info(f"✅ Retrieved {len(filtered_results)} documents for context")
+                return "\n\n".join(context_parts)
+            else:
+                # Log why documents were filtered out
+                if results:
+                    scores = [score for _, score in results]
+                    logger.warning(f"⚠️ All {len(results)} documents filtered out (scores: {scores}, threshold: {self.config.similarity_threshold}, max_distance: {max_distance:.3f})")
+                return "No relevant documents found above similarity threshold"
             
         except Exception as e:
-            logger.error(f"Document retrieval failed: {e}")
-            return "Error retrieving documents"
+            error_msg = str(e) if e else "Unknown error"
+            logger.error(f"Document retrieval failed: {error_msg}", exc_info=True)
+            return f"Error retrieving documents: {error_msg}"
     
     # Placeholder methods for existing functionality (to be refactored in Phase 5)
     def _init_web_search(self):
@@ -852,7 +960,7 @@ Provide a comprehensive, well-structured answer:"""
     # ✅ Phase 4 Preview: Native error handling with retry mechanisms
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=4, max=10))
     async def ainvoke(self, inputs, publish_to_wordpress=False, **kwargs) -> RAGResponse:
-        """Invoke the RAG chain with native error handling - Phase 4 Preview"""
+        """Invoke the RAG chain with native error handling and LangSmith tracing"""
         start_time = time.time()
         
         try:
@@ -865,8 +973,42 @@ Provide a comprehensive, well-structured answer:"""
             if not query.strip():
                 raise ValidationException("Query cannot be empty")
             
-            # Execute chain
-            result = await self.chain.ainvoke({"query": query})
+            # Get LangSmith callbacks for tracing
+            langsmith_callbacks = get_langsmith_callbacks()
+            
+            # Prepare config with callbacks
+            config = kwargs.get("config", {})
+            if langsmith_callbacks:
+                if "callbacks" not in config:
+                    config["callbacks"] = []
+                config["callbacks"].extend(langsmith_callbacks)
+                # Add metadata for LangSmith tracing
+                if "metadata" not in config:
+                    config["metadata"] = {}
+                config["metadata"].update({
+                    "query": query,
+                    "publish_to_wordpress": publish_to_wordpress,
+                    "chain_type": "universal_rag",
+                })
+            
+            # Execute chain with LangSmith tracing and timeout protection
+            import asyncio
+            logger.info(f"⏱️ Starting RAG chain execution (timeout: 120s)...")
+            try:
+                result = await asyncio.wait_for(
+                    self.chain.ainvoke(
+                        {"query": query},
+                        config=config if langsmith_callbacks else None
+                    ),
+                    timeout=120.0  # 2 minutes max for complete RAG chain
+                )
+                logger.info(f"✅ RAG chain execution completed successfully")
+            except asyncio.TimeoutError:
+                logger.error(f"⏱️ RAG chain execution timed out after 120s")
+                raise GenerationException("RAG chain execution timed out after 120 seconds")
+            except Exception as e:
+                logger.error(f"❌ RAG chain execution failed: {e}", exc_info=True)
+                raise
             
             # Calculate response time
             response_time = time.time() - start_time
